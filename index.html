@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>halflings</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #23262a;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      /* Подсказка для захвата мыши. Игрового UI в срезе нет — это
+         единственный элемент, и он исчезает после первого клика. */
+      #hint {
+        position: fixed;
+        inset: auto 0 2rem 0;
+        margin: 0;
+        text-align: center;
+        font: 13px/1.6 system-ui, sans-serif;
+        color: #cdd3d8;
+        text-shadow: 0 1px 3px #000;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      #hint[hidden] {
+        display: block;
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="viewport"></canvas>
+    <p id="hint">клик — захватить мышь · WASD — идти · Shift — бежать · пробел — прыжок · Esc — отпустить</p>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

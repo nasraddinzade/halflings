@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vite/
+
+# Исходные CC0-паки: в репозиторий не идут, нужные файлы скопированы в assets/
+KayKit_Adventurers_2.0_FREE/
+KayKit_Character_Animations_1.1/
+
+.DS_Store
+Thumbs.db
+*.log

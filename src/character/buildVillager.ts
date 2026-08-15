@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { CHARACTER_SCALE } from '../config/constants';
+import { CHARACTER_SCALE, CHARACTERS_RECEIVE_SHADOW } from '../config/constants';
 import { PART_URLS } from '../config/assets';
 import {
   ARMS,
@@ -154,7 +154,12 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
   // посчитается от ещё не обновлённого matrixWorld
   mesh.bind(armature.skeleton, armature.bindMatrix);
 
-  applyStyle(mesh, { color: 0xffffff, map: villagerAtlas(), outline: true });
+  applyStyle(mesh, {
+    color: 0xffffff,
+    map: villagerAtlas(),
+    outline: true,
+    receiveShadow: CHARACTERS_RECEIVE_SHADOW,
+  });
 
   root.scale.setScalar(CHARACTER_SCALE);
 

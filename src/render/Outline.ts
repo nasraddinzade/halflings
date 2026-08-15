@@ -19,9 +19,15 @@ import { OUTLINE_DARKEN, OUTLINE_THICKNESS } from '../config/constants';
  * 2. Нормаль считаем сами, а не через чанк `defaultnormal_vertex`: при
  *    `side: BackSide` three определяет FLIP_SIDED и разворачивает её,
  *    отчего копия раздувалась бы внутрь и контур пропадал.
- * 3. Для скиннованных мешей копия делит скелет с оригиналом — иначе
+ * 3. Раздуваем по сглаженной нормали, а не по той, которой шейдер красит.
+ *    У голов KayKit 23–45% вершин сидят на швах жёстких рёбер: в одной
+ *    точке несколько вершин с разными нормалями, углы между ними до 148°.
+ *    По таким нормалям оболочка расходится, и в щели видно её же тёмные
+ *    задние грани — как грязные пятна вокруг глаз и рта. Усреднение
+ *    нормалей по совпадающим позициям делает оболочку сплошной.
+ * 4. Для скиннованных мешей копия делит скелет с оригиналом — иначе
  *    контур не поспевал бы за анимацией.
- * 4. Если у объекта текстура, контур сэмплит её же и затемняет — тогда
+ * 5. Если у объекта текстура, контур сэмплит её же и затемняет — тогда
  *    он и правда «затемнённый цвет самого объекта», а не общий тёмный
  *    тон. Текстуру приходится декодировать вручную: в своём шейдере
  *    three не делает этого за нас, и без sRGBTransferEOTF цвет уехал бы.
@@ -34,12 +40,19 @@ const vertexShader = /* glsl */ `
 
 uniform float thickness;
 
+/** Нормаль, усреднённая по совпадающим позициям: без разрывов на швах. */
+attribute vec3 smoothNormal;
+
 #ifdef OUTLINE_USE_MAP
 varying vec2 vOutlineUv;
 #endif
 
 void main() {
   #include <beginnormal_vertex>
+
+  // Подменяем нормаль до скиннинга, чтобы её так же повернули кости
+  objectNormal = smoothNormal;
+
   #include <skinbase_vertex>
   #include <skinnormal_vertex>
   #include <begin_vertex>
@@ -125,6 +138,59 @@ function outlineMaterial(
   return material;
 }
 
+/**
+ * Досчитывает атрибут smoothNormal: нормали, усреднённые по вершинам,
+ * стоящим в одной точке. Атрибут кладётся в общую с оригиналом геометрию —
+ * тоновый материал его просто не читает.
+ */
+function ensureSmoothNormals(geometry: THREE.BufferGeometry): void {
+  if (geometry.getAttribute('smoothNormal') !== undefined) return;
+
+  const position = geometry.getAttribute('position');
+  const normal = geometry.getAttribute('normal');
+
+  // Округление до 1e-5: экспортёр пишет float32, точных совпадений ждать
+  // нельзя, а на таком допуске соседние вершины ещё не слипаются
+  const keyOf = (i: number): string =>
+    `${Math.round(position.getX(i) * 1e5)},${Math.round(position.getY(i) * 1e5)},${Math.round(position.getZ(i) * 1e5)}`;
+
+  const sums = new Map<string, THREE.Vector3>();
+  const keys: string[] = new Array<string>(position.count);
+
+  for (let i = 0; i < position.count; i++) {
+    const key = keyOf(i);
+    keys[i] = key;
+    const existing = sums.get(key);
+    if (existing === undefined) {
+      sums.set(key, new THREE.Vector3(normal.getX(i), normal.getY(i), normal.getZ(i)));
+    } else {
+      existing.x += normal.getX(i);
+      existing.y += normal.getY(i);
+      existing.z += normal.getZ(i);
+    }
+  }
+
+  const data = new Float32Array(position.count * 3);
+  for (let i = 0; i < position.count; i++) {
+    const key = keys[i];
+    const sum = key === undefined ? undefined : sums.get(key);
+    if (sum === undefined) continue;
+    // Нулевая сумма возможна на встречных нормалях — тогда оставляем свою
+    const length = sum.length();
+    if (length < 1e-6) {
+      data[i * 3] = normal.getX(i);
+      data[i * 3 + 1] = normal.getY(i);
+      data[i * 3 + 2] = normal.getZ(i);
+    } else {
+      data[i * 3] = sum.x / length;
+      data[i * 3 + 1] = sum.y / length;
+      data[i * 3 + 2] = sum.z / length;
+    }
+  }
+
+  geometry.setAttribute('smoothNormal', new THREE.BufferAttribute(data, 3));
+}
+
 export interface OutlineOptions {
   /** Плоский цвет обводки. Игнорируется, если передана текстура. */
   color: number;
@@ -139,6 +205,7 @@ export interface OutlineOptions {
  */
 export function createOutline(source: THREE.Mesh, options: OutlineOptions): THREE.Mesh | null {
   if (source.geometry.getAttribute('normal') === undefined) return null;
+  ensureSmoothNormals(source.geometry);
 
   const { color, map = null, thickness = OUTLINE_THICKNESS } = options;
   const material = outlineMaterial(color, thickness, map);

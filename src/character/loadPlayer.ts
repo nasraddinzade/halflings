@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { CHARACTER_SCALE } from '../config/constants';
+import { CHARACTER_SCALE, CHARACTERS_RECEIVE_SHADOW } from '../config/constants';
 import { PLAYER_MODEL_URL } from '../config/assets';
 import { PALETTE } from '../config/palette';
 import { applyStyle } from '../render/style';
@@ -41,7 +41,11 @@ export async function loadPlayer(loader: GLTFLoader): Promise<Player> {
   // Паковая текстура выбрасывается: цвет приходит только из палитры.
   // Пока весь персонаж одного цвета — раскраска по частям появится
   // на шаге 4 вместе со сборкой жителей из конфига.
-  applyStyle(model, { color: PALETTE.shirt, outline: true });
+  applyStyle(model, {
+    color: PALETTE.shirt,
+    outline: true,
+    receiveShadow: CHARACTERS_RECEIVE_SHADOW,
+  });
 
   const root = new THREE.Group();
   root.name = 'player';

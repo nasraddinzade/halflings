@@ -33,7 +33,9 @@ export class Lighting {
     shadowCamera.far = 90;
     shadowCamera.updateProjectionMatrix();
     this.sun.shadow.bias = -0.0006;
-    this.sun.shadow.normalBias = 0.02;
+    // 2 см были нужны против самозатенения персонажей; теперь они
+    // тени не принимают, и большой сдвиг только отрывал бы тень от ног
+    this.sun.shadow.normalBias = 0.008;
 
     scene.add(this.sun);
     scene.add(this.sun.target);

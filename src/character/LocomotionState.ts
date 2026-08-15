@@ -11,6 +11,7 @@ import {
 } from '../config/constants';
 import { CLIP, type ClipKey } from '../config/assets';
 import type { AnimationLibrary } from './AnimationLibrary';
+import { ClipPlayer } from './ClipPlayer';
 
 /** Что контроллер сообщает про персонажа каждый кадр. */
 export interface LocomotionInput {
@@ -24,36 +25,34 @@ export interface LocomotionInput {
 }
 
 /**
- * Машина состояний анимаций.
+ * Машина состояний анимаций игрока.
  *
- * Root motion в клипах KayKit отсутствует — ходьба и бег «бегут на месте»
- * (проверено при инвентаризации: смещение кости root ненулевое только
- * у четырёх клипов уворота). Значит скорость задаёт контроллер, а клип
- * подгоняется под неё через timeScale — иначе ноги проскальзывают.
+ * Root motion в клипах KayKit отсутствует — ходьба и бег «бегут на
+ * месте» (проверено при инвентаризации: смещение кости root ненулевое
+ * только у четырёх клипов уворота). Значит скорость задаёт контроллер,
+ * а клип подгоняется под неё через timeScale, иначе ноги проскальзывают.
+ *
+ * Переключением клипов заведует ClipPlayer, здесь только правила выбора.
  */
 export class LocomotionState {
-  private readonly actions = new Map<ClipKey, THREE.AnimationAction>();
+  private readonly clips: ClipPlayer;
   private current: ClipKey = 'idle';
   /** Не даём приземлению прерваться следующим же кадром. */
   private landingLeft = 0;
 
   constructor(mixer: THREE.AnimationMixer, library: AnimationLibrary) {
+    this.clips = new ClipPlayer(mixer);
+
     for (const [key, name] of Object.entries(CLIP) as Array<[ClipKey, string]>) {
-      const action = mixer.clipAction(library.require(name));
-      this.actions.set(key, action);
+      // Прыжок и приземление играются один раз и замирают на последнем кадре
+      const once = key === 'jumpStart' || key === 'jumpLand';
+      this.clips.add(key, library.require(name), { once });
     }
 
-    // Прыжок и приземление играются один раз и замирают на последнем кадре
-    for (const key of ['jumpStart', 'jumpLand'] as const) {
-      const action = this.get(key);
-      action.setLoop(THREE.LoopOnce, 1);
-      action.clampWhenFinished = true;
-    }
-
-    this.get('idle').play();
+    this.clips.start('idle');
   }
 
-  /** Имя текущего клипа — пригодится отладочной панели на шаге 2. */
+  /** Имя текущего клипа — его показывает отладочная панель. */
   get currentClip(): string {
     return CLIP[this.current];
   }
@@ -65,9 +64,11 @@ export class LocomotionState {
     if (next !== this.current) {
       // На отрыв от земли переключаемся резче: плавный переход
       // размазал бы толчок и прыжок выглядел бы вялым
-      const fade = next === 'jumpStart' ? ANIM_FADE_FAST : ANIM_FADE;
-      this.crossFade(next, fade);
-      if (next === 'jumpLand') this.landingLeft = this.get('jumpLand').getClip().duration;
+      this.clips.fadeTo(next, next === 'jumpStart' ? ANIM_FADE_FAST : ANIM_FADE);
+      this.current = next;
+      if (next === 'jumpLand') {
+        this.landingLeft = this.clips.require('jumpLand').getClip().duration;
+      }
     }
 
     this.syncSpeed(input.speed);
@@ -78,8 +79,8 @@ export class LocomotionState {
 
     if (!input.grounded) {
       // Пока идёт короткий Jump_Start, не перебиваем его петлёй полёта
-      const startAction = this.get('jumpStart');
-      const startPlaying = this.current === 'jumpStart' && startAction.time < startAction.getClip().duration;
+      const start = this.clips.require('jumpStart');
+      const startPlaying = this.current === 'jumpStart' && start.time < start.getClip().duration;
       return startPlaying ? 'jumpStart' : 'jumpAir';
     }
 
@@ -94,33 +95,13 @@ export class LocomotionState {
   }
 
   private syncSpeed(speed: number): void {
-    if (this.current === 'walk' || this.current === 'run') {
-      const natural = this.current === 'walk' ? WALK_CLIP_SPEED : RUN_CLIP_SPEED;
-      this.get(this.current).timeScale = THREE.MathUtils.clamp(
-        speed / natural,
-        CLIP_TIME_SCALE_MIN,
-        CLIP_TIME_SCALE_MAX,
-      );
-    }
-  }
+    if (this.current !== 'walk' && this.current !== 'run') return;
 
-  private crossFade(next: ClipKey, duration: number): void {
-    const from = this.get(this.current);
-    const to = this.get(next);
-
-    to.reset();
-    to.enabled = true;
-    to.setEffectiveWeight(1);
-    to.timeScale = 1;
-    to.play();
-    to.crossFadeFrom(from, duration, false);
-
-    this.current = next;
-  }
-
-  private get(key: ClipKey): THREE.AnimationAction {
-    const action = this.actions.get(key);
-    if (action === undefined) throw new Error(`[locomotion] нет действия для "${key}"`);
-    return action;
+    const natural = this.current === 'walk' ? WALK_CLIP_SPEED : RUN_CLIP_SPEED;
+    this.clips.setTimeScale(THREE.MathUtils.clamp(
+      speed / natural,
+      CLIP_TIME_SCALE_MIN,
+      CLIP_TIME_SCALE_MAX,
+    ));
   }
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import {
   VILLAGER_ARRIVE_RADIUS,
+  VILLAGER_CLIP_FADE,
   VILLAGER_FIRST_IDLE_MAX,
   VILLAGER_IDLE_MAX,
   VILLAGER_IDLE_MIN,
@@ -16,6 +17,7 @@ import { ROLE_WORK_CLIP, type WorkPoint } from '../config/work';
 import { between, hashSeed, makeRandom } from '../core/random';
 import type { Ground } from '../world/Ground';
 import type { AnimationLibrary } from './AnimationLibrary';
+import { ClipPlayer } from './ClipPlayer';
 import type { Villager } from './buildVillager';
 
 export type VillagerState = 'idle' | 'move' | 'work';
@@ -36,8 +38,7 @@ export class VillagerBrain {
   private readonly workPoint: THREE.Vector2;
   private target: THREE.Vector2;
 
-  private readonly actions = new Map<string, THREE.AnimationAction>();
-  private currentClip: string;
+  private readonly clips: ClipPlayer;
   private yaw: number;
 
   private readonly position = new THREE.Vector3();
@@ -67,14 +68,13 @@ export class VillagerBrain {
     this.snapToGround();
     this.yaw = this.random() * Math.PI * 2;
 
+    this.clips = new ClipPlayer(villager.mixer);
     for (const name of [CLIP.idle, CLIP.walk, this.workClipName]) {
-      this.actions.set(name, villager.mixer.clipAction(animations.require(name)));
+      this.clips.add(name, animations.require(name));
     }
-    this.currentClip = CLIP.idle;
-    this.action(CLIP.idle).play();
-
-    // Разводим фазы: без этого весь ряд дышит в такт
-    this.action(CLIP.idle).time = this.random() * this.action(CLIP.idle).getClip().duration;
+    // Смещение фазы разводит деревню: без него все дышат в такт
+    const idle = animations.require(CLIP.idle);
+    this.clips.start(CLIP.idle, this.random() * idle.duration);
 
     // Первый простой считаем от нуля: с обычным разбросом вся деревня
     // выходила бы на работу почти одновременно и потом шла бы строем
@@ -176,25 +176,11 @@ export class VillagerBrain {
   }
 
   private crossFade(next: string): void {
-    if (next === this.currentClip) return;
-    const from = this.action(this.currentClip);
-    const to = this.action(next);
-
-    to.reset();
-    to.enabled = true;
-    to.setEffectiveWeight(1);
+    this.clips.fadeTo(next, VILLAGER_CLIP_FADE);
     // Шаг подгоняется под скорость, иначе ноги проскальзывают: root motion
     // в клипах KayKit отсутствует (docs/ASSETS.md, раздел 4)
-    to.timeScale = next === CLIP.walk ? VILLAGER_WALK_SPEED / VILLAGER_WALK_CLIP_SPEED : 1;
-    to.play();
-    to.crossFadeFrom(from, 0.25, false);
-
-    this.currentClip = next;
-  }
-
-  private action(name: string): THREE.AnimationAction {
-    const action = this.actions.get(name);
-    if (action === undefined) throw new Error(`[villager] нет действия "${name}"`);
-    return action;
+    if (next === CLIP.walk) {
+      this.clips.setTimeScale(VILLAGER_WALK_SPEED / VILLAGER_WALK_CLIP_SPEED);
+    }
   }
 }

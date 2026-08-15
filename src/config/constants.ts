@@ -195,6 +195,8 @@ export const VILLAGER_WALK_SPEED = 1.15;
 /** «Родная» скорость Walking_A: под неё подгоняется timeScale. */
 export const VILLAGER_WALK_CLIP_SPEED = 1.45;
 export const VILLAGER_TURN_RATE = 8;
+/** Длительность перехода между клипами у жителя. */
+export const VILLAGER_CLIP_FADE = 0.25;
 /** Насколько близко надо подойти, чтобы считать, что дошёл. */
 export const VILLAGER_ARRIVE_RADIUS = 0.35;
 

@@ -58,17 +58,20 @@ export function cloneArmature(template: THREE.Object3D): Armature {
   return armature;
 }
 
+/** Как переписать UV вершины. Возвращает новые (u, v). */
+export type UvRemap = (u: number, v: number) => readonly [number, number];
+
 /**
- * Готовит геометрию одной части: копия, перенумерация костей и сдвиг UV.
+ * Готовит геометрию одной части: копия, перенумерация костей и ремап UV.
  *
- * Сдвиг запекается прямо в вершины, а не ставится через map.offset:
+ * Новые UV запекаются прямо в вершины, а не ставятся через map.offset:
  * после склейки на весь меш один материал, и одним offset нельзя
  * покрасить голову иначе, чем ноги (решение №3).
  */
 export function preparePart(
   mesh: THREE.SkinnedMesh,
   targetBoneNames: readonly string[],
-  uShift: number,
+  remapUv: UvRemap,
 ): THREE.BufferGeometry {
   const geometry = mesh.geometry.clone();
 
@@ -84,7 +87,7 @@ export function preparePart(
   }
 
   remapSkinIndices(geometry, mesh.skeleton.bones.map((bone) => bone.name), targetBoneNames);
-  shiftUv(geometry, uShift);
+  applyUvRemap(geometry, remapUv);
 
   return geometry;
 }
@@ -114,11 +117,11 @@ function remapSkinIndices(
   skinIndex.needsUpdate = true;
 }
 
-function shiftUv(geometry: THREE.BufferGeometry, uShift: number): void {
-  if (uShift === 0) return;
+function applyUvRemap(geometry: THREE.BufferGeometry, remapUv: UvRemap): void {
   const uv = geometry.getAttribute('uv');
   for (let i = 0; i < uv.count; i++) {
-    uv.setX(i, uv.getX(i) + uShift);
+    const [u, v] = remapUv(uv.getX(i), uv.getY(i));
+    uv.setXY(i, u, v);
   }
   uv.needsUpdate = true;
 }

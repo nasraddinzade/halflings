@@ -13,8 +13,8 @@ import {
   type PartSource,
   type VillagerConfig,
 } from '../config/villagers';
-import { ATLAS_COLUMNS } from '../config/constants';
-import { columnShift, villagerAtlas } from '../render/atlas';
+import { CLOTH_VARIANT_COUNT } from '../config/constants';
+import { ZoneAtlas, type AtlasSource } from '../render/atlas';
 import { applyStyle } from '../render/style';
 import { cloneArmature, mergeParts, preparePart } from './mergeSkinned';
 
@@ -33,12 +33,15 @@ export interface Villager {
 export class PartLibrary {
   private readonly meshes = new Map<string, THREE.SkinnedMesh>();
   private template: THREE.Object3D | null = null;
+  private zoneAtlas: ZoneAtlas | null = null;
 
   static async load(loader: GLTFLoader): Promise<PartLibrary> {
     const library = new PartLibrary();
     const files = await Promise.all(
       PART_FILES.map(async (name) => ({ name, gltf: await loader.loadAsync(PART_URLS[name]) })),
     );
+
+    const sources: AtlasSource[] = [];
 
     for (const { name, gltf } of files) {
       gltf.scene.traverse((child) => {
@@ -47,9 +50,14 @@ export class PartLibrary {
       // Скелет берём из одного файла: у всех он идентичен, но опираться
       // надо на что-то одно, иначе порядок костей поплывёт между жителями
       if (name === 'Rogue') library.template = gltf.scene;
+
+      const image = findTextureImage(gltf.scene);
+      if (image === null) throw new Error(`[villagers] в ${name}.glb нет текстуры`);
+      sources.push({ file: name, image });
     }
 
     if (library.template === null) throw new Error('[villagers] не загрузился шаблон скелета');
+    library.zoneAtlas = ZoneAtlas.build(sources);
     return library;
   }
 
@@ -65,6 +73,26 @@ export class PartLibrary {
     if (this.template === null) throw new Error('[villagers] шаблон скелета не готов');
     return this.template;
   }
+
+  get atlas(): ZoneAtlas {
+    if (this.zoneAtlas === null) throw new Error('[villagers] атлас не собран');
+    return this.zoneAtlas;
+  }
+}
+
+/** Паковая текстура нужна, чтобы прочитать цвета её 32 ячеек. */
+function findTextureImage(root: THREE.Object3D): AtlasSource['image'] | null {
+  let found: AtlasSource['image'] | null = null;
+  root.traverse((child) => {
+    if (found !== null || !(child instanceof THREE.Mesh)) return;
+    const material = child.material;
+    if (Array.isArray(material) || !('map' in material)) return;
+    const image: unknown = material.map?.image;
+    if (image !== null && typeof image === 'object' && 'width' in image && 'height' in image) {
+      found = image as AtlasSource['image'];
+    }
+  });
+  return found;
 }
 
 /** Хэш строки в 32 бита. Одно имя — всегда один и тот же житель. */
@@ -109,9 +137,9 @@ export function configFromSeed(name: string): VillagerConfig {
     arms: pick(Object.keys(ARMS), random),
     legs: pick(Object.keys(LEGS), random),
     palette: {
-      head: Math.floor(random() * ATLAS_COLUMNS),
-      body: Math.floor(random() * ATLAS_COLUMNS),
-      legs: Math.floor(random() * ATLAS_COLUMNS),
+      head: Math.floor(random() * CLOTH_VARIANT_COUNT),
+      body: Math.floor(random() * CLOTH_VARIANT_COUNT),
+      legs: Math.floor(random() * CLOTH_VARIANT_COUNT),
     },
     role: pick(ROLES, random),
   };
@@ -121,19 +149,24 @@ export function configFromSeed(name: string): VillagerConfig {
 export function buildVillager(library: PartLibrary, config: VillagerConfig): Villager {
   const armature = cloneArmature(library.skeletonTemplate);
 
-  // Каждой группе — свой сдвиг по колонкам атласа. Руки красятся заодно
-  // с телом: рукав и торс должны совпадать по цвету.
-  const groups: Array<{ source: PartSource; shift: number }> = [
-    { source: requirePart(HEADS, config.head, 'head'), shift: columnShift(config.palette.head) },
-    { source: requirePart(BODIES, config.body, 'body'), shift: columnShift(config.palette.body) },
-    { source: requirePart(ARMS, config.arms, 'arms'), shift: columnShift(config.palette.body) },
-    { source: requirePart(LEGS, config.legs, 'legs'), shift: columnShift(config.palette.legs) },
+  // Каждой группе — свой вариант одежды. Руки красятся заодно с телом:
+  // рукав и торс должны совпадать по цвету.
+  const atlas = library.atlas;
+  const groups: Array<{ source: PartSource; variant: number }> = [
+    { source: requirePart(HEADS, config.head, 'head'), variant: config.palette.head },
+    { source: requirePart(BODIES, config.body, 'body'), variant: config.palette.body },
+    { source: requirePart(ARMS, config.arms, 'arms'), variant: config.palette.body },
+    { source: requirePart(LEGS, config.legs, 'legs'), variant: config.palette.legs },
   ];
 
   const pieces: THREE.BufferGeometry[] = [];
-  for (const { source, shift } of groups) {
+  for (const { source, variant } of groups) {
     for (const meshName of source.meshes) {
-      pieces.push(preparePart(library.require(meshName), armature.boneNames, shift));
+      pieces.push(preparePart(
+        library.require(meshName),
+        armature.boneNames,
+        (u, v) => atlas.remap(source.file, variant, u, v),
+      ));
     }
   }
 
@@ -156,7 +189,7 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
 
   applyStyle(mesh, {
     color: 0xffffff,
-    map: villagerAtlas(),
+    map: library.atlas.texture,
     outline: true,
     receiveShadow: CHARACTERS_RECEIVE_SHADOW,
   });

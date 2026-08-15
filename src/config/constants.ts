@@ -147,9 +147,12 @@ export const OUTLINE_DARKEN = 0.45;
 export const FOG_NEAR = 70;
 export const FOG_FAR = 260;
 
-/** Сетка атласа — та же, что у паковых текстур (docs/ASSETS.md, раздел 6). */
-export const ATLAS_COLUMNS = 8;
-export const ATLAS_ROWS = 4;
+/** Сетка паковых текстур: 8x4 ячейки (docs/ASSETS.md, раздел 6).
+ *  Ячейка = зона материала, так её задал художник пака. */
+export const SOURCE_COLUMNS = 8;
+export const SOURCE_ROWS = 4;
+/** Сколько вариантов одежды различает атлас жителей. */
+export const CLOTH_VARIANT_COUNT = 6;
 
 // --- жители -----------------------------------------------------------------
 

@@ -40,9 +40,94 @@ export const PALETTE = {
   // --- вода и акценты ---
   water: 0x5b93a8,
   bloom: 0xd9705f,
+  /** Самый тёмный тон: глаза, зрачки, глухие детали. */
+  ink: 0x241f1c,
+  /** Тёмный металл: пряжки, оковка. */
+  steel: 0x5b636a,
 } as const;
 
 export type PaletteKey = keyof typeof PALETTE;
+
+/**
+ * Семейство говорит, можно ли перекрашивать зону от жителя к жителю.
+ * Одежда — можно и нужно, кожа и волосы — нет: иначе получится не
+ * разнообразие, а зелёные лица.
+ */
+export type ColorFamily = 'skin' | 'hair' | 'cloth' | 'leather' | 'metal' | 'light' | 'dark';
+
+export interface Tone {
+  color: number;
+  family: ColorFamily;
+}
+
+/**
+ * Тона, которыми красятся персонажи. Каждая ячейка пакового атласа
+ * подтягивается к ближайшему из них — так цвет художника пака заменяется
+ * цветом проекта, но разбиение на зоны сохраняется.
+ */
+export const CHARACTER_TONES: readonly Tone[] = [
+  { color: PALETTE.skin, family: 'skin' },
+  { color: PALETTE.hair, family: 'hair' },
+  { color: PALETTE.shirt, family: 'cloth' },
+  { color: PALETTE.shirtCool, family: 'cloth' },
+  { color: PALETTE.trousers, family: 'cloth' },
+  { color: PALETTE.door, family: 'cloth' },
+  { color: PALETTE.bloom, family: 'cloth' },
+  { color: PALETTE.thatch, family: 'cloth' },
+  { color: PALETTE.boots, family: 'leather' },
+  { color: PALETTE.wood, family: 'leather' },
+  { color: PALETTE.woodDark, family: 'leather' },
+  { color: PALETTE.rock, family: 'metal' },
+  { color: PALETTE.steel, family: 'metal' },
+  { color: PALETTE.plaster, family: 'light' },
+  // Без почти чёрного глаза персонажей уезжали в коричневый: ближайшим
+  // к #13191b оказывался цвет сапог
+  { color: PALETTE.ink, family: 'dark' },
+];
+
+/** Варианты одежды: чем житель отличается от соседа. */
+export const CLOTH_VARIANTS: readonly number[] = [
+  PALETTE.shirt,
+  PALETTE.shirtCool,
+  PALETTE.trousers,
+  PALETTE.door,
+  PALETTE.bloom,
+  PALETTE.thatch,
+];
+
+/**
+ * Ближайший тон проекта к произвольному цвету.
+ *
+ * Расстояние считаем по «redmean» — дешёвой поправке к евклидову
+ * расстоянию в RGB, которая заметно ближе к человеческому восприятию:
+ * без неё тёмно-синий и тёмно-зелёный кажутся алгоритму соседями.
+ */
+export function nearestTone(color: number): Tone {
+  const r1 = (color >> 16) & 0xff;
+  const g1 = (color >> 8) & 0xff;
+  const b1 = color & 0xff;
+
+  let best = CHARACTER_TONES[0];
+  if (best === undefined) throw new Error('[palette] CHARACTER_TONES пуст');
+  let bestDistance = Infinity;
+
+  for (const tone of CHARACTER_TONES) {
+    const r2 = (tone.color >> 16) & 0xff;
+    const g2 = (tone.color >> 8) & 0xff;
+    const b2 = tone.color & 0xff;
+    const rMean = (r1 + r2) / 2;
+    const dr = r1 - r2;
+    const dg = g1 - g2;
+    const db = b1 - b2;
+    const distance =
+      (2 + rMean / 256) * dr * dr + 4 * dg * dg + (2 + (255 - rMean) / 256) * db * db;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = tone;
+    }
+  }
+  return best;
+}
 
 /**
  * Затемнение цвета для обводки. Обводка не чёрная, а тёмная версия

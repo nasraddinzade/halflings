@@ -1,75 +1,138 @@
 import * as THREE from 'three';
 
-import { ATLAS_COLUMNS, ATLAS_ROWS } from '../config/constants';
-import { PALETTE } from '../config/palette';
+import { CLOTH_VARIANT_COUNT, SOURCE_COLUMNS, SOURCE_ROWS } from '../config/constants';
+import { CLOTH_VARIANTS, nearestTone } from '../config/palette';
+import type { PartFile } from '../config/villagers';
 
 /**
- * Атлас проекта: сетка 8×4, ровно как у паковых текстур (docs/ASSETS.md,
- * раздел 6), но цвета — свои, из палитры (решение №6).
+ * Атлас жителей: перенос зон пака в палитру проекта.
  *
- * Почему не берём паковый атлас: в его ячейках запечён плавный градиент,
- * то есть готовое затенение. Под toon-шейдером это дало бы двойную
- * растушёвку — ступени легли бы поверх градиента и картинка замылилась.
- * Здесь каждая ячейка ровная, а весь объём рисует освещение.
+ * Что не сработало раньше. Паковый атлас — сетка 8×4, и первым подходом
+ * был сдвиг UV на целую колонку. Но UV-острова одной части размазаны по
+ * четырём-восьми колонкам сразу (docs/ASSETS.md, раздел 6), поэтому сдвиг
+ * двигал их все разом: кожа уезжала на цвет ткани, ткань на цвет металла.
+ * Получалась не расцветка, а лотерея.
  *
- * Почему текстура ровно 8×4 текселя, а не 1024×1024: раз ячейки ровные,
- * больше одного текселя на ячейку не нужно. NearestFilter берёт цвет без
- * интерполяции, развёртка пака остаётся валидной, а вся текстура весит
- * 128 байт вместо мегабайта. UV при этом не трогаются — Blender не нужен.
+ * Что делаем вместо этого. Ячейка пакового атласа — и есть зона материала,
+ * так её задал художник: тут кожа, тут рубаха, тут сапоги. Мы читаем
+ * исходную текстуру, для каждой из 32 ячеек берём её цвет и подтягиваем
+ * к ближайшему тону проекта. Дальше UV каждой вершины переписывается на
+ * один тексель нового атласа: колонка — зона, строка — вариант расцветки.
+ *
+ * Разбиение на зоны при этом целиком остаётся авторским, а цвета —
+ * целиком нашими (решение №6). Развёртку пака не трогаем, Blender не нужен.
+ *
+ * Вариант меняет только те зоны, что попали в семейство одежды. Кожа
+ * и волосы одинаковы у всех: иначе вместо разнообразия вышли бы
+ * разноцветные лица.
  */
 
-/**
- * Раскладка ячеек. Колонка — вариант расцветки, строка — тон внутри него.
- * Сдвиг UV на 0.125 по U переводит часть на соседнюю колонку целиком.
- */
-const CELLS: readonly number[] = [
-  // строка 0
-  PALETTE.skin, PALETTE.shirt, PALETTE.shirtCool, PALETTE.thatch,
-  PALETTE.plaster, PALETTE.door, PALETTE.bloom, PALETTE.water,
-  // строка 1
-  PALETTE.hair, PALETTE.trousers, PALETTE.wood, PALETTE.roofTile,
-  PALETTE.grassDry, PALETTE.rock, PALETTE.earth, PALETTE.woodDark,
-  // строка 2
-  PALETTE.boots, PALETTE.woodDark, PALETTE.earth, PALETTE.grass,
-  PALETTE.rock, PALETTE.trousers, PALETTE.hair, PALETTE.shirt,
-  // строка 3
-  PALETTE.shirtCool, PALETTE.bloom, PALETTE.thatch, PALETTE.door,
-  PALETTE.water, PALETTE.plaster, PALETTE.skin, PALETTE.boots,
-];
+const CELLS_PER_FILE = SOURCE_COLUMNS * SOURCE_ROWS;
 
-let cached: THREE.DataTexture | null = null;
+/** Источники, из которых GLTFLoader отдаёт паковую текстуру. */
+export type AtlasImage = HTMLImageElement | HTMLCanvasElement | ImageBitmap | OffscreenCanvas;
 
-export function villagerAtlas(): THREE.DataTexture {
-  if (cached !== null) return cached;
-
-  const width = ATLAS_COLUMNS;
-  const height = ATLAS_ROWS;
-  const data = new Uint8Array(width * height * 4);
-
-  for (let i = 0; i < width * height; i++) {
-    const color = CELLS[i] ?? PALETTE.plaster;
-    data[i * 4] = (color >> 16) & 0xff;
-    data[i * 4 + 1] = (color >> 8) & 0xff;
-    data[i * 4 + 2] = color & 0xff;
-    data[i * 4 + 3] = 255;
-  }
-
-  const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.NearestFilter;
-  texture.generateMipmaps = false;
-  // Смещение UV уводит координату за единицу — без повтора она бы
-  // зажалась в край и все сдвинутые части покрасились одинаково
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.needsUpdate = true;
-
-  cached = texture;
-  return texture;
+export interface AtlasSource {
+  file: PartFile;
+  image: AtlasImage;
 }
 
-/** Сдвиг UV для колонки атласа. Строку не трогаем: она несёт тон. */
-export function columnShift(column: number): number {
-  return (column % ATLAS_COLUMNS) / ATLAS_COLUMNS;
+export class ZoneAtlas {
+  readonly texture: THREE.DataTexture;
+  private readonly fileOrder: readonly PartFile[];
+  private readonly zoneCount: number;
+
+  private constructor(texture: THREE.DataTexture, fileOrder: readonly PartFile[], zoneCount: number) {
+    this.texture = texture;
+    this.fileOrder = fileOrder;
+    this.zoneCount = zoneCount;
+  }
+
+  static build(sources: readonly AtlasSource[]): ZoneAtlas {
+    const fileOrder = sources.map((source) => source.file);
+    const zoneCount = sources.length * CELLS_PER_FILE;
+
+    // Цвет каждой ячейки каждого пакового атласа -> ближайший тон проекта
+    const tones = sources.flatMap((source) =>
+      sampleCells(source.image).map((color) => nearestTone(color)),
+    );
+
+    const width = zoneCount;
+    const height = CLOTH_VARIANT_COUNT;
+    const data = new Uint8Array(width * height * 4);
+
+    for (let variant = 0; variant < height; variant++) {
+      for (let zone = 0; zone < width; zone++) {
+        const tone = tones[zone];
+        const color = tone === undefined
+          ? 0xffffff
+          : tone.family === 'cloth'
+            ? CLOTH_VARIANTS[variant % CLOTH_VARIANTS.length] ?? tone.color
+            : tone.color;
+
+        const offset = (variant * width + zone) * 4;
+        data[offset] = (color >> 16) & 0xff;
+        data[offset + 1] = (color >> 8) & 0xff;
+        data[offset + 2] = color & 0xff;
+        data[offset + 3] = 255;
+      }
+    }
+
+    const texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.generateMipmaps = false;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.needsUpdate = true;
+
+    return new ZoneAtlas(texture, fileOrder, zoneCount);
+  }
+
+  /**
+   * Переписывает UV вершины: из координаты в паковом атласе — в один
+   * тексель нашего. Возвращает центр текселя, чтобы NearestFilter брал
+   * его гарантированно, без риска зацепить соседний.
+   */
+  remap(file: PartFile, variant: number, u: number, v: number): readonly [number, number] {
+    const fileIndex = this.fileOrder.indexOf(file);
+    if (fileIndex === -1) throw new Error(`[atlas] файл "${file}" не участвовал в сборке атласа`);
+
+    const column = clampIndex(Math.floor(u * SOURCE_COLUMNS), SOURCE_COLUMNS);
+    const row = clampIndex(Math.floor(v * SOURCE_ROWS), SOURCE_ROWS);
+    const zone = fileIndex * CELLS_PER_FILE + row * SOURCE_COLUMNS + column;
+
+    return [
+      (zone + 0.5) / this.zoneCount,
+      (clampIndex(variant, CLOTH_VARIANT_COUNT) + 0.5) / CLOTH_VARIANT_COUNT,
+    ];
+  }
+}
+
+function clampIndex(value: number, count: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(count - 1, Math.max(0, value));
+}
+
+/** Цвета 32 ячеек пакового атласа: берём середину каждой. */
+function sampleCells(image: AtlasImage): number[] {
+  const canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (context === null) throw new Error('[atlas] не удалось получить контекст 2d');
+  context.drawImage(image, 0, 0);
+
+  const colors: number[] = [];
+  for (let row = 0; row < SOURCE_ROWS; row++) {
+    for (let column = 0; column < SOURCE_COLUMNS; column++) {
+      // Ячейка — вертикальный градиент; середина представляет её честнее
+      // краёв, где начинается переход к соседней
+      const x = Math.floor(((column + 0.5) / SOURCE_COLUMNS) * image.width);
+      const y = Math.floor(((row + 0.5) / SOURCE_ROWS) * image.height);
+      const pixel = context.getImageData(x, y, 1, 1).data;
+      colors.push(((pixel[0] ?? 0) << 16) | ((pixel[1] ?? 0) << 8) | (pixel[2] ?? 0));
+    }
+  }
+  return colors;
 }

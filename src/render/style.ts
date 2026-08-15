@@ -69,8 +69,11 @@ export interface StyleOptions {
  * Проходит по поддереву, подменяет материалы и по желанию навешивает
  * обводку. Обводки собираются в список и добавляются после обхода:
  * добавлять детей прямо в traverse — значит обходить и их тоже.
+ *
+ * Возвращает созданные обводки: их гасят по расстоянию (шаг 6),
+ * и для этого нужны ссылки.
  */
-export function applyStyle(root: THREE.Object3D, options: StyleOptions): void {
+export function applyStyle(root: THREE.Object3D, options: StyleOptions): THREE.Mesh[] {
   const { color, map, outline = false, castShadow = true, receiveShadow = true } = options;
 
   const material = toonSurface(color, map ?? null);
@@ -95,4 +98,5 @@ export function applyStyle(root: THREE.Object3D, options: StyleOptions): void {
   });
 
   for (const { parent, outline: hull } of pending) parent.add(hull);
+  return pending.map((entry) => entry.outline);
 }

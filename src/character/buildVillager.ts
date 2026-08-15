@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { CHARACTER_SCALE, CHARACTERS_RECEIVE_SHADOW } from '../config/constants';
+import {
+  CHARACTER_BOUNDS_MARGIN,
+  CHARACTER_SCALE,
+  CHARACTERS_RECEIVE_SHADOW,
+} from '../config/constants';
 import { PART_URLS } from '../config/assets';
 import {
   ARMS,
@@ -23,6 +27,9 @@ export interface Villager {
   readonly config: VillagerConfig;
   /** Двигают его; масштаб уже применён. */
   readonly root: THREE.Group;
+  readonly mesh: THREE.SkinnedMesh;
+  /** Обводки: гасятся на дальних дистанциях (шаг 6). */
+  readonly outlines: readonly THREE.Mesh[];
   readonly mixer: THREE.AnimationMixer;
   readonly triangles: number;
 }
@@ -149,8 +156,14 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
 
   const mesh = new THREE.SkinnedMesh(geometry);
   mesh.name = `villager_${config.id}`;
-  // Скиннинг сбивает bounding sphere: она считается по рест-позе
-  mesh.frustumCulled = false;
+  // Сфера отсечения считается по рест-позе и в движении тесновата:
+  // расширяем с запасом и оставляем отсечение включённым. Выключить его
+  // было бы проще, но тогда все тридцать жителей рисуются всегда,
+  // даже те, что за спиной у камеры.
+  if (geometry.boundingSphere !== null) {
+    geometry.boundingSphere.radius *= CHARACTER_BOUNDS_MARGIN;
+  }
+  mesh.frustumCulled = true;
 
   const root = new THREE.Group();
   root.name = `villager_${config.id}_root`;
@@ -160,7 +173,7 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
   // посчитается от ещё не обновлённого matrixWorld
   mesh.bind(armature.skeleton, armature.bindMatrix);
 
-  applyStyle(mesh, {
+  const outlines = applyStyle(mesh, {
     color: 0xffffff,
     map: library.atlas.texture,
     outline: true,
@@ -174,7 +187,7 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
     ? geometry.getAttribute('position').count / 3
     : index.count / 3;
 
-  return { config, root, mixer: new THREE.AnimationMixer(root), triangles };
+  return { config, root, mesh, outlines, mixer: new THREE.AnimationMixer(root), triangles };
 }
 
 function requirePart(

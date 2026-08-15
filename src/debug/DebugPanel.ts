@@ -11,6 +11,8 @@ export interface DebugSnapshot {
   grounded: boolean;
   /** Сколько жителей сейчас в состоянии work. null — деревни нет. */
   working: number | null;
+  /** Сколько жителей прошло LOD-отсечение и попало в кадр. */
+  visibleVillagers: number | null;
 }
 
 interface Row {
@@ -20,7 +22,7 @@ interface Row {
 
 const ROWS = [
   'fps', 'draw calls', 'треугольников', 'клип',
-  'скорость', 'стамина', 'на земле', 'работают',
+  'скорость', 'стамина', 'на земле', 'работают', 'в кадре',
 ] as const;
 
 /**
@@ -91,6 +93,7 @@ export class DebugPanel {
     this.set('стамина', `${snapshot.stamina.toFixed(1)} / ${STAMINA_MAX}`);
     this.set('на земле', snapshot.grounded ? 'да' : 'нет');
     this.set('работают', snapshot.working === null ? '—' : String(snapshot.working));
+    this.set('в кадре', snapshot.visibleVillagers === null ? '—' : String(snapshot.visibleVillagers));
   }
 
   dispose(): void {

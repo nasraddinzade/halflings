@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 
 import {
   DEBUG_PANEL,
@@ -8,6 +9,7 @@ import {
   MAX_DELTA,
   SPAWN_X,
   SPAWN_Z,
+  GRASS_ENABLED,
   VILLAGERS_ENABLED,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
@@ -18,6 +20,7 @@ import { PlayerController, type ControllerFrame } from '../character/PlayerContr
 import { loadPlayer, type Player } from '../character/loadPlayer';
 import { PartLibrary } from '../character/buildVillager';
 import { Village } from '../world/Village';
+import { Vegetation } from '../world/Vegetation';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Renderer } from '../render/Renderer';
@@ -45,6 +48,7 @@ export class Game {
 
   private player!: Player;
   private village: Village | null = null;
+  private vegetation: Vegetation | null = null;
   private controller!: PlayerController;
   private locomotion!: LocomotionState;
 
@@ -72,6 +76,10 @@ export class Game {
     this.scene.add(this.terrain.mesh);
     this.ground = new Ground(this.terrain.bvh);
 
+    // Растительность ставится сразу: она статична и зависит только
+    // от рельефа, ждать загрузки персонажей ей незачем
+    if (GRASS_ENABLED) this.vegetation = new Vegetation(this.scene, this.ground);
+
     this.input = new Input(canvas, (locked) => {
       this.hint.hidden = locked;
     });
@@ -82,6 +90,10 @@ export class Game {
 
   async load(): Promise<void> {
     const loader = new GLTFLoader();
+    // Файлы анимаций сжаты EXT_meshopt_compression (tools/compress-animations.mjs).
+    // Без декодера GLTFLoader на них просто упадёт
+    loader.setMeshoptDecoder(MeshoptDecoder);
+
     // Модель, клипы и части жителей независимы — грузим параллельно
     const [player, library, parts] = await Promise.all([
       loadPlayer(loader),
@@ -122,6 +134,7 @@ export class Game {
     this.timer.dispose();
     this.debug?.dispose();
     this.input.dispose();
+    this.vegetation?.dispose();
     this.terrain.dispose();
     this.renderer.dispose();
   }
@@ -153,7 +166,7 @@ export class Game {
 
     this.locomotion.update(this.controller.locomotion, delta);
     this.player.mixer.update(delta);
-    this.village?.update(delta);
+    this.village?.update(delta, this.cameraRig.camera.position);
 
     this.lighting.update(this.controller.position);
 
@@ -171,6 +184,7 @@ export class Game {
         stamina: this.controller.staminaLeft,
         grounded: this.controller.isGrounded,
         working: this.village?.working ?? null,
+        visibleVillagers: this.village?.visible ?? null,
       });
     }
 

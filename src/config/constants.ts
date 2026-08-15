@@ -161,7 +161,7 @@ export const CLOTH_VARIANT_COUNT = 6;
 
 /** Одна константа на всё население: false — деревня не собирается. */
 export const VILLAGERS_ENABLED = true;
-export const VILLAGER_COUNT = 20;
+export const VILLAGER_COUNT = 30;
 
 /** Жители не бегут по делам, а идут — медленнее игрока. */
 export const VILLAGER_WALK_SPEED = 1.15;
@@ -178,6 +178,41 @@ export const VILLAGER_IDLE_MIN = 2.5;
 export const VILLAGER_IDLE_MAX = 7;
 export const VILLAGER_WORK_MIN = 6;
 export const VILLAGER_WORK_MAX = 16;
+
+// --- LOD и отсечение --------------------------------------------------------
+
+/**
+ * Рест-поза даёт слишком тесную сферу отсечения: в движении руки и ноги
+ * выходят за неё, и персонаж мигает на краю экрана. Расширяем с запасом
+ * и оставляем отсечение включённым — это дешевле, чем рисовать всех.
+ */
+export const CHARACTER_BOUNDS_MARGIN = 1.6;
+
+/** Ближе этого житель полностью подробный: с обводкой и анимацией каждый кадр. */
+export const LOD_NEAR = 22;
+/** Дальше этого житель не рисуется вовсе. */
+export const LOD_CULL = 95;
+/** На средней дистанции микшер обновляется раз в N кадров. */
+export const LOD_ANIMATION_STRIDE = 3;
+
+// --- растительность ---------------------------------------------------------
+
+export const GRASS_ENABLED = true;
+/** Пучков травы на всю долину. Рисуются инстансингом, чанками. */
+export const GRASS_COUNT = 30000;
+export const BUSH_COUNT = 1200;
+/** Трава ~0.3 м при росте полурослика 1.1 м. */
+export const GRASS_HEIGHT = 0.3;
+/**
+ * Куст по пояс полурослику. При 0.45 он выходил почти в его рост и
+ * читался как валун, а не как куст.
+ */
+export const BUSH_RADIUS = 0.26;
+/** Сетка чанков: каждый — свой InstancedMesh со своей сферой отсечения. */
+export const VEGETATION_CHUNKS = 8;
+/** На склонах круче этого трава не растёт. */
+export const VEGETATION_MAX_SLOPE = (38 * Math.PI) / 180;
+export const VEGETATION_SEED = 7734;
 
 export const SHADOW_MAP_SIZE = 2048;
 /** Полуразмер зоны, которую накрывает карта теней вокруг игрока. */

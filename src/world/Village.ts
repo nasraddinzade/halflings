@@ -1,6 +1,11 @@
-import type * as THREE from 'three';
+import * as THREE from 'three';
 
-import { VILLAGER_COUNT } from '../config/constants';
+import {
+  LOD_ANIMATION_STRIDE,
+  LOD_CULL,
+  LOD_NEAR,
+  VILLAGER_COUNT,
+} from '../config/constants';
 import { VILLAGER_NAMES, type VillagerRole } from '../config/villagers';
 import { WORK_POINTS, type WorkPoint } from '../config/work';
 import type { AnimationLibrary } from '../character/AnimationLibrary';
@@ -19,6 +24,10 @@ import type { Ground } from './Ground';
 export class Village {
   readonly villagers: Villager[] = [];
   private readonly brains: VillagerBrain[] = [];
+  /** Накопленное время для жителей, чей микшер обновляется через кадр. */
+  private readonly pending: number[] = [];
+  private frame = 0;
+  private visibleCount = 0;
 
   constructor(
     scene: THREE.Scene,
@@ -37,6 +46,7 @@ export class Village {
 
       scene.add(villager.root);
       this.villagers.push(villager);
+      this.pending.push(0);
       this.brains.push(new VillagerBrain(villager, animations, ground, work));
     }
   }
@@ -50,11 +60,53 @@ export class Village {
     return this.brains.filter((brain) => brain.currentState === 'work').length;
   }
 
-  update(delta: number): void {
-    // Микшер каждого жителя обновляет его собственный мозг: состояние
-    // и анимация должны меняться в одном месте, иначе на переходах
-    // проскакивает кадр со старым клипом
-    for (const brain of this.brains) brain.update(delta);
+  /** Сколько жителей реально попало в кадр — метрика для панели. */
+  get visible(): number {
+    return this.visibleCount;
+  }
+
+  /**
+   * LOD по расстоянию. Дорого в жителе не столько треугольники, сколько
+   * два draw call'а (меш плюс обводка) и пересчёт двадцати трёх костей
+   * каждый кадр. Поэтому дальние теряют сперва обводку, потом частоту
+   * анимации, а совсем дальние просто не рисуются.
+   */
+  update(delta: number, cameraPosition: THREE.Vector3): void {
+    this.frame++;
+    this.visibleCount = 0;
+
+    for (let i = 0; i < this.brains.length; i++) {
+      const brain = this.brains[i];
+      const villager = this.villagers[i];
+      if (brain === undefined || villager === undefined) continue;
+
+      const distance = villager.root.position.distanceTo(cameraPosition);
+
+      if (distance > LOD_CULL) {
+        villager.root.visible = false;
+        // Время всё равно копим: житель не должен телепортироваться,
+        // когда игрок вернётся
+        this.pending[i] = (this.pending[i] ?? 0) + delta;
+        continue;
+      }
+
+      villager.root.visible = true;
+      this.visibleCount++;
+
+      const near = distance <= LOD_NEAR;
+      for (const outline of villager.outlines) outline.visible = near;
+
+      const owed = (this.pending[i] ?? 0) + delta;
+      // Вблизи обновляем каждый кадр, дальше — раз в LOD_ANIMATION_STRIDE,
+      // отдавая накопленное время разом: анимация идёт с той же скоростью,
+      // просто реже пересчитывается
+      if (near || (this.frame + i) % LOD_ANIMATION_STRIDE === 0) {
+        brain.update(owed);
+        this.pending[i] = 0;
+      } else {
+        this.pending[i] = owed;
+      }
+    }
   }
 }
 

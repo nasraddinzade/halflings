@@ -62,8 +62,11 @@ export const STEP_HEIGHT = 0.15;
 // --- камера -----------------------------------------------------------------
 
 export const CAMERA_DISTANCE = 3.0;
-/** Точка, за которой следит камера, — примерно на уровне головы. */
-export const CAMERA_TARGET_HEIGHT = 0.95;
+/**
+ * Точка, за которой следит камера. 0.95 приходилось на макушку, и
+ * персонаж целиком уходил под центр кадра — целимся в грудь.
+ */
+export const CAMERA_TARGET_HEIGHT = 0.78;
 export const CAMERA_FOV = 55;
 export const CAMERA_NEAR = 0.05;
 export const CAMERA_FAR = 500;
@@ -156,12 +159,25 @@ export const CLOTH_VARIANT_COUNT = 6;
 
 // --- жители -----------------------------------------------------------------
 
-/** Стенд из шага 4: ряд сгенерированных жителей рядом со спавном. */
-export const VILLAGER_BENCH = true;
-export const BENCH_COUNT = 20;
-/** Расстояние между жителями в ряду и отступ ряда от точки спавна. */
-export const BENCH_SPACING = 1.1;
-export const BENCH_DISTANCE = 6;
+/** Одна константа на всё население: false — деревня не собирается. */
+export const VILLAGERS_ENABLED = true;
+export const VILLAGER_COUNT = 20;
+
+/** Жители не бегут по делам, а идут — медленнее игрока. */
+export const VILLAGER_WALK_SPEED = 1.15;
+/** «Родная» скорость Walking_A: под неё подгоняется timeScale. */
+export const VILLAGER_WALK_CLIP_SPEED = 1.45;
+export const VILLAGER_TURN_RATE = 8;
+/** Насколько близко надо подойти, чтобы считать, что дошёл. */
+export const VILLAGER_ARRIVE_RADIUS = 0.35;
+
+/** Первый простой после загрузки: от нуля, чтобы деревня сразу разошлась. */
+export const VILLAGER_FIRST_IDLE_MAX = 14;
+/** Разброс длительностей: деревня не должна работать по свистку. */
+export const VILLAGER_IDLE_MIN = 2.5;
+export const VILLAGER_IDLE_MAX = 7;
+export const VILLAGER_WORK_MIN = 6;
+export const VILLAGER_WORK_MAX = 16;
 
 export const SHADOW_MAP_SIZE = 2048;
 /** Полуразмер зоны, которую накрывает карта теней вокруг игрока. */

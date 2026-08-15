@@ -8,7 +8,7 @@ import {
   MAX_DELTA,
   SPAWN_X,
   SPAWN_Z,
-  VILLAGER_BENCH,
+  VILLAGERS_ENABLED,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
 import { DebugPanel } from '../debug/DebugPanel';
@@ -17,7 +17,7 @@ import { LocomotionState } from '../character/LocomotionState';
 import { PlayerController, type ControllerFrame } from '../character/PlayerController';
 import { loadPlayer, type Player } from '../character/loadPlayer';
 import { PartLibrary } from '../character/buildVillager';
-import { Bench } from '../world/Bench';
+import { Village } from '../world/Village';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Renderer } from '../render/Renderer';
@@ -44,7 +44,7 @@ export class Game {
   private readonly debug: DebugPanel | null = DEBUG_PANEL ? new DebugPanel() : null;
 
   private player!: Player;
-  private bench: Bench | null = null;
+  private village: Village | null = null;
   private controller!: PlayerController;
   private locomotion!: LocomotionState;
 
@@ -86,7 +86,7 @@ export class Game {
     const [player, library, parts] = await Promise.all([
       loadPlayer(loader),
       AnimationLibrary.load(loader),
-      VILLAGER_BENCH ? PartLibrary.load(loader) : Promise.resolve(null),
+      VILLAGERS_ENABLED ? PartLibrary.load(loader) : Promise.resolve(null),
     ]);
 
     this.player = player;
@@ -96,7 +96,7 @@ export class Game {
     this.controller = new PlayerController(this.ground, player.root, SPAWN_X, SPAWN_Z);
 
     if (parts !== null) {
-      this.bench = new Bench(this.scene, parts, library, this.ground);
+      this.village = new Village(this.scene, parts, library, this.ground);
     }
 
     // Компилируем шейдеры до первого кадра: иначе на старте будет
@@ -153,7 +153,7 @@ export class Game {
 
     this.locomotion.update(this.controller.locomotion, delta);
     this.player.mixer.update(delta);
-    this.bench?.update(delta);
+    this.village?.update(delta);
 
     this.lighting.update(this.controller.position);
 
@@ -170,6 +170,7 @@ export class Game {
         speed: this.controller.speed,
         stamina: this.controller.staminaLeft,
         grounded: this.controller.isGrounded,
+        working: this.village?.working ?? null,
       });
     }
 

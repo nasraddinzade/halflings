@@ -9,6 +9,8 @@ export interface DebugSnapshot {
   speed: number;
   stamina: number;
   grounded: boolean;
+  /** Сколько жителей сейчас в состоянии work. null — деревни нет. */
+  working: number | null;
 }
 
 interface Row {
@@ -16,7 +18,10 @@ interface Row {
   value: HTMLElement;
 }
 
-const ROWS = ['fps', 'draw calls', 'треугольников', 'клип', 'скорость', 'стамина', 'на земле'] as const;
+const ROWS = [
+  'fps', 'draw calls', 'треугольников', 'клип',
+  'скорость', 'стамина', 'на земле', 'работают',
+] as const;
 
 /**
  * Оверлей с метриками. Живёт отдельным модулем и целиком выключается
@@ -85,6 +90,7 @@ export class DebugPanel {
     this.set('скорость', `${snapshot.speed.toFixed(2)} м/с`);
     this.set('стамина', `${snapshot.stamina.toFixed(1)} / ${STAMINA_MAX}`);
     this.set('на земле', snapshot.grounded ? 'да' : 'нет');
+    this.set('работают', snapshot.working === null ? '—' : String(snapshot.working));
   }
 
   dispose(): void {

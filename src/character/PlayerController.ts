@@ -52,7 +52,9 @@ export class PlayerController {
   private coyoteLeft = 0;
   private jumpBufferLeft = 0;
   private jumpedThisFrame = false;
-  private modelYaw = 0;
+  // Камера по умолчанию стоит со стороны +Z, а модель в +Z и смотрит.
+  // Без этого персонаж на старте пялится в объектив, пока не пойдёшь.
+  private modelYaw = Math.PI;
 
   private readonly desired = new THREE.Vector3();
   private readonly horizontal = new THREE.Vector3();

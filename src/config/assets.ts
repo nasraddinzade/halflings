@@ -5,6 +5,7 @@
 import playerModelUrl from '../../assets/characters/halfling_base.glb?url';
 import generalClipsUrl from '../../assets/animations/general.glb?url';
 import movementClipsUrl from '../../assets/animations/movement.glb?url';
+import toolsClipsUrl from '../../assets/animations/tools.glb?url';
 import barbarianUrl from '../../assets/characters/parts/Barbarian.glb?url';
 import knightUrl from '../../assets/characters/parts/Knight.glb?url';
 import mageUrl from '../../assets/characters/parts/Mage.glb?url';
@@ -27,7 +28,12 @@ export const PART_URLS: Readonly<Record<PartFile, string>> = {
 };
 
 /** Файлы клипов, нужные вертикальному срезу. Остальные подключим позже. */
-export const ANIMATION_URLS: readonly string[] = [generalClipsUrl, movementClipsUrl];
+export const ANIMATION_URLS: readonly string[] = [
+  generalClipsUrl,
+  movementClipsUrl,
+  // Занятия жителей: Digging, Sawing, Fishing_* (шаг 5)
+  toolsClipsUrl,
+];
 
 /** Имена клипов — ровно как в docs/ASSETS.md. */
 export const CLIP = {

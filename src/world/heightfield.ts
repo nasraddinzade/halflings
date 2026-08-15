@@ -25,6 +25,14 @@ import {
   TERRAIN_SEED,
   VALLEY_RADIUS,
 } from '../config/constants';
+import {
+  BURROWS,
+  PORCH_BLEND,
+  PORCH_LENGTH,
+  PORCH_WIDTH,
+  doorFacing,
+  doorPosition,
+} from '../config/burrows';
 
 function clamp01(value: number): number {
   return value < 0 ? 0 : value > 1 ? 1 : value;
@@ -100,8 +108,58 @@ export function riverCarve(x: number, z: number): number {
   return RIVER_DEPTH * profile * taper;
 }
 
-/** Высота земли без русла — по ней стоит вода. */
-export function groundHeight(x: number, z: number): number {
+/**
+ * Холмы под норы: гладкие купола по данным из config/burrows.ts.
+ * Косинусный профиль, а не линейный — у линейного на кромке излом,
+ * и по нему через весь холм идёт заметное ребро.
+ */
+function burrowMounds(x: number, z: number): number {
+  let total = 0;
+  for (const burrow of BURROWS) {
+    const distance = Math.hypot(x - burrow.x, z - burrow.z) / burrow.radius;
+    if (distance >= 1) continue;
+    total += burrow.height * 0.5 * (1 + Math.cos(Math.PI * distance));
+  }
+  return total;
+}
+
+/**
+ * Ровная площадка перед дверью. Без неё дверь стоит на склоне: снизу
+ * порог висит в воздухе, сверху утоплен в землю, и жителю негде встать.
+ *
+ * Возвращает 0..1 — насколько сильно тянуть высоту к уровню порога.
+ */
+function porchBlend(x: number, z: number): { weight: number; level: number } {
+  let weight = 0;
+  let level = 0;
+
+  for (const burrow of BURROWS) {
+    const door = doorPosition(burrow);
+    const yaw = doorFacing(burrow);
+    // В систему двери: forward — куда она смотрит, side — поперёк
+    const dx = x - door.x;
+    const dz = z - door.z;
+    const forward = dx * Math.sin(yaw) + dz * Math.cos(yaw);
+    const side = dx * Math.cos(yaw) - dz * Math.sin(yaw);
+
+    // Площадка лежит перед дверью и чуть заходит за её плоскость,
+    // чтобы порог не оказался на переломе
+    const alongEdge = 1 - smoothstep(PORCH_LENGTH, PORCH_LENGTH + PORCH_BLEND, forward);
+    const behindEdge = smoothstep(-0.25 - PORCH_BLEND, -0.25, forward);
+    const acrossEdge = 1 - smoothstep(PORCH_WIDTH, PORCH_WIDTH + PORCH_BLEND, Math.abs(side));
+    const local = alongEdge * behindEdge * acrossEdge;
+    if (local <= weight) continue;
+
+    weight = local;
+    // Уровень порога — земля под дверью без холма и без соседних площадок
+    level = valleyFloor(door.x, door.z);
+  }
+
+  return { weight, level };
+}
+
+/** Рельеф долины без нор и без русла. */
+function valleyFloor(x: number, z: number): number {
   // 0 в центре долины, 1 на краю
   const distance = Math.hypot(x, z) / VALLEY_RADIUS;
 
@@ -116,6 +174,15 @@ export function groundHeight(x: number, z: number): number {
   const detail = fbm(x * DETAIL_FREQUENCY, z * DETAIL_FREQUENCY, 3) * DETAIL_HEIGHT;
 
   return rim + hills + detail;
+}
+
+/** Высота земли без русла — по ней стоит вода. */
+export function groundHeight(x: number, z: number): number {
+  const base = valleyFloor(x, z) + burrowMounds(x, z);
+  const porch = porchBlend(x, z);
+  // Площадка перетягивает высоту к уровню порога — и срезает край
+  // холма, образуя ту самую стенку, в которую врезана дверь
+  return lerp(base, porch.level, porch.weight);
 }
 
 /** Высота земли в мировой точке (x, z), с прорезанным руслом. */

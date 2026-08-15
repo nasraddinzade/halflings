@@ -47,8 +47,9 @@ export class Vegetation {
     const bushByChunk = scatter(BUSH_COUNT, ground, random);
 
     this.addChunks(scene, grass, grassByChunk, PALETTE.grass, PALETTE.grassDry, 'grass');
-    // Кусты темнее травы, иначе на её фоне они не читаются
-    this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.78), PALETTE.groundBounce, 'bush');
+    // Кусты темнее и зеленее травы. С оливково-серым они читались
+    // как валуны, особенно приплюснутые
+    this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.85), PALETTE.door, 'bush');
   }
 
   get drawCallCount(): number {
@@ -165,10 +166,13 @@ function grassGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
-/** Куст: гранёный шар, полусферой над землёй. */
+/**
+ * Куст: гранёный шар чуть выше своей ширины. Приплюснутый читался
+ * как камень — форма важнее цвета.
+ */
 function bushGeometry(): THREE.BufferGeometry {
   const geometry = new THREE.IcosahedronGeometry(BUSH_RADIUS, 0);
-  geometry.scale(1, 0.75, 1);
-  geometry.translate(0, BUSH_RADIUS * 0.5, 0);
+  geometry.scale(1, 1.15, 1);
+  geometry.translate(0, BUSH_RADIUS * 0.8, 0);
   return geometry;
 }

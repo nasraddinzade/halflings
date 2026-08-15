@@ -23,6 +23,7 @@ import { PartLibrary } from '../character/buildVillager';
 import { Village } from '../world/Village';
 import { Vegetation } from '../world/Vegetation';
 import { River } from '../world/River';
+import { Burrows } from '../world/Burrows';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Renderer } from '../render/Renderer';
@@ -52,6 +53,7 @@ export class Game {
   private village: Village | null = null;
   private vegetation: Vegetation | null = null;
   private readonly river: River | null = RIVER_ENABLED ? new River() : null;
+  private readonly burrows = new Burrows();
   private controller!: PlayerController;
   private locomotion!: LocomotionState;
 
@@ -80,6 +82,7 @@ export class Game {
     this.ground = new Ground(this.terrain.bvh);
 
     if (this.river !== null) this.scene.add(this.river.mesh);
+    this.scene.add(this.burrows.group);
 
     // Растительность ставится сразу: она статична и зависит только
     // от рельефа, ждать загрузки персонажей ей незачем
@@ -140,6 +143,7 @@ export class Game {
     this.debug?.dispose();
     this.input.dispose();
     this.river?.dispose();
+    this.burrows.dispose();
     this.vegetation?.dispose();
     this.terrain.dispose();
     this.renderer.dispose();

@@ -29,6 +29,15 @@ export class Renderer {
     return SHADOW_MAP_SIZE;
   }
 
+  /**
+   * Счётчики последнего кадра. three сбрасывает их сам на каждом render(),
+   * поэтому читать надо после отрисовки, а не до.
+   */
+  get frameStats(): { calls: number; triangles: number } {
+    const { render } = this.webgl.info;
+    return { calls: render.calls, triangles: render.triangles };
+  }
+
   render(scene: THREE.Scene, camera: THREE.Camera): void {
     this.webgl.render(scene, camera);
   }

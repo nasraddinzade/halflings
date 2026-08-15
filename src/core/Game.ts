@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { MAX_DELTA, NEUTRAL_BACKGROUND, SPAWN_X, SPAWN_Z } from '../config/constants';
+import { DEBUG_PANEL, MAX_DELTA, NEUTRAL_BACKGROUND, SPAWN_X, SPAWN_Z } from '../config/constants';
+import { DebugPanel } from '../debug/DebugPanel';
 import { AnimationLibrary } from '../character/AnimationLibrary';
 import { LocomotionState } from '../character/LocomotionState';
 import { PlayerController, type ControllerFrame } from '../character/PlayerController';
@@ -28,6 +29,8 @@ export class Game {
   private readonly terrain: Terrain;
   private readonly ground: Ground;
   private readonly input: Input;
+  /** null, когда DEBUG_PANEL выключён: модуль тогда просто не существует. */
+  private readonly debug: DebugPanel | null = DEBUG_PANEL ? new DebugPanel() : null;
 
   private player!: Player;
   private controller!: PlayerController;
@@ -94,6 +97,7 @@ export class Game {
   dispose(): void {
     this.stop();
     this.timer.dispose();
+    this.debug?.dispose();
     this.input.dispose();
     this.terrain.dispose();
     this.renderer.dispose();
@@ -130,6 +134,21 @@ export class Game {
     this.lighting.update(this.controller.position);
 
     this.renderer.render(this.scene, this.cameraRig.camera);
+
+    // Строго после render(): счётчики кадра до отрисовки ещё пустые
+    if (this.debug !== null) {
+      const stats = this.renderer.frameStats;
+      this.debug.update({
+        delta,
+        drawCalls: stats.calls,
+        triangles: stats.triangles,
+        clip: this.locomotion.currentClip,
+        speed: this.controller.speed,
+        stamina: this.controller.staminaLeft,
+        grounded: this.controller.isGrounded,
+      });
+    }
+
     this.input.endFrame();
   };
 }

@@ -126,6 +126,54 @@ function applyUvRemap(geometry: THREE.BufferGeometry, remapUv: UvRemap): void {
   uv.needsUpdate = true;
 }
 
+/**
+ * Готовит навесной предмет — инструмент в руке.
+ *
+ * Предмет не отдельный объект в графе сцены, а часть той же скиннованной
+ * геометрии: все его вершины привязаны к одной кости с весом 1. Кость
+ * двигает анимация, предмет едет за ней, а draw call'ов не прибавляется
+ * вовсе — в этом и смысл, ведь жителей тридцать.
+ *
+ * Геометрия автора лежит в системе кости, поэтому её надо перенести
+ * туда, где кость стояла в момент привязки. Эта матрица — обратная
+ * к boneInverses соответствующей кости.
+ */
+export function prepareAttachment(
+  geometry: THREE.BufferGeometry,
+  boneIndex: number,
+  boneBindMatrix: THREE.Matrix4,
+  uv: readonly [number, number],
+): THREE.BufferGeometry {
+  for (const name of Object.keys(geometry.attributes)) {
+    if (name !== 'position' && name !== 'normal') geometry.deleteAttribute(name);
+  }
+
+  const count = geometry.getAttribute('position').count;
+
+  // Весь предмет смотрит в один тексель атласа: цвет ровный, как у
+  // остальной деревни, и развёртка примитивов нам не нужна
+  const uvs = new Float32Array(count * 2);
+  for (let i = 0; i < count; i++) {
+    uvs[i * 2] = uv[0];
+    uvs[i * 2 + 1] = uv[1];
+  }
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+
+  // Типы атрибутов обязаны совпасть с паковыми, иначе mergeGeometries
+  // откажется складывать: там JOINTS_0 — Uint8, WEIGHTS_0 — float
+  const indices = new Uint8Array(count * 4);
+  const weights = new Float32Array(count * 4);
+  for (let i = 0; i < count; i++) {
+    indices[i * 4] = boneIndex;
+    weights[i * 4] = 1;
+  }
+  geometry.setAttribute('skinIndex', new THREE.BufferAttribute(indices, 4));
+  geometry.setAttribute('skinWeight', new THREE.BufferAttribute(weights, 4));
+
+  geometry.applyMatrix4(boneBindMatrix);
+  return geometry;
+}
+
 /** Складывает подготовленные куски в одну геометрию. */
 export function mergeParts(geometries: readonly THREE.BufferGeometry[]): THREE.BufferGeometry {
   const merged = mergeGeometries([...geometries], false);

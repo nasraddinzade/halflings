@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 import { CLOTH_VARIANT_COUNT, SOURCE_COLUMNS, SOURCE_ROWS } from '../config/constants';
-import { CLOTH_VARIANTS, nearestTone } from '../config/palette';
+import { CLOTH_VARIANTS, PALETTE, nearestTone } from '../config/palette';
+import type { ToolZone } from '../config/tools';
 import type { PartFile } from '../config/villagers';
 
 /**
@@ -29,6 +30,18 @@ import type { PartFile } from '../config/villagers';
 
 const CELLS_PER_FILE = SOURCE_COLUMNS * SOURCE_ROWS;
 
+/**
+ * Колонки под пропсы, приписанные после зон пака. Инструменты не берут
+ * цвет из паковых текстур — им нужны свои, и одинаковые во всех строках
+ * вариантов, чтобы деревянный черенок не менялся вместе с рубахой.
+ */
+const PROP_ZONES: Readonly<Record<ToolZone, number>> = {
+  wood: PALETTE.wood,
+  metal: PALETTE.rock,
+  dark: PALETTE.woodDark,
+};
+const PROP_ORDER: readonly ToolZone[] = ['wood', 'metal', 'dark'];
+
 /** Источники, из которых GLTFLoader отдаёт паковую текстуру. */
 export type AtlasImage = HTMLImageElement | HTMLCanvasElement | ImageBitmap | OffscreenCanvas;
 
@@ -42,6 +55,16 @@ export class ZoneAtlas {
   private readonly fileOrder: readonly PartFile[];
   private readonly zoneCount: number;
 
+  /** UV текселя, которым красится кусок инструмента. */
+  propUv(zone: ToolZone, variant: number): readonly [number, number] {
+    const index = PROP_ORDER.indexOf(zone);
+    const column = this.zoneCount - PROP_ORDER.length + Math.max(0, index);
+    return [
+      (column + 0.5) / this.zoneCount,
+      (clampIndex(variant, CLOTH_VARIANT_COUNT) + 0.5) / CLOTH_VARIANT_COUNT,
+    ];
+  }
+
   private constructor(texture: THREE.DataTexture, fileOrder: readonly PartFile[], zoneCount: number) {
     this.texture = texture;
     this.fileOrder = fileOrder;
@@ -50,7 +73,7 @@ export class ZoneAtlas {
 
   static build(sources: readonly AtlasSource[]): ZoneAtlas {
     const fileOrder = sources.map((source) => source.file);
-    const zoneCount = sources.length * CELLS_PER_FILE;
+    const zoneCount = sources.length * CELLS_PER_FILE + PROP_ORDER.length;
 
     // Цвет каждой ячейки каждого пакового атласа -> ближайший тон проекта
     const tones = sources.flatMap((source) =>
@@ -63,12 +86,15 @@ export class ZoneAtlas {
 
     for (let variant = 0; variant < height; variant++) {
       for (let zone = 0; zone < width; zone++) {
+        const prop = PROP_ORDER[zone - tones.length];
         const tone = tones[zone];
-        const color = tone === undefined
-          ? 0xffffff
-          : tone.family === 'cloth'
-            ? CLOTH_VARIANTS[variant % CLOTH_VARIANTS.length] ?? tone.color
-            : tone.color;
+        const color = prop !== undefined
+          ? PROP_ZONES[prop]
+          : tone === undefined
+            ? 0xffffff
+            : tone.family === 'cloth'
+              ? CLOTH_VARIANTS[variant % CLOTH_VARIANTS.length] ?? tone.color
+              : tone.color;
 
         const offset = (variant * width + zone) * 4;
         data[offset] = (color >> 16) & 0xff;

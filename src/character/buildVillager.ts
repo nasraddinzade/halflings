@@ -21,7 +21,17 @@ import { CLOTH_VARIANT_COUNT } from '../config/constants';
 import { ZoneAtlas, type AtlasSource } from '../render/atlas';
 import { applyStyle } from '../render/style';
 import { hashSeed, makeRandom, pick } from '../core/random';
-import { cloneArmature, mergeParts, preparePart } from './mergeSkinned';
+import { toolForRole } from '../config/tools';
+import { cloneArmature, mergeParts, prepareAttachment, preparePart } from './mergeSkinned';
+
+/**
+ * Пустая кость-крепление на конце кисти (docs/ASSETS.md, раздел 3).
+ *
+ * Имя прогоняется через санитайзер three: в glTF кость зовётся
+ * `handslot.r`, но точка у three — разделитель пути к свойству, и она
+ * вырезается ещё при загрузке. В скелете кость лежит под `handslotr`.
+ */
+const HAND_SLOT_BONE = THREE.PropertyBinding.sanitizeNodeName('handslot.r');
 
 export interface Villager {
   readonly config: VillagerConfig;
@@ -150,6 +160,8 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
     }
   }
 
+  addTool(pieces, library, armature, config);
+
   const geometry = mergeParts(pieces);
   // Копии больше не нужны: их данные скопированы в общий буфер
   for (const piece of pieces) piece.dispose();
@@ -188,6 +200,34 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
     : index.count / 3;
 
   return { config, root, mesh, outlines, mixer: new THREE.AnimationMixer(root), triangles };
+}
+
+/** Кладёт инструмент по роли в правую руку. */
+function addTool(
+  pieces: THREE.BufferGeometry[],
+  library: PartLibrary,
+  armature: ReturnType<typeof cloneArmature>,
+  config: VillagerConfig,
+): void {
+  const parts = toolForRole(config.role);
+  if (parts.length === 0) return;
+
+  const boneIndex = armature.boneNames.indexOf(HAND_SLOT_BONE);
+  if (boneIndex === -1) throw new Error(`[villagers] в скелете нет кости ${HAND_SLOT_BONE}`);
+
+  const boneInverse = armature.skeleton.boneInverses[boneIndex];
+  if (boneInverse === undefined) throw new Error('[villagers] нет обратной матрицы кости');
+  // Куда кость смотрела в момент привязки — туда и ставим предмет
+  const bindMatrix = boneInverse.clone().invert();
+
+  for (const part of parts) {
+    pieces.push(prepareAttachment(
+      part.geometry,
+      boneIndex,
+      bindMatrix,
+      library.atlas.propUv(part.zone, config.palette.body),
+    ));
+  }
 }
 
 function requirePart(

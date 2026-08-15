@@ -86,6 +86,20 @@ export class VillagerBrain {
     return this.state;
   }
 
+  get x(): number { return this.position.x; }
+  get z(): number { return this.position.z; }
+
+  /**
+   * Сдвиг извне: расталкивание жителей и обход дверей. Мозг про соседей
+   * не знает — эту работу делает Village, которому видны все сразу.
+   */
+  nudge(dx: number, dz: number): void {
+    this.position.x += dx;
+    this.position.z += dz;
+    this.snapToGround();
+    this.apply();
+  }
+
   update(delta: number): void {
     switch (this.state) {
       case 'idle':

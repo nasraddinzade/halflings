@@ -4,7 +4,9 @@ import {
   LOD_ANIMATION_STRIDE,
   LOD_CULL,
   LOD_NEAR,
+  SEPARATION_STRENGTH,
   VILLAGER_COUNT,
+  VILLAGER_RADIUS,
 } from '../config/constants';
 import { VILLAGER_NAMES, type VillagerRole } from '../config/villagers';
 import { WORK_POINTS, type WorkPoint } from '../config/work';
@@ -12,6 +14,7 @@ import type { AnimationLibrary } from '../character/AnimationLibrary';
 import { buildVillager, configFromSeed, type PartLibrary, type Villager } from '../character/buildVillager';
 import { VillagerBrain } from '../character/VillagerBrain';
 import type { Ground } from './Ground';
+import type { Circle, Obstacles } from './Obstacles';
 
 /**
  * Население долины: собирает жителей по конфигу и раздаёт им занятия.
@@ -28,12 +31,15 @@ export class Village {
   private readonly pending: number[] = [];
   private frame = 0;
   private visibleCount = 0;
+  /** Круги жителей: их читает контроллер игрока через Obstacles. */
+  private readonly circles: Circle[] = [];
 
   constructor(
     scene: THREE.Scene,
     parts: PartLibrary,
     animations: AnimationLibrary,
     ground: Ground,
+    private readonly obstacles: Obstacles,
   ) {
     // Счётчик занятости по ролям: жители расходятся по местам
     // по кругу, а не толпятся на первом
@@ -47,6 +53,7 @@ export class Village {
       scene.add(villager.root);
       this.villagers.push(villager);
       this.pending.push(0);
+      this.circles.push({ x: 0, z: 0, radius: VILLAGER_RADIUS });
       this.brains.push(new VillagerBrain(villager, animations, ground, work));
     }
   }
@@ -107,6 +114,55 @@ export class Village {
         this.pending[i] = owed;
       }
     }
+
+    this.separate();
+    this.publishCircles();
+  }
+
+  /**
+   * Расталкивание. Жители сходятся на общие рабочие места и без этого
+   * стоят друг в друге. Толкаем на половину перекрытия и по одному
+   * проходу: полное разведение за кадр выглядит как отскок, а лишние
+   * проходы на тридцати телах не окупаются.
+   */
+  private separate(): void {
+    for (let i = 0; i < this.brains.length; i++) {
+      const a = this.brains[i];
+      if (a === undefined) continue;
+
+      for (let j = i + 1; j < this.brains.length; j++) {
+        const b = this.brains[j];
+        if (b === undefined) continue;
+
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const limit = VILLAGER_RADIUS * 2;
+        const squared = dx * dx + dz * dz;
+        if (squared >= limit * limit || squared < 1e-8) continue;
+
+        const distance = Math.sqrt(squared);
+        const push = ((limit - distance) / distance) * SEPARATION_STRENGTH * 0.5;
+        a.nudge(-dx * push, -dz * push);
+        b.nudge(dx * push, dz * push);
+      }
+
+      // И из дверей нор: житель не должен стоять в проёме
+      if (this.obstacles.blocked(a.x, a.z, VILLAGER_RADIUS)) {
+        const away = Math.hypot(a.x, a.z) || 1;
+        a.nudge((a.x / away) * 0.08, (a.z / away) * 0.08);
+      }
+    }
+  }
+
+  private publishCircles(): void {
+    for (let i = 0; i < this.brains.length; i++) {
+      const brain = this.brains[i];
+      const circle = this.circles[i];
+      if (brain === undefined || circle === undefined) continue;
+      circle.x = brain.x;
+      circle.z = brain.z;
+    }
+    this.obstacles.setDynamic(this.circles);
   }
 }
 

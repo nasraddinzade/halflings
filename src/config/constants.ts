@@ -206,6 +206,16 @@ export const VILLAGER_IDLE_MAX = 7;
 export const VILLAGER_WORK_MIN = 6;
 export const VILLAGER_WORK_MAX = 16;
 
+// --- столкновения -----------------------------------------------------------
+
+/** Полурослик в плане: плечи около 0.5 м, значит радиус четверть метра. */
+export const PLAYER_RADIUS = 0.25;
+export const VILLAGER_RADIUS = 0.25;
+/** Круг, которым дверь норы не пускает внутрь холма. */
+export const DOOR_BLOCK_RADIUS = 0.8;
+/** Насколько мягко жители расталкивают друг друга: 1 — сразу до конца. */
+export const SEPARATION_STRENGTH = 0.5;
+
 // --- LOD и отсечение --------------------------------------------------------
 
 /**

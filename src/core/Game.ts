@@ -28,6 +28,7 @@ import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Renderer } from '../render/Renderer';
 import { Ground } from '../world/Ground';
+import { Obstacles } from '../world/Obstacles';
 import { Terrain } from '../world/Terrain';
 import { Input } from './Input';
 
@@ -45,6 +46,7 @@ export class Game {
   private readonly lighting: Lighting;
   private readonly terrain: Terrain;
   private readonly ground: Ground;
+  private readonly obstacles = new Obstacles();
   private readonly input: Input;
   /** null, когда DEBUG_PANEL выключён: модуль тогда просто не существует. */
   private readonly debug: DebugPanel | null = DEBUG_PANEL ? new DebugPanel() : null;
@@ -113,10 +115,16 @@ export class Game {
     this.scene.add(player.root);
 
     this.locomotion = new LocomotionState(player.mixer, library);
-    this.controller = new PlayerController(this.ground, player.root, SPAWN_X, SPAWN_Z);
+    this.controller = new PlayerController(
+      this.ground,
+      this.obstacles,
+      player.root,
+      SPAWN_X,
+      SPAWN_Z,
+    );
 
     if (parts !== null) {
-      this.village = new Village(this.scene, parts, library, this.ground);
+      this.village = new Village(this.scene, parts, library, this.ground, this.obstacles);
     }
 
     // Компилируем шейдеры до первого кадра: иначе на старте будет

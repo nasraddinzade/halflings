@@ -11,6 +11,7 @@ import {
   JUMP_SPEED,
   MAX_SLOPE,
   MODEL_YAW_OFFSET,
+  PLAYER_RADIUS,
   RUN_SPEED,
   STAMINA_DRAIN,
   STAMINA_MAX,
@@ -22,6 +23,7 @@ import {
   WALK_SPEED,
 } from '../config/constants';
 import type { Ground } from '../world/Ground';
+import type { Obstacles } from '../world/Obstacles';
 import type { MoveIntent } from '../core/Input';
 import type { LocomotionInput } from './LocomotionState';
 
@@ -61,6 +63,7 @@ export class PlayerController {
 
   constructor(
     private readonly ground: Ground,
+    private readonly obstacles: Obstacles,
     private readonly root: THREE.Object3D,
     spawnX: number,
     spawnZ: number,
@@ -202,11 +205,15 @@ export class PlayerController {
       this.groundNormal.copy(ahead.normal);
     }
 
-    // 2. Вертикаль
+    // 2. Препятствия: дверь норы и жители. Скорость не гасим — вдоль
+    //    круга персонаж должен скользить, а не залипать
+    this.obstacles.resolve(this.position, PLAYER_RADIUS);
+
+    // 3. Вертикаль
     this.velocity.y -= GRAVITY * delta;
     this.position.y += this.velocity.y * delta;
 
-    // 3. Контакт с землёй
+    // 4. Контакт с землёй
     const below = this.ground.sample(this.position.x, this.position.z);
     if (below === null) return;
 

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-import { OUTLINE_THICKNESS } from '../config/constants';
+import { OUTLINE_DARKEN, OUTLINE_THICKNESS } from '../config/constants';
 
 /**
  * Обводка методом inverted hull (решение №5).
@@ -21,6 +21,10 @@ import { OUTLINE_THICKNESS } from '../config/constants';
  *    отчего копия раздувалась бы внутрь и контур пропадал.
  * 3. Для скиннованных мешей копия делит скелет с оригиналом — иначе
  *    контур не поспевал бы за анимацией.
+ * 4. Если у объекта текстура, контур сэмплит её же и затемняет — тогда
+ *    он и правда «затемнённый цвет самого объекта», а не общий тёмный
+ *    тон. Текстуру приходится декодировать вручную: в своём шейдере
+ *    three не делает этого за нас, и без sRGBTransferEOTF цвет уехал бы.
  */
 
 const vertexShader = /* glsl */ `
@@ -29,6 +33,10 @@ const vertexShader = /* glsl */ `
 #include <fog_pars_vertex>
 
 uniform float thickness;
+
+#ifdef OUTLINE_USE_MAP
+varying vec2 vOutlineUv;
+#endif
 
 void main() {
   #include <beginnormal_vertex>
@@ -45,18 +53,38 @@ void main() {
 
   gl_Position = projectionMatrix * mvPosition;
 
+  #ifdef OUTLINE_USE_MAP
+  vOutlineUv = uv;
+  #endif
+
   #include <fog_vertex>
 }
 `;
 
 const fragmentShader = /* glsl */ `
 #include <common>
+// colorspace_pars_fragment не подключаем: three добавляет его в префикс
+// любого фрагментного шейдера сам, и явный include продублировал бы
+// тела функций — шейдер не соберётся
 #include <fog_pars_fragment>
 
 uniform vec3 outlineColor;
+uniform float darkenFactor;
+
+#ifdef OUTLINE_USE_MAP
+uniform sampler2D outlineMap;
+varying vec2 vOutlineUv;
+#endif
 
 void main() {
-  gl_FragColor = vec4( outlineColor, 1.0 );
+  #ifdef OUTLINE_USE_MAP
+  // Текстура лежит в sRGB, а считать надо в линейном пространстве
+  vec3 base = sRGBTransferEOTF( texture2D( outlineMap, vOutlineUv ) ).rgb;
+  #else
+  vec3 base = outlineColor;
+  #endif
+
+  gl_FragColor = vec4( base * darkenFactor, 1.0 );
 
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -64,24 +92,31 @@ void main() {
 }
 `;
 
-/** Материалы кэшируются по цвету: одна программа на всю сцену. */
+/** Материалы кэшируются: одна программа на цвет или на текстуру. */
 const materials = new Map<string, THREE.ShaderMaterial>();
 
-function outlineMaterial(color: number, thickness: number): THREE.ShaderMaterial {
-  const key = `${color}:${thickness}`;
+function outlineMaterial(
+  color: number,
+  thickness: number,
+  map: THREE.Texture | null,
+): THREE.ShaderMaterial {
+  const key = map === null ? `c${color}:${thickness}` : `m${map.uuid}:${thickness}`;
   const cached = materials.get(key);
   if (cached !== undefined) return cached;
 
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
-    // clone, а не merge: merge теряет тип у Color, а туман приносит
+    // clone, а не merge: merge портит объекты Color, а туман приносит
     // свои uniform'ы, без которых чанки fog_* не соберутся
     uniforms: {
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       thickness: { value: thickness },
+      darkenFactor: { value: OUTLINE_DARKEN },
       outlineColor: { value: new THREE.Color(color) },
+      outlineMap: { value: map },
     },
+    defines: map === null ? {} : { OUTLINE_USE_MAP: '' },
     side: THREE.BackSide,
     fog: true,
   });
@@ -90,18 +125,23 @@ function outlineMaterial(color: number, thickness: number): THREE.ShaderMaterial
   return material;
 }
 
+export interface OutlineOptions {
+  /** Плоский цвет обводки. Игнорируется, если передана текстура. */
+  color: number;
+  /** Текстура объекта: контур возьмёт её и затемнит. */
+  map?: THREE.Texture | undefined;
+  thickness?: number;
+}
+
 /**
  * Строит меш-обводку для одного меша. Возвращает null, если геометрия
  * не годится (нет нормалей — раздувать не по чему).
  */
-export function createOutline(
-  source: THREE.Mesh,
-  color: number,
-  thickness = OUTLINE_THICKNESS,
-): THREE.Mesh | null {
+export function createOutline(source: THREE.Mesh, options: OutlineOptions): THREE.Mesh | null {
   if (source.geometry.getAttribute('normal') === undefined) return null;
 
-  const material = outlineMaterial(color, thickness);
+  const { color, map = null, thickness = OUTLINE_THICKNESS } = options;
+  const material = outlineMaterial(color, thickness, map);
 
   // Копия встаёт рядом с оригиналом в том же родителе, поэтому обязана
   // повторить его локальный трансформ: у KayKit он единичный, но
@@ -112,25 +152,25 @@ export function createOutline(
     target.scale.copy(source.scale);
   };
 
-  if (source instanceof THREE.SkinnedMesh) {
-    const outline = new THREE.SkinnedMesh(source.geometry, material);
+  const finish = (outline: THREE.Mesh): THREE.Mesh => {
     copyTransform(outline);
-    // Общий скелет: собственного скиннинга у копии нет, она повторяет позу
-    outline.bind(source.skeleton, source.bindMatrix);
-    outline.bindMode = source.bindMode;
     outline.frustumCulled = source.frustumCulled;
     // Контур не отбрасывает тень: он же не объект, а его силуэт
     outline.castShadow = false;
     outline.receiveShadow = false;
+    outline.renderOrder = source.renderOrder - 1;
     outline.name = `${source.name}_outline`;
+    return outline;
+  };
+
+  if (source instanceof THREE.SkinnedMesh) {
+    const outline = new THREE.SkinnedMesh(source.geometry, material);
+    finish(outline);
+    // Общий скелет: собственного скиннинга у копии нет, она повторяет позу
+    outline.bind(source.skeleton, source.bindMatrix);
+    outline.bindMode = source.bindMode;
     return outline;
   }
 
-  const outline = new THREE.Mesh(source.geometry, material);
-  copyTransform(outline);
-  outline.frustumCulled = source.frustumCulled;
-  outline.castShadow = false;
-  outline.receiveShadow = false;
-  outline.name = `${source.name}_outline`;
-  return outline;
+  return finish(new THREE.Mesh(source.geometry, material));
 }

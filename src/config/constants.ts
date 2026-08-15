@@ -147,6 +147,19 @@ export const OUTLINE_DARKEN = 0.45;
 export const FOG_NEAR = 70;
 export const FOG_FAR = 260;
 
+/** Сетка атласа — та же, что у паковых текстур (docs/ASSETS.md, раздел 6). */
+export const ATLAS_COLUMNS = 8;
+export const ATLAS_ROWS = 4;
+
+// --- жители -----------------------------------------------------------------
+
+/** Стенд из шага 4: ряд сгенерированных жителей рядом со спавном. */
+export const VILLAGER_BENCH = true;
+export const BENCH_COUNT = 20;
+/** Расстояние между жителями в ряду и отступ ряда от точки спавна. */
+export const BENCH_SPACING = 1.1;
+export const BENCH_DISTANCE = 6;
+
 export const SHADOW_MAP_SIZE = 2048;
 /** Полуразмер зоны, которую накрывает карта теней вокруг игрока. */
 export const SHADOW_EXTENT = 14;

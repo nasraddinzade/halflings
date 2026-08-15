@@ -5,8 +5,26 @@
 import playerModelUrl from '../../assets/characters/halfling_base.glb?url';
 import generalClipsUrl from '../../assets/animations/general.glb?url';
 import movementClipsUrl from '../../assets/animations/movement.glb?url';
+import barbarianUrl from '../../assets/characters/parts/Barbarian.glb?url';
+import knightUrl from '../../assets/characters/parts/Knight.glb?url';
+import mageUrl from '../../assets/characters/parts/Mage.glb?url';
+import rangerUrl from '../../assets/characters/parts/Ranger.glb?url';
+import rogueUrl from '../../assets/characters/parts/Rogue.glb?url';
+import rogueHoodedUrl from '../../assets/characters/parts/Rogue_Hooded.glb?url';
+
+import type { PartFile } from './villagers';
 
 export const PLAYER_MODEL_URL = playerModelUrl;
+
+/** Файлы пака — источник частей для сборки жителей. */
+export const PART_URLS: Readonly<Record<PartFile, string>> = {
+  Barbarian: barbarianUrl,
+  Knight: knightUrl,
+  Mage: mageUrl,
+  Ranger: rangerUrl,
+  Rogue: rogueUrl,
+  Rogue_Hooded: rogueHoodedUrl,
+};
 
 /** Файлы клипов, нужные вертикальному срезу. Остальные подключим позже. */
 export const ANIMATION_URLS: readonly string[] = [generalClipsUrl, movementClipsUrl];

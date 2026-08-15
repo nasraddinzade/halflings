@@ -1,0 +1,177 @@
+import * as THREE from 'three';
+import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+import { CHARACTER_SCALE } from '../config/constants';
+import { PART_URLS } from '../config/assets';
+import {
+  ARMS,
+  BODIES,
+  HEADS,
+  LEGS,
+  PART_FILES,
+  ROLES,
+  type PartSource,
+  type VillagerConfig,
+} from '../config/villagers';
+import { ATLAS_COLUMNS } from '../config/constants';
+import { columnShift, villagerAtlas } from '../render/atlas';
+import { applyStyle } from '../render/style';
+import { cloneArmature, mergeParts, preparePart } from './mergeSkinned';
+
+export interface Villager {
+  readonly config: VillagerConfig;
+  /** Двигают его; масштаб уже применён. */
+  readonly root: THREE.Group;
+  readonly mixer: THREE.AnimationMixer;
+  readonly triangles: number;
+}
+
+/**
+ * Библиотека частей: шесть файлов пака, разобранные по мешам.
+ * Геометрия из неё только читается — на сборке всегда делается копия.
+ */
+export class PartLibrary {
+  private readonly meshes = new Map<string, THREE.SkinnedMesh>();
+  private template: THREE.Object3D | null = null;
+
+  static async load(loader: GLTFLoader): Promise<PartLibrary> {
+    const library = new PartLibrary();
+    const files = await Promise.all(
+      PART_FILES.map(async (name) => ({ name, gltf: await loader.loadAsync(PART_URLS[name]) })),
+    );
+
+    for (const { name, gltf } of files) {
+      gltf.scene.traverse((child) => {
+        if (child instanceof THREE.SkinnedMesh) library.meshes.set(child.name, child);
+      });
+      // Скелет берём из одного файла: у всех он идентичен, но опираться
+      // надо на что-то одно, иначе порядок костей поплывёт между жителями
+      if (name === 'Rogue') library.template = gltf.scene;
+    }
+
+    if (library.template === null) throw new Error('[villagers] не загрузился шаблон скелета');
+    return library;
+  }
+
+  require(name: string): THREE.SkinnedMesh {
+    const mesh = this.meshes.get(name);
+    if (mesh === undefined) {
+      throw new Error(`[villagers] нет меша "${name}"`);
+    }
+    return mesh;
+  }
+
+  get skeletonTemplate(): THREE.Object3D {
+    if (this.template === null) throw new Error('[villagers] шаблон скелета не готов');
+    return this.template;
+  }
+}
+
+/** Хэш строки в 32 бита. Одно имя — всегда один и тот же житель. */
+function hashSeed(seed: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/** mulberry32: маленький детерминированный генератор. */
+function makeRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pick<T>(items: readonly T[], random: () => number): T {
+  const item = items[Math.floor(random() * items.length)];
+  if (item === undefined) throw new Error('[villagers] пустой список для выбора');
+  return item;
+}
+
+/**
+ * Конфиг жителя выводится из имени детерминированно: один и тот же
+ * житель выглядит одинаково между сессиями, и хранить его негде не надо.
+ */
+export function configFromSeed(name: string): VillagerConfig {
+  const random = makeRandom(hashSeed(name));
+
+  return {
+    id: name,
+    head: pick(Object.keys(HEADS), random),
+    body: pick(Object.keys(BODIES), random),
+    arms: pick(Object.keys(ARMS), random),
+    legs: pick(Object.keys(LEGS), random),
+    palette: {
+      head: Math.floor(random() * ATLAS_COLUMNS),
+      body: Math.floor(random() * ATLAS_COLUMNS),
+      legs: Math.floor(random() * ATLAS_COLUMNS),
+    },
+    role: pick(ROLES, random),
+  };
+}
+
+/** Собирает жителя: части из разных файлов -> один SkinnedMesh. */
+export function buildVillager(library: PartLibrary, config: VillagerConfig): Villager {
+  const armature = cloneArmature(library.skeletonTemplate);
+
+  // Каждой группе — свой сдвиг по колонкам атласа. Руки красятся заодно
+  // с телом: рукав и торс должны совпадать по цвету.
+  const groups: Array<{ source: PartSource; shift: number }> = [
+    { source: requirePart(HEADS, config.head, 'head'), shift: columnShift(config.palette.head) },
+    { source: requirePart(BODIES, config.body, 'body'), shift: columnShift(config.palette.body) },
+    { source: requirePart(ARMS, config.arms, 'arms'), shift: columnShift(config.palette.body) },
+    { source: requirePart(LEGS, config.legs, 'legs'), shift: columnShift(config.palette.legs) },
+  ];
+
+  const pieces: THREE.BufferGeometry[] = [];
+  for (const { source, shift } of groups) {
+    for (const meshName of source.meshes) {
+      pieces.push(preparePart(library.require(meshName), armature.boneNames, shift));
+    }
+  }
+
+  const geometry = mergeParts(pieces);
+  // Копии больше не нужны: их данные скопированы в общий буфер
+  for (const piece of pieces) piece.dispose();
+
+  const mesh = new THREE.SkinnedMesh(geometry);
+  mesh.name = `villager_${config.id}`;
+  // Скиннинг сбивает bounding sphere: она считается по рест-позе
+  mesh.frustumCulled = false;
+
+  const root = new THREE.Group();
+  root.name = `villager_${config.id}_root`;
+  root.add(armature.root);
+  root.add(mesh);
+  // Привязку делаем после добавления в граф, иначе bindMatrixInverse
+  // посчитается от ещё не обновлённого matrixWorld
+  mesh.bind(armature.skeleton, armature.bindMatrix);
+
+  applyStyle(mesh, { color: 0xffffff, map: villagerAtlas(), outline: true });
+
+  root.scale.setScalar(CHARACTER_SCALE);
+
+  const index = geometry.getIndex();
+  const triangles = index === null
+    ? geometry.getAttribute('position').count / 3
+    : index.count / 3;
+
+  return { config, root, mixer: new THREE.AnimationMixer(root), triangles };
+}
+
+function requirePart(
+  catalogue: Readonly<Record<string, PartSource>>,
+  key: string,
+  group: string,
+): PartSource {
+  const source = catalogue[key];
+  if (source === undefined) throw new Error(`[villagers] нет части ${group}="${key}"`);
+  return source;
+}

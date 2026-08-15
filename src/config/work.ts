@@ -30,8 +30,9 @@ export const ROLE_WORK_CLIP: Readonly<Record<VillagerRole, string>> = {
  * Рабочие места деревни. Держатся в радиусе ~25 м от центра — там
  * рельеф ровный (см. CENTER_CALM_* в constants.ts).
  *
- * Рыбаки стоят там, где по замыслу пройдёт река (решение №4). Реки пока
- * нет, так что они удят посуху — это станет на место, когда появится вода.
+ * Рыбаки стоят на северном берегу реки, в 4.2 м от её оси: там ещё суша,
+ * а до воды рукой подать. Координаты посчитаны по riverCenterZ(x) —
+ * если сдвинуть русло в constants.ts, эти три точки надо пересчитать.
  */
 export const WORK_POINTS: readonly WorkPoint[] = [
   { id: 'garden-1', role: 'gardener', x: -8, z: 10 },
@@ -45,9 +46,9 @@ export const WORK_POINTS: readonly WorkPoint[] = [
   { id: 'saw-3', role: 'miller', x: 7, z: 15 },
   { id: 'saw-4', role: 'miller', x: 14, z: 13 },
 
-  { id: 'river-1', role: 'fisher', x: 16, z: -7 },
-  { id: 'river-2', role: 'fisher', x: 19, z: -10 },
-  { id: 'river-3', role: 'fisher', x: 13, z: -11 },
+  { id: 'river-1', role: 'fisher', x: -8, z: -19.3 },
+  { id: 'river-2', role: 'fisher', x: 4, z: -17.0 },
+  { id: 'river-3', role: 'fisher', x: 16, z: -14.8 },
 
   { id: 'square-1', role: 'idler', x: 0, z: 9 },
   { id: 'square-2', role: 'idler', x: 3.5, z: 12 },

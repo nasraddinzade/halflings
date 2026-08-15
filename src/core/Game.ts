@@ -10,6 +10,7 @@ import {
   SPAWN_X,
   SPAWN_Z,
   GRASS_ENABLED,
+  RIVER_ENABLED,
   VILLAGERS_ENABLED,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
@@ -21,6 +22,7 @@ import { loadPlayer, type Player } from '../character/loadPlayer';
 import { PartLibrary } from '../character/buildVillager';
 import { Village } from '../world/Village';
 import { Vegetation } from '../world/Vegetation';
+import { River } from '../world/River';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Renderer } from '../render/Renderer';
@@ -49,6 +51,7 @@ export class Game {
   private player!: Player;
   private village: Village | null = null;
   private vegetation: Vegetation | null = null;
+  private readonly river: River | null = RIVER_ENABLED ? new River() : null;
   private controller!: PlayerController;
   private locomotion!: LocomotionState;
 
@@ -75,6 +78,8 @@ export class Game {
     this.terrain = new Terrain();
     this.scene.add(this.terrain.mesh);
     this.ground = new Ground(this.terrain.bvh);
+
+    if (this.river !== null) this.scene.add(this.river.mesh);
 
     // Растительность ставится сразу: она статична и зависит только
     // от рельефа, ждать загрузки персонажей ей незачем
@@ -134,6 +139,7 @@ export class Game {
     this.timer.dispose();
     this.debug?.dispose();
     this.input.dispose();
+    this.river?.dispose();
     this.vegetation?.dispose();
     this.terrain.dispose();
     this.renderer.dispose();
@@ -168,6 +174,7 @@ export class Game {
     this.player.mixer.update(delta);
     this.village?.update(delta, this.cameraRig.camera.position);
 
+    this.river?.update(delta);
     this.lighting.update(this.controller.position);
 
     this.renderer.render(this.scene, this.cameraRig.camera);

@@ -109,6 +109,33 @@ export const CENTER_CALM_OUTER = 0.34;
 /** Потолок для зондирующих лучей: заведомо выше любой точки рельефа. */
 export const TERRAIN_PROBE_HEIGHT = RIM_HEIGHT + HILL_HEIGHT + DETAIL_HEIGHT + 10;
 
+// --- река -------------------------------------------------------------------
+
+export const RIVER_ENABLED = true;
+/** Русло идёт с запада на восток южнее деревни, огороды остаются в стороне. */
+export const RIVER_OFFSET_Z = -22;
+export const RIVER_AMPLITUDE = 12;
+export const RIVER_WAVINESS = 0.016;
+/** Полуширина русла: река шириной шесть метров. */
+export const RIVER_WIDTH = 3;
+/** Насколько дно ниже окрестной земли. */
+export const RIVER_DEPTH = 0.75;
+/**
+ * Вода стоит ниже окрестной земли на столько. Разница с RIVER_DEPTH и
+ * есть глубина: 0.45 м полурослику ростом 1.1 м по колено, так что
+ * реку можно перейти вброд, а не обходить.
+ */
+export const RIVER_WATER_DEPTH = 0.3;
+/** Берега: за этой долей радиуса русло сходит на нет. */
+export const RIVER_FADE_START = 0.6;
+export const RIVER_FADE_END = 0.78;
+/** Сегментов вдоль русла и поперёк — на ленту воды. */
+export const RIVER_SEGMENTS_ALONG = 220;
+export const RIVER_SEGMENTS_ACROSS = 6;
+/** Рябь: маленькая амплитуда, иначе вода выглядит как желе. */
+export const RIVER_WAVE_HEIGHT = 0.035;
+export const RIVER_WAVE_SPEED = 1.1;
+
 export const SPAWN_X = 0;
 export const SPAWN_Z = 0;
 

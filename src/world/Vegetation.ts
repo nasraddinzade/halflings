@@ -13,6 +13,7 @@ import {
 import { PALETTE, darken } from '../config/palette';
 import { makeRandom } from '../core/random';
 import { toonSurface } from '../render/style';
+import { riverCarve } from './heightfield';
 import type { Ground } from './Ground';
 
 /**
@@ -129,6 +130,8 @@ function scatter(count: number, ground: Ground, random: () => number): Map<numbe
     if (sample === null) continue;
     // На круче трава не держится — и заодно борт долины остаётся голым
     if (sample.slope > VEGETATION_MAX_SLOPE) continue;
+    // И в реке тоже: пучки, торчащие из воды, сразу выдают подделку
+    if (riverCarve(x, z) > 0.05) continue;
 
     const scale = 0.7 + random() * 0.6;
     const placement: Placement = {

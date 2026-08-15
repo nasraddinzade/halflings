@@ -14,6 +14,14 @@ import {
   RIM_CURVE,
   RIM_HEIGHT,
   RIM_START,
+  RIVER_AMPLITUDE,
+  RIVER_DEPTH,
+  RIVER_ENABLED,
+  RIVER_FADE_END,
+  RIVER_FADE_START,
+  RIVER_OFFSET_Z,
+  RIVER_WAVINESS,
+  RIVER_WIDTH,
   TERRAIN_SEED,
   VALLEY_RADIUS,
 } from '../config/constants';
@@ -65,8 +73,35 @@ function fbm(x: number, z: number, octaves: number): number {
   return sum / total;
 }
 
-/** Высота земли в мировой точке (x, z). */
-export function heightAt(x: number, z: number): number {
+/** Ось русла: где проходит середина реки на данной долготе. */
+export function riverCenterZ(x: number): number {
+  return RIVER_OFFSET_Z + RIVER_AMPLITUDE * Math.sin(x * RIVER_WAVINESS);
+}
+
+/**
+ * Насколько глубоко врезано русло в точке. Ноль — река сюда не доходит.
+ *
+ * К борту долины врез сходит на нет: если прорезать борт насквозь,
+ * в замкнутом кольце появится проход, и игрок уйдёт из долины по руслу.
+ * Кольцо проверялось численно (docs/ASSETS.md не про это, но тест на
+ * замкнутость гоняется по 3600 направлениям) — ломать его нельзя.
+ */
+export function riverCarve(x: number, z: number): number {
+  if (!RIVER_ENABLED) return 0;
+
+  const across = Math.abs(z - riverCenterZ(x));
+  // Плавные берега: у кромки склон, к середине ровное дно
+  const profile = 1 - smoothstep(RIVER_WIDTH * 0.55, RIVER_WIDTH * 1.5, across);
+  if (profile <= 0) return 0;
+
+  const distance = Math.hypot(x, z) / VALLEY_RADIUS;
+  const taper = 1 - smoothstep(RIVER_FADE_START, RIVER_FADE_END, distance);
+
+  return RIVER_DEPTH * profile * taper;
+}
+
+/** Высота земли без русла — по ней стоит вода. */
+export function groundHeight(x: number, z: number): number {
   // 0 в центре долины, 1 на краю
   const distance = Math.hypot(x, z) / VALLEY_RADIUS;
 
@@ -81,4 +116,9 @@ export function heightAt(x: number, z: number): number {
   const detail = fbm(x * DETAIL_FREQUENCY, z * DETAIL_FREQUENCY, 3) * DETAIL_HEIGHT;
 
   return rim + hills + detail;
+}
+
+/** Высота земли в мировой точке (x, z), с прорезанным руслом. */
+export function heightAt(x: number, z: number): number {
+  return groundHeight(x, z) - riverCarve(x, z);
 }

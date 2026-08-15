@@ -88,7 +88,11 @@ export class Game {
 
     // Растительность ставится сразу: она статична и зависит только
     // от рельефа, ждать загрузки персонажей ей незачем
-    if (GRASS_ENABLED) this.vegetation = new Vegetation(this.scene, this.ground);
+    if (GRASS_ENABLED) {
+      this.vegetation = new Vegetation(this.scene, this.ground);
+      // Стволы — неподвижные препятствия, кладём их в сетку один раз
+      this.obstacles.addToGrid(this.vegetation.treeTrunks);
+    }
 
     this.input = new Input(canvas, (locked) => {
       this.hint.hidden = locked;

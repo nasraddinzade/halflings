@@ -251,6 +251,17 @@ export const VEGETATION_CHUNKS = 8;
 export const VEGETATION_MAX_SLOPE = (38 * Math.PI) / 180;
 export const VEGETATION_SEED = 7734;
 
+/** Деревья. Их силуэт делает долину долиной, а не полем. */
+export const TREE_COUNT = 1100;
+/** Ближе этого к центру деревьев нет: там деревня и открытая площадь. */
+export const TREE_CLEARING_RADIUS = 34;
+/** Деревья не растут на крутизне круче этого. */
+export const TREE_MAX_SLOPE = (30 * Math.PI) / 180;
+/** Радиус ствола для столкновений, до масштаба экземпляра. */
+export const TREE_TRUNK_RADIUS = 0.34;
+/** Вокруг двери норы деревьев быть не должно. */
+export const TREE_DOOR_CLEARANCE = 6;
+
 export const SHADOW_MAP_SIZE = 2048;
 /** Полуразмер зоны, которую накрывает карта теней вокруг игрока. */
 export const SHADOW_EXTENT = 14;

@@ -54,6 +54,27 @@ export function toonSurface(color: number, map: THREE.Texture | null = null): TH
   return material;
 }
 
+/**
+ * Материал для геометрии, у которой цвет запечён в вершины.
+ *
+ * Нужен дереву: ствол и крона разного цвета, но это один инстансовый
+ * меш. Красить их порознь значило бы два InstancedMesh на чанк, то есть
+ * вдвое больше вызовов ради двух цветов.
+ */
+let vertexColored: THREE.MeshToonMaterial | null = null;
+
+export function toonVertexColored(): THREE.MeshToonMaterial {
+  if (vertexColored === null) {
+    vertexColored = new THREE.MeshToonMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      gradientMap,
+      fog: true,
+    });
+  }
+  return vertexColored;
+}
+
 export interface StyleOptions {
   /** Цвет из палитры. Другие источники цвета в проекте не допускаются. */
   color: number;

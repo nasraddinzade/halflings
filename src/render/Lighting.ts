@@ -1,21 +1,24 @@
 import * as THREE from 'three';
 
 import { SHADOW_EXTENT, SHADOW_MAP_SIZE } from '../config/constants';
+import { PALETTE } from '../config/palette';
 
 /**
- * Временный свет: нейтральный, без настроения. Задача — видеть форму
- * рельефа и тень под ногами, чтобы судить о попадании в землю. Настоящее
- * освещение приходит на шаге 3 вместе с toon-шейдером.
+ * Свет под toon-шейдер.
+ *
+ * Ступени рампы рисует направленный источник: именно его вклад
+ * MeshToonMaterial раскладывает на три уровня. Заполняющий свет держим
+ * заметно слабее — подними его, и всё уедет на верхнюю ступень, картинка
+ * станет плоской и ступеней вообще не будет видно.
  */
 export class Lighting {
   private readonly sun: THREE.DirectionalLight;
   private readonly sunOffset = new THREE.Vector3(18, 26, 12);
 
   constructor(scene: THREE.Scene) {
-    // Небо сверху, отражённый от земли снизу — дёшево и сразу читаемо
-    scene.add(new THREE.HemisphereLight(0xcdd6dd, 0x4a4a46, 1.5));
+    scene.add(new THREE.HemisphereLight(PALETTE.skyBounce, PALETTE.groundBounce, 0.9));
 
-    this.sun = new THREE.DirectionalLight(0xffffff, 1.9);
+    this.sun = new THREE.DirectionalLight(PALETTE.sunlight, 2.6);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.setScalar(SHADOW_MAP_SIZE);
 

@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { CHARACTER_SCALE, NEUTRAL_CHARACTER } from '../config/constants';
+import { CHARACTER_SCALE } from '../config/constants';
 import { PLAYER_MODEL_URL } from '../config/assets';
+import { PALETTE } from '../config/palette';
+import { applyStyle } from '../render/style';
 
 export interface Player {
   /** Двигают его; модель внутри отмасштабирована и трогать её не нужно. */
@@ -29,24 +31,17 @@ export async function loadPlayer(loader: GLTFLoader): Promise<Player> {
   const model = gltf.scene;
   model.scale.setScalar(CHARACTER_SCALE);
 
-  // Серый материал вместо паковой текстуры: в срезе оцениваем движение,
-  // а не картинку. Свои цвета ассет принесёт не раньше шага 3.
-  const material = new THREE.MeshStandardMaterial({
-    color: NEUTRAL_CHARACTER,
-    roughness: 0.85,
-    metalness: 0,
+  // Персонаж почти всегда в кадре, а его bounding sphere из-за скиннинга
+  // считается по рест-позе и врёт при анимации. Ставим до applyStyle,
+  // чтобы обводка унаследовала тот же флаг.
+  model.traverse((child) => {
+    if (child instanceof THREE.Mesh) child.frustumCulled = false;
   });
 
-  model.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.material = material;
-      child.castShadow = true;
-      child.receiveShadow = true;
-      // Персонаж почти всегда в кадре, а его bounding sphere из-за
-      // скиннинга считается по рест-позе и врёт при анимации
-      child.frustumCulled = false;
-    }
-  });
+  // Паковая текстура выбрасывается: цвет приходит только из палитры.
+  // Пока весь персонаж одного цвета — раскраска по частям появится
+  // на шаге 4 вместе со сборкой жителей из конфига.
+  applyStyle(model, { color: PALETTE.shirt, outline: true });
 
   const root = new THREE.Group();
   root.name = 'player';

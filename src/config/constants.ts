@@ -133,10 +133,19 @@ export const ANIM_FADE_FAST = 0.08;
 export const MAX_DELTA = 0.05;
 
 export const PIXEL_RATIO_CAP = 2;
-/** Серый фон и серые материалы: стилизация — задача шага 3. */
-export const NEUTRAL_BACKGROUND = 0x23262a;
-export const NEUTRAL_TERRAIN = 0x8a8f94;
-export const NEUTRAL_CHARACTER = 0xb4b9be;
+
+// --- стилизация -------------------------------------------------------------
+
+/** Ступеней освещения в toon-рампе: тень, полутон, свет. */
+export const TOON_STEPS = 3;
+/** Толщина обводки в метрах, в пространстве камеры. */
+export const OUTLINE_THICKNESS = 0.006;
+/** Во сколько раз обводка темнее самого объекта. */
+export const OUTLINE_DARKEN = 0.45;
+
+/** Туман: дальше FOG_FAR всё растворяется в цвете неба. */
+export const FOG_NEAR = 70;
+export const FOG_FAR = 260;
 
 export const SHADOW_MAP_SIZE = 2048;
 /** Полуразмер зоны, которую накрывает карта теней вокруг игрока. */

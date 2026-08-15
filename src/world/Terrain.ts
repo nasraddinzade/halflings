@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 
-import { NEUTRAL_TERRAIN, VALLEY_SEGMENTS, VALLEY_SIZE } from '../config/constants';
+import { VALLEY_SEGMENTS, VALLEY_SIZE } from '../config/constants';
+import { PALETTE } from '../config/palette';
+import { applyStyle } from '../render/style';
 import { heightAt } from './heightfield';
 
 /**
@@ -40,20 +42,23 @@ export class Terrain {
 
     this.bvh = new MeshBVH(geometry);
 
-    const material = new THREE.MeshStandardMaterial({
-      color: NEUTRAL_TERRAIN,
-      roughness: 1,
-      metalness: 0,
+    this.mesh = new THREE.Mesh(geometry);
+    this.mesh.name = 'terrain';
+    // Обводки у земли нет: inverted hull имеет смысл для предметов
+    // с силуэтом, а не для поверхности, на которой всё стоит
+    applyStyle(this.mesh, {
+      color: PALETTE.grass,
+      outline: false,
+      castShadow: false,
+      receiveShadow: true,
     });
-
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.receiveShadow = true;
     this.mesh.matrixAutoUpdate = false;
     this.mesh.updateMatrix();
   }
 
   dispose(): void {
+    // Материал не трогаем: он общий, живёт в кэше render/style.ts
+    // и может быть занят другими объектами сцены
     this.mesh.geometry.dispose();
-    (this.mesh.material as THREE.Material).dispose();
   }
 }

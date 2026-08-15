@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 
-import { NEUTRAL_BACKGROUND, PIXEL_RATIO_CAP, SHADOW_MAP_SIZE } from '../config/constants';
+import { PIXEL_RATIO_CAP, SHADOW_MAP_SIZE } from '../config/constants';
+import { PALETTE } from '../config/palette';
 
-/** WebGLRenderer плюс подписка на resize. Стилизации здесь нет — это шаг 3. */
+/** WebGLRenderer плюс подписка на resize. Цвета берутся из палитры. */
 export class Renderer {
   readonly webgl: THREE.WebGLRenderer;
   private onResize?: (width: number, height: number) => void;
 
   constructor(canvas: HTMLCanvasElement) {
     this.webgl = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.webgl.setClearColor(NEUTRAL_BACKGROUND);
+    this.webgl.setClearColor(PALETTE.sky);
     this.webgl.shadowMap.enabled = true;
     // PCFSoftShadowMap в three 0.185 объявлен устаревшим и всё равно
     // подменяется на PCFShadowMap — ставим его явно

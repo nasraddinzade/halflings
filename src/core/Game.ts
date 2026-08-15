@@ -1,7 +1,15 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
-import { DEBUG_PANEL, MAX_DELTA, NEUTRAL_BACKGROUND, SPAWN_X, SPAWN_Z } from '../config/constants';
+import {
+  DEBUG_PANEL,
+  FOG_FAR,
+  FOG_NEAR,
+  MAX_DELTA,
+  SPAWN_X,
+  SPAWN_Z,
+} from '../config/constants';
+import { PALETTE } from '../config/palette';
 import { DebugPanel } from '../debug/DebugPanel';
 import { AnimationLibrary } from '../character/AnimationLibrary';
 import { LocomotionState } from '../character/LocomotionState';
@@ -47,8 +55,9 @@ export class Game {
   private rafId = 0;
 
   constructor(canvas: HTMLCanvasElement, private readonly hint: HTMLElement) {
-    this.scene.background = new THREE.Color(NEUTRAL_BACKGROUND);
-    this.scene.fog = new THREE.Fog(NEUTRAL_BACKGROUND, 90, 220);
+    this.scene.background = new THREE.Color(PALETTE.sky);
+    // Туман цветом почти как небо: даль растворяется, а не сереет
+    this.scene.fog = new THREE.Fog(PALETTE.fog, FOG_NEAR, FOG_FAR);
 
     this.renderer = new Renderer(canvas);
     this.renderer.setResizeHandler((width, height) => this.cameraRig.setAspect(width, height));
@@ -80,6 +89,11 @@ export class Game {
 
     this.locomotion = new LocomotionState(player.mixer, library);
     this.controller = new PlayerController(this.ground, player.root, SPAWN_X, SPAWN_Z);
+
+    // Компилируем шейдеры до первого кадра: иначе на старте будет
+    // заметная пауза, а ошибки в шейдере обводки всплыли бы только
+    // тогда, когда объект впервые попадёт в кадр
+    await this.renderer.webgl.compileAsync(this.scene, this.cameraRig.camera);
   }
 
   start(): void {

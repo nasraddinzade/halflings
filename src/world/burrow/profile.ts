@@ -3,7 +3,8 @@ import {
   DOOR_FRAME_RADIUS,
   DOOR_FRAME_TUBE,
   FACE_CLEARANCE,
-  FACE_CUT_BLEND,
+  NICHE_BLEND,
+  NICHE_HALF_WIDTH,
   PAD_INNER,
   PAD_OUTER,
   type Burrow,
@@ -112,24 +113,30 @@ export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => 
 }
 
 /**
- * Вклад норы в высоту земли.
+ * Вклад норы в высоту земли: купол минус ниша под дверью.
  *
- * Позади плоскости среза — купол, перед ней его нет. Переход короткий,
- * но не мгновенный: на метровой сетке рельефа вертикальную стенку всё
- * равно не выразить, её рисует фасад, а рельефу довольно не торчать
- * из-под него.
+ * Ниша — узкий проём перед дверной плоскостью, а не срез всего купола.
+ * Срез давал одиннадцать метров вертикальной стенки, и сбоку холм
+ * выглядел щитом. Бока ниши на метровой сетке всё равно рваные, но их
+ * закрывает раструб, поэтому короткой растушёвки достаточно.
  */
 export function moundContribution(burrow: Burrow, face: BurrowFace, x: number, z: number): number {
   const mound = moundHeight(burrow, x, z);
   if (mound <= 0) return 0;
 
-  // Насколько точка впереди плоскости среза
-  const forward = (x - face.x) * Math.sin(face.yaw) + (z - face.z) * Math.cos(face.yaw);
-  if (forward <= -FACE_CUT_BLEND) return mound;
-  if (forward >= 0) return 0;
+  const dx = x - face.x;
+  const dz = z - face.z;
+  const forward = dx * Math.sin(face.yaw) + dz * Math.cos(face.yaw);
+  if (forward <= 0) return mound;
 
-  const t = -forward / FACE_CUT_BLEND;
-  return mound * t * t * (3 - 2 * t);
+  const lateral = Math.abs(dx * Math.cos(face.yaw) - dz * Math.sin(face.yaw));
+  const inside = 1 - smoothstep(NICHE_HALF_WIDTH, NICHE_HALF_WIDTH + NICHE_BLEND, lateral);
+  return mound * (1 - inside);
+}
+
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
 
 /**
@@ -142,40 +149,4 @@ export function padWeight(burrow: Burrow, x: number, z: number): number {
   if (distance >= PAD_OUTER) return 0;
   const t = (distance - PAD_INNER) / (PAD_OUTER - PAD_INNER);
   return 1 - t * t * (3 - 2 * t);
-}
-
-export interface SilhouettePoint {
-  /** Боковое смещение от двери. */
-  s: number;
-  /** Низ фасада, в системе площадки. */
-  bottom: number;
-  /** Верх фасада: купол над площадкой. */
-  top: number;
-}
-
-/**
- * Силуэт среза. По нему строится контур фасада, и он же гарантирует,
- * что фасад накрывает рельеф.
- *
- * Низ ровный, потому что земля под норой тоже выровнена (padWeight).
- * Пока она была волнистой, низ приходилось вести по ней, а фасад всё
- * равно расходился с рельефом перед собой — выравнивать оказалось
- * и проще, и надёжнее.
- */
-export function faceSilhouette(
-  burrow: Burrow,
-  face: BurrowFace,
-  steps: number,
-  sink: number,
-): SilhouettePoint[] {
-  const points: SilhouettePoint[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const s = -face.halfWidth + (i / steps) * face.halfWidth * 2;
-    points.push({
-      s,
-      bottom: -sink,
-      top: faceHeightAt(burrow, face.distance, s),
-    });
-  }
-  return points;
 }

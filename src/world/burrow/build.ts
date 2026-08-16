@@ -7,15 +7,15 @@ import {
   DOOR_FRAME_RADIUS,
   DOOR_FRAME_TUBE,
   DOOR_RADIUS,
-  FACE_EARTH_RADIUS,
+  COLLAR_DEPTH,
+  COLLAR_FLARE,
+  COLLAR_RADIUS,
   FACE_OFFSET,
-  FACE_SILHOUETTE_STEPS,
-  FACE_SINK,
   type Burrow,
 } from '../../config/burrows';
 import { PALETTE } from '../../config/palette';
 import { hashSeed, makeRandom } from '../../core/random';
-import { DOOR_TOP, faceOf, faceSilhouette, type BurrowFace } from './profile';
+import { DOOR_TOP, faceOf, type BurrowFace } from './profile';
 
 /**
  * Построитель нор. Из четырёх чисел на нору получает готовый фасад.
@@ -60,7 +60,9 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
       return geometry;
     };
 
-    faces.push(place(facePanel(burrow, face), FACE_OFFSET));
+    // Задник закрывает рваный край ниши, раструб — её бока и верх
+    faces.push(place(backing(), FACE_OFFSET));
+    faces.push(place(collar(), FACE_OFFSET));
 
     // Тёмная глубина за створкой
     const recess = new THREE.CircleGeometry(DOOR_FRAME_RADIUS, 20);
@@ -127,33 +129,32 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
 }
 
 /**
- * Фасад: контур по силуэту среза, дыра под проём.
+ * Задник проёма: плоский диск земли в дверной плоскости.
  *
- * ShapeGeometry триангулирует фигуру с отверстием сам, поэтому дыра
- * получается настоящей, а не нарисованной тёмным пятном.
+ * Он закрывает рваный край ниши, но сам по себе плоский, поэтому его
+ * видно только внутри раструба — снаружи раструб его загораживает.
+ * Именно поэтому нора больше не читается щитом: плоского в ней остаётся
+ * полтора метра в поперечнике, а не одиннадцать.
  */
-function facePanel(burrow: Burrow, face: BurrowFace): THREE.BufferGeometry {
-  const silhouette = faceSilhouette(burrow, face, FACE_SILHOUETTE_STEPS, FACE_SINK);
-  const first = silhouette[0];
-  if (first === undefined) throw new Error('[burrow] пустой силуэт среза');
+function backing(): THREE.BufferGeometry {
+  const geometry = new THREE.CircleGeometry(COLLAR_RADIUS, 24);
+  geometry.translate(0, DOOR_CENTER_HEIGHT, 0);
+  paintFace(geometry);
+  return geometry;
+}
 
-  // Обходим контур по верху слева направо и возвращаемся по низу:
-  // низ повторяет землю, поэтому это лента, а не прямоугольник
-  const shape = new THREE.Shape();
-  shape.moveTo(first.s, first.bottom);
-  for (const point of silhouette) shape.lineTo(point.s, point.top);
-  for (let i = silhouette.length - 1; i >= 0; i--) {
-    const point = silhouette[i];
-    if (point !== undefined) shape.lineTo(point.s, point.bottom);
-  }
-  shape.closePath();
-
-  // Дыра чуть шире наличника: иначе на стыке видна щель в холм
-  const hole = new THREE.Path();
-  hole.absarc(0, DOOR_CENTER_HEIGHT, DOOR_FRAME_RADIUS + 0.02, 0, Math.PI * 2, true);
-  shape.holes.push(hole);
-
-  const geometry = new THREE.ShapeGeometry(shape, 24);
+/**
+ * Раструб: усечённый конус, надетый на проём и чуть выступающий из
+ * склона. Он объёмный, и с любой стороны читается как проём в холме,
+ * а не как приставленная плоскость.
+ */
+function collar(): THREE.BufferGeometry {
+  const geometry = new THREE.CylinderGeometry(
+    COLLAR_RADIUS + COLLAR_FLARE, COLLAR_RADIUS, COLLAR_DEPTH, 24, 1, true,
+  );
+  // Ось конуса вдоль взгляда двери
+  geometry.rotateX(Math.PI / 2);
+  geometry.translate(0, DOOR_CENTER_HEIGHT, COLLAR_DEPTH * 0.5);
   paintFace(geometry);
   return geometry;
 }
@@ -170,8 +171,9 @@ function paintFace(geometry: THREE.BufferGeometry): void {
     const s = position.getX(i);
     const y = position.getY(i);
     const distance = Math.hypot(s, y - DOOR_CENTER_HEIGHT);
-    const t = Math.min(1, Math.max(0, (distance - DOOR_FRAME_RADIUS) / FACE_EARTH_RADIUS));
-    color.copy(earth).lerp(grass, t * t * (3 - 2 * t));
+    // К краю раструба земля переходит в дёрн, чтобы он врастал в холм
+    const t = Math.min(1, Math.max(0, (distance - DOOR_FRAME_RADIUS) / (COLLAR_RADIUS - DOOR_FRAME_RADIUS)));
+    color.copy(earth).lerp(grass, (t * t * (3 - 2 * t)) * 0.55);
     data[i * 3] = color.r;
     data[i * 3 + 1] = color.g;
     data[i * 3 + 2] = color.b;

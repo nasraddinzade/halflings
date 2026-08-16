@@ -1,9 +1,9 @@
 import { DEBUG_REFRESH, STAMINA_MAX } from '../config/constants';
 
-/** Всё, что панель показывает за кадр. Собирается в Game. */
+/** Everything the panel shows for a frame. Assembled in Game. */
 export interface DebugSnapshot {
   delta: number;
-  /** Где стоит игрок: без этого не понять, дошёл ли он куда собирался. */
+  /** Where the player stands: otherwise you cannot tell if he got there. */
   position: { x: number; y: number; z: number };
   drawCalls: number;
   triangles: number;
@@ -11,9 +11,9 @@ export interface DebugSnapshot {
   speed: number;
   stamina: number;
   grounded: boolean;
-  /** Сколько жителей сейчас в состоянии work. null — деревни нет. */
+  /** How many villagers are in the work state. null — there is no village. */
   working: number | null;
-  /** Сколько жителей прошло LOD-отсечение и попало в кадр. */
+  /** How many villagers passed LOD culling and made it into the frame. */
   visibleVillagers: number | null;
 }
 
@@ -28,20 +28,20 @@ const ROWS = [
 ] as const;
 
 /**
- * Оверлей с метриками. Живёт отдельным модулем и целиком выключается
- * константой DEBUG_PANEL — в Game он либо есть, либо его нет.
+ * Metrics overlay. Lives as a separate module and switches off entirely
+ * via the DEBUG_PANEL constant — in Game it either exists or it does not.
  *
- * Draw call — одна команда отрисовки, отправленная видеокарте. Их число
- * важнее числа треугольников: современная карта переварит сотни тысяч
- * полигонов, но захлебнётся на тысячах отдельных вызовов. Именно по
- * этому счётчику станет видно, когда шесть мешей на персонажа начнут
- * стоить дорого и придёт время склейки (решение №1).
+ * A draw call is one drawing command sent to the GPU. Their count matters
+ * more than the triangle count: a modern card will chew through hundreds
+ * of thousands of polygons but choke on thousands of separate calls. This
+ * is exactly the counter that will show when six meshes per character
+ * start costing real money and it is time to merge them (decision #1).
  */
 export class DebugPanel {
   private readonly element: HTMLElement;
   private readonly rows = new Map<string, Row>();
 
-  /** FPS усредняется за интервал: мгновенное значение скачет и нечитаемо. */
+  /** FPS is averaged over an interval: the instant value jumps around. */
   private elapsed = 0;
   private frames = 0;
   private fps = 0;
@@ -58,7 +58,7 @@ export class DebugPanel {
       color: '#e6ebf0',
       background: 'rgba(18, 20, 23, 0.72)',
       borderRadius: '4px',
-      // Панель не должна перехватывать клик, которым берут указатель
+      // The panel must not swallow the click that grabs the pointer
       pointerEvents: 'none',
       whiteSpace: 'pre',
       zIndex: '10',

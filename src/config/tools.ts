@@ -3,19 +3,20 @@ import * as THREE from 'three';
 import type { VillagerRole } from './villagers';
 
 /**
- * Инструменты в руках жителей.
+ * Tools in the villagers' hands.
  *
- * Размеры — в родных единицах Blender, как и сами персонажи: инструмент
- * вплавляется в их геометрию до CHARACTER_SCALE. Персонаж 2.18 юнита,
- * то есть юнит примерно полметра.
+ * Sizes are in native Blender units, same as the characters themselves:
+ * the tool is merged into their geometry before CHARACTER_SCALE. A
+ * character is 2.18 units, so a unit is about half a meter.
  *
- * Ориентация повторяет соглашение пака: у всех его пропсов (кинжал, топор,
- * посох, кружка) длинная ось — +Y, хват у нуля, рабочий конец сверху,
- * а узел единичный. Значит пропс рассчитан на то, чтобы сесть в кость
- * handslot как есть — и наш повторяет ту же раскладку.
+ * The orientation follows the pack's convention: on every one of its
+ * props (dagger, axe, staff, mug) the long axis is +Y, the grip sits at
+ * zero, the working end points up, and the node scale is identity. So a
+ * prop is meant to drop into the handslot bone as is — and ours repeats
+ * that same layout.
  */
 
-/** Зона атласа: чем красить кусок инструмента. */
+/** Atlas zone: what to paint a piece of the tool with. */
 export type ToolZone = 'wood' | 'metal' | 'dark';
 
 export interface ToolPart {
@@ -23,7 +24,7 @@ export interface ToolPart {
   zone: ToolZone;
 }
 
-/** Лопата: держак с накладкой, снизу штык. */
+/** Shovel: a shaft with a collar, blade at the bottom. */
 function shovel(): ToolPart[] {
   const handle = new THREE.CylinderGeometry(0.045, 0.045, 1.65, 6);
   handle.translate(0, 0.5, 0);
@@ -41,7 +42,7 @@ function shovel(): ToolPart[] {
   ];
 }
 
-/** Пила: короткая рукоять и широкое полотно. */
+/** Saw: a short grip and a wide blade. */
 function saw(): ToolPart[] {
   const grip = new THREE.BoxGeometry(0.13, 0.3, 0.1);
   grip.translate(0, -0.05, 0);
@@ -55,7 +56,7 @@ function saw(): ToolPart[] {
   ];
 }
 
-/** Удочка: сужающееся удилище. */
+/** Fishing rod: a tapering pole. */
 function rod(): ToolPart[] {
   const pole = new THREE.CylinderGeometry(0.012, 0.038, 2.2, 5);
   pole.translate(0, 0.78, 0);
@@ -69,7 +70,7 @@ function rod(): ToolPart[] {
   ];
 }
 
-/** Инструмент по роли. Бездельнику ничего не полагается. */
+/** Tool by role. The idler gets nothing. */
 export function toolForRole(role: VillagerRole): ToolPart[] {
   switch (role) {
     case 'gardener': return shovel();

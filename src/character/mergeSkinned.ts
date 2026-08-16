@@ -3,34 +3,34 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { clone as cloneSkeletonHierarchy } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 /**
- * Склейка частей персонажа в один SkinnedMesh (решение №1).
+ * Merging character parts into a single SkinnedMesh (decision #1).
  *
- * Без склейки каждый житель стоил бы шесть draw calls; на двадцати
- * жителях это сто двадцать вызовов вместо двадцати.
+ * Without merging every villager would cost six draw calls; across twenty
+ * villagers that is a hundred and twenty calls instead of twenty.
  *
- * Главная тонкость — перенумерация костей. Атрибут skinIndex хранит не
- * имена костей, а их номера в массиве skin.joints своего файла. Порядок
- * там у каждого файла свой (проверено в docs/ASSETS.md, раздел 3: имена
- * и рест-поза совпадают, а порядок — нет). Если склеить как есть, рука
- * от Мага будет слушаться костей ноги — модель вывернет наизнанку.
- * Поэтому индексы переводятся через имена в порядок целевого скелета.
+ * The main subtlety is renumbering the bones. The skinIndex attribute holds
+ * not bone names but their positions in its own file's skin.joints array.
+ * That order differs from file to file (verified in docs/ASSETS.md,
+ * section 3: names and rest pose match, the order does not). Merge as-is
+ * and the Mage's arm will obey leg bones — the model turns inside out. So
+ * indices are translated through names into the target skeleton's order.
  */
 
-/** Атрибуты, которые должны быть у всех кусков, иначе merge их не сложит. */
+/** Attributes every piece must have, or merge won't combine them. */
 const REQUIRED_ATTRIBUTES = ['position', 'normal', 'uv', 'skinIndex', 'skinWeight'] as const;
 
 export interface Armature {
-  /** Узел с иерархией костей, его надо добавить в сцену рядом с мешем. */
+  /** Node with the bone hierarchy; add it to the scene next to the mesh. */
   root: THREE.Object3D;
   skeleton: THREE.Skeleton;
   bindMatrix: THREE.Matrix4;
-  /** Имена костей в порядке скелета — цель для перенумерации. */
+  /** Bone names in skeleton order — the target for renumbering. */
   boneNames: readonly string[];
 }
 
 /**
- * Свежий скелет из шаблонного GLB. Каждому жителю нужен свой: они
- * анимируются независимо, общий скелет заставил бы всех двигаться синхронно.
+ * A fresh skeleton from the template GLB. Every villager needs its own:
+ * they animate independently, a shared skeleton would move them all in sync.
  */
 export function cloneArmature(template: THREE.Object3D): Armature {
   const copy = cloneSkeletonHierarchy(template);
@@ -52,21 +52,22 @@ export function cloneArmature(template: THREE.Object3D): Armature {
     boneNames: skinned.skeleton.bones.map((bone) => bone.name),
   };
 
-  // Меши шаблона выбрасываем — нужны только кости
+  // Throw the template's meshes away — only the bones are needed
   for (const mesh of meshes) mesh.removeFromParent();
 
   return armature;
 }
 
-/** Как переписать UV вершины. Возвращает новые (u, v). */
+/** How to rewrite a vertex's UV. Returns the new (u, v). */
 export type UvRemap = (u: number, v: number) => readonly [number, number];
 
 /**
- * Готовит геометрию одной части: копия, перенумерация костей и ремап UV.
+ * Prepares one part's geometry: a copy, bone renumbering and a UV remap.
  *
- * Новые UV запекаются прямо в вершины, а не ставятся через map.offset:
- * после склейки на весь меш один материал, и одним offset нельзя
- * покрасить голову иначе, чем ноги (решение №3).
+ * The new UVs are baked straight into the vertices instead of being set
+ * through map.offset: after merging the whole mesh has one material, and a
+ * single offset can't colour the head differently from the legs
+ * (decision #3).
  */
 export function preparePart(
   mesh: THREE.SkinnedMesh,
@@ -127,16 +128,17 @@ function applyUvRemap(geometry: THREE.BufferGeometry, remapUv: UvRemap): void {
 }
 
 /**
- * Готовит навесной предмет — инструмент в руке.
+ * Prepares an attached item — the tool in the hand.
  *
- * Предмет не отдельный объект в графе сцены, а часть той же скиннованной
- * геометрии: все его вершины привязаны к одной кости с весом 1. Кость
- * двигает анимация, предмет едет за ней, а draw call'ов не прибавляется
- * вовсе — в этом и смысл, ведь жителей тридцать.
+ * The item is not a separate object in the scene graph but part of the same
+ * skinned geometry: all its vertices are bound to a single bone with
+ * weight 1. The animation moves the bone, the item rides along, and no draw
+ * calls are added at all — that is the whole point, there are thirty
+ * villagers.
  *
- * Геометрия автора лежит в системе кости, поэтому её надо перенести
- * туда, где кость стояла в момент привязки. Эта матрица — обратная
- * к boneInverses соответствующей кости.
+ * The author's geometry sits in the bone's own space, so it has to be moved
+ * to where the bone stood at bind time. That matrix is the inverse of the
+ * corresponding bone's boneInverses entry.
  */
 export function prepareAttachment(
   geometry: THREE.BufferGeometry,
@@ -150,8 +152,8 @@ export function prepareAttachment(
 
   const count = geometry.getAttribute('position').count;
 
-  // Весь предмет смотрит в один тексель атласа: цвет ровный, как у
-  // остальной деревни, и развёртка примитивов нам не нужна
+  // The whole item points at one atlas texel: the colour is flat, like the
+  // rest of the village, and we need no UV unwrap for the primitives
   const uvs = new Float32Array(count * 2);
   for (let i = 0; i < count; i++) {
     uvs[i * 2] = uv[0];
@@ -159,8 +161,8 @@ export function prepareAttachment(
   }
   geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
 
-  // Типы атрибутов обязаны совпасть с паковыми, иначе mergeGeometries
-  // откажется складывать: там JOINTS_0 — Uint8, WEIGHTS_0 — float
+  // Attribute types must match the pack's, otherwise mergeGeometries
+  // refuses to combine: there JOINTS_0 is Uint8, WEIGHTS_0 is float
   const indices = new Uint8Array(count * 4);
   const weights = new Float32Array(count * 4);
   for (let i = 0; i < count; i++) {
@@ -174,7 +176,7 @@ export function prepareAttachment(
   return geometry;
 }
 
-/** Складывает подготовленные куски в одну геометрию. */
+/** Combines the prepared pieces into a single geometry. */
 export function mergeParts(geometries: readonly THREE.BufferGeometry[]): THREE.BufferGeometry {
   const merged = mergeGeometries([...geometries], false);
   if (merged === null) throw new Error('[merge] не удалось склеить геометрии');

@@ -7,23 +7,24 @@ import { PALETTE } from '../config/palette';
 import { applyStyle } from '../render/style';
 
 export interface Player {
-  /** Двигают его; модель внутри отмасштабирована и трогать её не нужно. */
+  /** This is what you move; the model inside is scaled — leave it alone. */
   readonly root: THREE.Group;
   readonly model: THREE.Object3D;
   readonly mixer: THREE.AnimationMixer;
 }
 
 /**
- * Загружает базовую модель игрока.
+ * Loads the base player model.
  *
- * Масштаб ставится в коде и только на корне модели: внутри GLB он остаётся
- * родным. Клипы лежат в том же родном масштабе, и если отмасштабировать
- * файл, смещения костей разойдутся со смещениями в треках — ноги начнут
- * проскальзывать, а персонаж проваливаться сквозь землю.
+ * The scale is set in code and only on the model root: inside the GLB it
+ * stays native. The clips are authored at that same native scale, and if
+ * the file were scaled, bone offsets would diverge from the offsets in the
+ * tracks — the feet would start sliding and the character would sink
+ * through the ground.
  *
- * Шесть мешей намеренно не склеиваются: склейка (решение №1) нужна для
- * NPC, которых будут десятки. Игрок один, и его шесть draw calls ничего
- * не решают — счётчик на шаге 2 это покажет.
+ * The six meshes are deliberately not merged: merging (decision #1) is for
+ * the NPCs, of which there will be dozens. There is one player, and his six
+ * draw calls decide nothing — the counter in step 2 will show that.
  */
 export async function loadPlayer(loader: GLTFLoader): Promise<Player> {
   const gltf = await loader.loadAsync(PLAYER_MODEL_URL);
@@ -31,16 +32,16 @@ export async function loadPlayer(loader: GLTFLoader): Promise<Player> {
   const model = gltf.scene;
   model.scale.setScalar(CHARACTER_SCALE);
 
-  // Персонаж почти всегда в кадре, а его bounding sphere из-за скиннинга
-  // считается по рест-позе и врёт при анимации. Ставим до applyStyle,
-  // чтобы обводка унаследовала тот же флаг.
+  // The character is almost always on screen, and because of skinning his
+  // bounding sphere is computed from the rest pose and lies once animated.
+  // Set this before applyStyle so the outline inherits the same flag.
   model.traverse((child) => {
     if (child instanceof THREE.Mesh) child.frustumCulled = false;
   });
 
-  // Паковая текстура выбрасывается: цвет приходит только из палитры.
-  // Пока весь персонаж одного цвета — раскраска по частям появится
-  // на шаге 4 вместе со сборкой жителей из конфига.
+  // The pack texture is thrown away: colour comes only from the palette.
+  // For now the whole character is one colour — per-part colouring arrives
+  // in step 4, together with assembling villagers from a config.
   applyStyle(model, {
     color: PALETTE.shirt,
     outline: true,

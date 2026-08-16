@@ -15,17 +15,18 @@ import { toonSurface } from '../render/style';
 import { groundHeight, riverCenterZ } from './heightfield';
 
 /**
- * Вода в русле: лента вдоль оси реки.
+ * Water in the channel: a ribbon along the river axis.
  *
- * Поверхность идёт не по горизонтали, а повторяет окрестную землю со
- * сдвигом вниз. Физически река так себя не ведёт, но дно долины ровное
- * с точностью до полутора метров на сто, и на глаз это читается как
- * вода, а не как наклонная плоскость. Зато не нужно ни выравнивать
- * рельеф под уровень, ни считать сток.
+ * The surface is not horizontal — it follows the surrounding ground with
+ * a downward offset. A real river does not behave that way, but the
+ * valley floor is flat to within a meter and a half per hundred, and to
+ * the eye it reads as water, not as a tilted plane. In exchange we have
+ * to neither flatten the terrain to a water level nor compute drainage.
  *
- * Русло прорезано в самом террейне (heightfield.ts), так что дно —
- * часть коллизий: в реку можно зайти, и BVH честно поставит на дно.
- * Глубина подобрана так, чтобы полурослику было по колено.
+ * The channel is cut into the terrain itself (heightfield.ts), so the bed
+ * is part of the collision: you can wade into the river, and the BVH
+ * honestly stands you on the bottom. The depth is picked so that it comes
+ * up to a halfling's knees.
  */
 export class River {
   readonly mesh: THREE.Mesh;
@@ -42,25 +43,25 @@ export class River {
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
-           // Две волны под углом друг к другу: одна даёт полосы,
-           // две — рябь без заметного повтора
+           // Two waves at an angle to each other: one alone gives
+           // stripes, two give ripples with no visible repeat
            transformed.y += ${RIVER_WAVE_HEIGHT.toFixed(4)} * (
              sin(position.x * 1.7 + uTime * ${RIVER_WAVE_SPEED.toFixed(3)}) +
              sin(position.z * 2.3 - uTime * ${(RIVER_WAVE_SPEED * 0.8).toFixed(3)})
            );`,
         );
     };
-    // three кэширует шейдерные программы по параметрам материала, а
-    // onBeforeCompile в ключ не входит: без своего ключа вода могла бы
-    // получить программу обычного тонового материала — или отдать свою
-    // ему, и рябью пошла бы вся сцена
+    // three caches shader programs by material parameters, and
+    // onBeforeCompile is not part of that key: without a key of its own
+    // the water could be handed the program of a plain toon material —
+    // or hand its own program to one, and the whole scene would ripple
     material.customProgramCacheKey = () => 'river-waves';
     material.needsUpdate = true;
 
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = 'river';
-    // Вода тень не отбрасывает, но принимает: иначе она светится
-    // там, где берег в тени
+    // Water casts no shadow but receives one: otherwise it glows
+    // wherever the bank is in shadow
     this.mesh.castShadow = false;
     this.mesh.receiveShadow = true;
     this.mesh.matrixAutoUpdate = false;
@@ -78,8 +79,8 @@ export class River {
 }
 
 /**
- * Лента по оси русла. Строится в мировых координатах, поэтому меш
- * стоит в начале координат с единичной матрицей.
+ * A ribbon along the channel axis. Built in world coordinates, so the
+ * mesh sits at the origin with an identity matrix.
  */
 function buildRibbon(): THREE.BufferGeometry {
   const limit = VALLEY_RADIUS * RIVER_FADE_END;
@@ -87,8 +88,8 @@ function buildRibbon(): THREE.BufferGeometry {
   const indices: number[] = [];
   const uvs: number[] = [];
 
-  // Чуть шире русла: кромка воды должна заходить под берег, иначе
-  // на стыке видна щель
+  // A bit wider than the channel: the water edge has to tuck under the
+  // bank, otherwise a gap shows at the seam
   const halfWidth = RIVER_WIDTH * 1.15;
 
   for (let i = 0; i <= RIVER_SEGMENTS_ALONG; i++) {
@@ -109,11 +110,12 @@ function buildRibbon(): THREE.BufferGeometry {
     for (let j = 0; j < RIVER_SEGMENTS_ACROSS; j++) {
       const a = i * stride + j;
       const b = a + stride;
-      // Порядок вершин задаёт сторону грани. Соседний индекс идёт
-      // поперёк русла (+Z), следующий ряд — вдоль (+X), и обход
-      // a -> a+1 -> b даёт нормаль вверх: ẑ × x̂ = +ŷ. При обратном
-      // порядке нормали смотрят вниз, и вода видна только снизу —
-      // сверху её грани отсекает FrontSide
+      // Vertex order decides which way a face points. The neighboring
+      // index runs across the channel (+Z), the next row runs along it
+      // (+X), and the winding a -> a+1 -> b gives an upward normal:
+      // ẑ × x̂ = +ŷ. With the reverse order the normals point down and
+      // the water is only visible from below — from above FrontSide
+      // culls its faces
       indices.push(a, a + 1, b, b, a + 1, b + 1);
     }
   }

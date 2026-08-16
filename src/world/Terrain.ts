@@ -8,12 +8,12 @@ import { applyStyle } from '../render/style';
 import { heightAt } from './heightfield';
 
 /**
- * Меш долины плюс BVH к нему.
+ * The valley mesh plus the BVH built over it.
  *
- * BVH (bounding volume hierarchy) — дерево вложенных коробок над
- * треугольниками. Без него луч проверялся бы против всех 131 тыс.
- * треугольников; с ним — против десятка коробок и горстки треугольников.
- * Строится один раз при старте.
+ * A BVH (bounding volume hierarchy) is a tree of nested boxes over the
+ * triangles. Without it a ray would be tested against all 131k
+ * triangles; with it, against a dozen boxes and a handful of triangles.
+ * Built once at startup.
  */
 export class Terrain {
   readonly mesh: THREE.Mesh;
@@ -27,9 +27,9 @@ export class Terrain {
       VALLEY_SEGMENTS,
     );
 
-    // Поворот печём в саму геометрию, а не в объект. Тогда локальные
-    // координаты меша совпадают с мировыми, и лучи можно слать в BVH
-    // без перевода систем координат.
+    // The rotation is baked into the geometry itself, not into the
+    // object. That way the mesh's local coordinates match world ones and
+    // rays can go into the BVH with no change of basis.
     geometry.rotateX(-Math.PI / 2);
 
     const position = geometry.attributes.position as THREE.BufferAttribute;
@@ -38,8 +38,8 @@ export class Terrain {
     }
     position.needsUpdate = true;
     geometry.computeVertexNormals();
-    // Цвет по вершинам: тропы, откосы, берега. Считается после смещения
-    // высот, потому что смотрит на уже готовый рельеф
+    // Per-vertex color: paths, slopes, banks. Computed after the heights
+    // are displaced, because it looks at the finished terrain
     paintGround(geometry);
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
@@ -48,8 +48,8 @@ export class Terrain {
 
     this.mesh = new THREE.Mesh(geometry);
     this.mesh.name = 'terrain';
-    // Обводки у земли нет: inverted hull имеет смысл для предметов
-    // с силуэтом, а не для поверхности, на которой всё стоит
+    // The ground gets no outline: an inverted hull makes sense for
+    // objects with a silhouette, not for the surface everything stands on
     applyStyle(this.mesh, {
       color: PALETTE.grass,
       vertexColors: true,
@@ -62,8 +62,8 @@ export class Terrain {
   }
 
   dispose(): void {
-    // Материал не трогаем: он общий, живёт в кэше render/style.ts
-    // и может быть занят другими объектами сцены
+    // Leave the material alone: it is shared, lives in the render/style.ts
+    // cache, and may still be in use by other objects in the scene
     this.mesh.geometry.dispose();
   }
 }

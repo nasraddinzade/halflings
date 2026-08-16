@@ -1,8 +1,8 @@
-// Каталог частей и правила сборки жителей (решение №2).
+// Catalog of parts and the rules for assembling villagers (decision #2).
 //
-// Все персонажи пака сидят на одном Rig_Medium с одинаковой рест-позой,
-// поэтому части взаимозаменяемы: голова барбарианца встаёт на тело мага
-// без ретаргета. Проверено в docs/ASSETS.md, раздел 3.
+// Every character in the pack sits on the same Rig_Medium with the same
+// rest pose, so parts are interchangeable: a barbarian head fits onto a
+// mage body with no retargeting. Verified in docs/ASSETS.md, section 3.
 
 export type VillagerRole = 'gardener' | 'miller' | 'fisher' | 'idler';
 
@@ -12,16 +12,16 @@ export interface VillagerConfig {
   body: string;
   arms: string;
   legs: string;
-  /** Индексы колонок атласа 8×4: смещение UV для каждой группы частей. */
+  /** Column indices in the 8×4 atlas: UV offset for each group of parts. */
   palette: { head: number; body: number; legs: number };
   role: VillagerRole;
 }
 
-/** Из какого файла берётся часть и как называются её меши. */
+/** Which file a part is taken from and what its meshes are called. */
 export interface PartSource {
-  /** Ключ файла в каталоге моделей. */
+  /** Key of the file in the model catalog. */
   file: PartFile;
-  /** Один меш для головы и тела, два — для рук и ног. */
+  /** One mesh for head and body, two for arms and legs. */
   meshes: readonly string[];
 }
 
@@ -41,9 +41,9 @@ export const HEADS: Readonly<Record<string, PartSource>> = {
 };
 
 /**
- * Ranger_Body сюда не входит намеренно: 3461 треугольник, вдвое дороже
- * любого другого тела. Для жителя, которых в долине будут десятки,
- * это не оправдано (docs/ASSETS.md, раздел 1).
+ * Ranger_Body is left out on purpose: 3461 triangles, twice as expensive
+ * as any other body. For a villager, and there will be dozens of them in
+ * the valley, that is not justified (docs/ASSETS.md, section 1).
  */
 export const BODIES: Readonly<Record<string, PartSource>> = {
   rogue: { file: 'Rogue', meshes: ['Rogue_Body'] },
@@ -70,7 +70,7 @@ export const LEGS: Readonly<Record<string, PartSource>> = {
 
 export const ROLES: readonly VillagerRole[] = ['gardener', 'miller', 'fisher', 'idler'];
 
-/** Имена жителей — они же seed'ы: один и тот же житель выглядит одинаково. */
+/** Villager names double as seeds: the same villager always looks alike. */
 export const VILLAGER_NAMES: readonly string[] = [
   'Одо', 'Мирта', 'Бран', 'Лилла', 'Тобо', 'Гретта', 'Нед', 'Пиппа',
   'Хэл', 'Дора', 'Сэм', 'Роза', 'Марло', 'Тилли', 'Бэрри', 'Мод',

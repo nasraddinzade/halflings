@@ -1,18 +1,18 @@
-// Сжимает файлы анимаций через EXT_meshopt_compression.
+// Compresses the animation files with EXT_meshopt_compression.
 //
-// Почему только анимации. gltf-transform вместе со сжатием квантует
-// геометрию, а для скиннованных мешей запекает дескватизацию в
-// inverseBindMatrices — и даже расщепляет один скин на несколько, по
-// одному на меш. Наши жители склеиваются из частей разных файлов на
-// один общий скелет (character/mergeSkinned.ts), так что после такой
-// обработки части приехали бы с разным масштабом.
+// Why animations only. Along with compressing, gltf-transform quantizes
+// geometry, and for skinned meshes it bakes the dequantization into
+// inverseBindMatrices — it even splits a single skin into several, one
+// per mesh. Our villagers are merged out of parts from different files
+// onto one shared skeleton (character/mergeSkinned.ts), so after that
+// treatment the parts would arrive at different scales.
 //
-// В файлах анимаций мешей и скинов нет вообще: strip-anim-meshes.mjs их
-// вырезал, остались кости и дорожки. Квантовать там нечего, кроме самих
-// дорожек, а их GLTFLoader читает как обычно.
+// The animation files have no meshes and no skins at all: strip-anim-meshes.mjs
+// cut them out, leaving bones and tracks. There is nothing to quantize there
+// besides the tracks themselves, and GLTFLoader reads those as usual.
 //
-// Запуск: node tools/compress-animations.mjs
-// Повторный запуск безопасен: уже сжатые файлы пропускаются.
+// Run: node tools/compress-animations.mjs
+// Re-running is safe: already compressed files are skipped.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -38,7 +38,7 @@ function readGlbJson(file) {
   throw new Error(`нет JSON-чанка: ${file}`);
 }
 
-/** То, что обязано пережить сжатие без изменений. */
+/** The things that must survive compression unchanged. */
 function fingerprint(json) {
   const clips = (json.animations ?? []).map((animation) => {
     let duration = 0;
@@ -76,9 +76,9 @@ for (const name of files) {
   const sourceSize = fs.statSync(file).size;
   const expected = fingerprint(sourceJson);
 
-  // CLI пишет в отдельный файл: на месте он работать отказывается.
-  // Имя обязано кончаться на .glb — иначе он решит, что от него хотят
-  // glTF, и разложит результат на JSON и .bin рядом
+  // The CLI writes to a separate file: it refuses to work in place.
+  // The name has to end in .glb — otherwise it decides glTF is what we
+  // want and lays the result out as a JSON and a .bin next to it
   const temporary = path.join(DIR, `${TEMP_PREFIX}${name}`);
   execFileSync('npx', ['gltf-transform', 'meshopt', file, temporary], {
     cwd: ROOT,

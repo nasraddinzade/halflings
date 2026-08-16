@@ -1,10 +1,10 @@
-// Клавиатура и мышь -> намерение игрока. Ни один другой модуль
-// не подписывается на события ввода напрямую.
+// Keyboard and mouse -> player intent. No other module subscribes to
+// input events directly.
 
 export interface MoveIntent {
-  /** Влево-вправо относительно камеры, -1..1. */
+  /** Left-right relative to the camera, -1..1. */
   x: number;
-  /** Вперёд-назад относительно камеры, -1..1. */
+  /** Forward-back relative to the camera, -1..1. */
   z: number;
 }
 
@@ -18,11 +18,11 @@ export class Input {
   private readonly pressed = new Set<string>();
   private readonly intent: MoveIntent = { x: 0, z: 0 };
 
-  /** Накопленное за кадр смещение мыши, обнуляется в endFrame(). */
+  /** Mouse movement accumulated over the frame, cleared in endFrame(). */
   private mouseDeltaX = 0;
   private mouseDeltaY = 0;
 
-  /** Нажатие пробела живёт до тех пор, пока контроллер его не заберёт. */
+  /** A space press lives until the controller picks it up. */
   private jumpQueued = false;
 
   private locked = false;
@@ -47,14 +47,14 @@ export class Input {
     return this.locked;
   }
 
-  /** Направление движения в осях камеры. Длина не больше единицы. */
+  /** Movement direction in camera axes. Length never exceeds one. */
   getMoveIntent(): Readonly<MoveIntent> {
     const forward = Number(this.pressed.has('KeyW') || this.pressed.has('ArrowUp'))
       - Number(this.pressed.has('KeyS') || this.pressed.has('ArrowDown'));
     const right = Number(this.pressed.has('KeyD') || this.pressed.has('ArrowRight'))
       - Number(this.pressed.has('KeyA') || this.pressed.has('ArrowLeft'));
 
-    // По диагонали иначе получилось бы в 1.41 раза быстрее
+    // Otherwise moving diagonally would be 1.41 times faster
     const length = Math.hypot(right, forward);
     if (length > 1) {
       this.intent.x = right / length;
@@ -66,7 +66,7 @@ export class Input {
     return this.intent;
   }
 
-  /** Забирает нажатие прыжка. Второй вызов в том же кадре вернёт false. */
+  /** Takes the jump press. A second call in the same frame returns false. */
   consumeJump(): boolean {
     if (!this.jumpQueued) return false;
     this.jumpQueued = false;
@@ -77,7 +77,7 @@ export class Input {
     return { x: this.mouseDeltaX, y: this.mouseDeltaY };
   }
 
-  /** Вызывается в конце кадра: смещение мыши накапливается покадрово. */
+  /** Called at the end of a frame: mouse movement accumulates per frame. */
   endFrame(): void {
     this.mouseDeltaX = 0;
     this.mouseDeltaY = 0;
@@ -103,7 +103,7 @@ export class Input {
     this.pressed.delete(event.code);
   };
 
-  /** Уход со вкладки не должен оставлять клавишу «залипшей». */
+  /** Leaving the tab must not leave a key "stuck" down. */
   private readonly handleBlur = (): void => {
     this.pressed.clear();
     this.jumpQueued = false;
@@ -111,9 +111,9 @@ export class Input {
 
   private readonly requestLock = (): void => {
     if (this.locked) return;
-    // Захват отклоняется штатно: кулдаун браузера после Esc, потеря фокуса,
-    // встроенный фрейм. Без обработки это каждый раз падало бы в консоль
-    // необработанным промисом.
+    // The lock gets rejected as a matter of course: the browser cooldown
+    // after Esc, lost focus, an embedded frame. Unhandled, that would land
+    // in the console as an unhandled promise rejection every time.
     const result: unknown = this.canvas.requestPointerLock();
     if (result instanceof Promise) {
       result.catch((error: unknown) => {

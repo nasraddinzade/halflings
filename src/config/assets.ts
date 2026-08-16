@@ -1,6 +1,6 @@
-// Единственное место, где проект знает пути к файлам.
-// `?url` заставляет Vite проверить существование файла на сборке —
-// опечатка становится ошибкой компиляции, а не 404 в рантайме.
+// The only place where the project knows file paths.
+// `?url` makes Vite check that the file exists at build time — a typo
+// becomes a compile error instead of a 404 at runtime.
 
 import playerModelUrl from '../../assets/characters/halfling_base.glb?url';
 import generalClipsUrl from '../../assets/animations/general.glb?url';
@@ -17,7 +17,7 @@ import type { PartFile } from './villagers';
 
 export const PLAYER_MODEL_URL = playerModelUrl;
 
-/** Файлы пака — источник частей для сборки жителей. */
+/** Pack files — the source of parts for assembling villagers. */
 export const PART_URLS: Readonly<Record<PartFile, string>> = {
   Barbarian: barbarianUrl,
   Knight: knightUrl,
@@ -27,15 +27,15 @@ export const PART_URLS: Readonly<Record<PartFile, string>> = {
   Rogue_Hooded: rogueHoodedUrl,
 };
 
-/** Файлы клипов, нужные вертикальному срезу. Остальные подключим позже. */
+/** Clip files the vertical slice needs. The rest get wired up later. */
 export const ANIMATION_URLS: readonly string[] = [
   generalClipsUrl,
   movementClipsUrl,
-  // Занятия жителей: Digging, Sawing, Fishing_* (шаг 5)
+  // Villager occupations: Digging, Sawing, Fishing_* (step 5)
   toolsClipsUrl,
 ];
 
-/** Имена клипов — ровно как в docs/ASSETS.md. */
+/** Clip names — exactly as in docs/ASSETS.md. */
 export const CLIP = {
   idle: 'Idle_A',
   walk: 'Walking_A',
@@ -47,5 +47,5 @@ export const CLIP = {
 
 export type ClipKey = keyof typeof CLIP;
 
-/** Поза из одного кадра, есть в каждом файле пака. В реестр не берём. */
+/** Single-frame pose, present in every pack file. Kept out of the registry. */
 export const IGNORED_CLIPS: readonly string[] = ['T-Pose'];

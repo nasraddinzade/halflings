@@ -3,34 +3,36 @@ import * as THREE from 'three';
 import { OUTLINE_DARKEN, OUTLINE_THICKNESS } from '../config/constants';
 
 /**
- * Обводка методом inverted hull (решение №5).
+ * Inverted hull outline (decision #5).
  *
- * Идея: рядом с мешем ставится его копия, раздутая по нормалям и
- * отрисованная только задними гранями. Передние грани копии отброшены,
- * так что видно только то, что торчит за силуэтом оригинала, — это и
- * читается как контур. Постобработки не нужно, работает на любом железе
- * и стоит один лишний draw call на объект.
+ * The idea: a copy of the mesh is placed beside it, inflated along the
+ * normals and drawn with back faces only. The copy's front faces are
+ * culled, so all that shows is what sticks out past the original's
+ * silhouette — and that reads as an outline. No post-processing needed,
+ * it works on any hardware and costs one extra draw call per object.
  *
- * Тонкости, из-за которых наивная реализация ломается:
+ * The subtleties that break a naive implementation:
  *
- * 1. Раздуваем в пространстве камеры, а не в локальном. Модель игрока
- *    отмасштабирована в 0.5, и в локальных координатах контур получился
- *    бы вдвое тоньше, чем у объектов в натуральную величину.
- * 2. Нормаль считаем сами, а не через чанк `defaultnormal_vertex`: при
- *    `side: BackSide` three определяет FLIP_SIDED и разворачивает её,
- *    отчего копия раздувалась бы внутрь и контур пропадал.
- * 3. Раздуваем по сглаженной нормали, а не по той, которой шейдер красит.
- *    У голов KayKit 23–45% вершин сидят на швах жёстких рёбер: в одной
- *    точке несколько вершин с разными нормалями, углы между ними до 148°.
- *    По таким нормалям оболочка расходится, и в щели видно её же тёмные
- *    задние грани — как грязные пятна вокруг глаз и рта. Усреднение
- *    нормалей по совпадающим позициям делает оболочку сплошной.
- * 4. Для скиннованных мешей копия делит скелет с оригиналом — иначе
- *    контур не поспевал бы за анимацией.
- * 5. Если у объекта текстура, контур сэмплит её же и затемняет — тогда
- *    он и правда «затемнённый цвет самого объекта», а не общий тёмный
- *    тон. Текстуру приходится декодировать вручную: в своём шейдере
- *    three не делает этого за нас, и без sRGBTransferEOTF цвет уехал бы.
+ * 1. Inflate in view space, not in local space. The player model is
+ *    scaled to 0.5, and in local coordinates its outline would come out
+ *    twice as thin as on objects at natural size.
+ * 2. Compute the normal ourselves rather than via the
+ *    `defaultnormal_vertex` chunk: with `side: BackSide` three sets
+ *    FLIP_SIDED and flips it, so the copy would inflate inwards and the
+ *    outline would disappear.
+ * 3. Inflate along a smoothed normal, not the one the shader shades with.
+ *    On KayKit heads 23–45% of the vertices sit on hard-edge seams: several
+ *    vertices at one point with different normals, up to 148° apart. Along
+ *    such normals the hull splits open, and through the gaps you see its
+ *    own dark back faces — like dirty smudges around the eyes and mouth.
+ *    Averaging the normals over coincident positions makes the hull solid.
+ * 4. For skinned meshes the copy shares the skeleton with the original —
+ *    otherwise the outline would not keep up with the animation.
+ * 5. If the object has a texture, the outline samples that same texture
+ *    and darkens it — then it really is "a darkened version of the
+ *    object's own colour" and not one shared dark tone. The texture has
+ *    to be decoded by hand: three does not do it for us in a custom
+ *    shader, and without sRGBTransferEOTF the colour would be off.
  */
 
 const vertexShader = /* glsl */ `
@@ -40,7 +42,7 @@ const vertexShader = /* glsl */ `
 
 uniform float thickness;
 
-/** Нормаль, усреднённая по совпадающим позициям: без разрывов на швах. */
+/** Normal averaged over coincident positions: no splits at the seams. */
 attribute vec3 smoothNormal;
 
 #ifdef OUTLINE_USE_MAP
@@ -50,7 +52,7 @@ varying vec2 vOutlineUv;
 void main() {
   #include <beginnormal_vertex>
 
-  // Подменяем нормаль до скиннинга, чтобы её так же повернули кости
+  // Swap the normal in before skinning so the bones rotate it as well
   objectNormal = smoothNormal;
 
   #include <skinbase_vertex>
@@ -58,7 +60,7 @@ void main() {
   #include <begin_vertex>
   #include <skinning_vertex>
 
-  // Своя нормаль в пространстве камеры, без FLIP_SIDED
+  // Our own normal in view space, without FLIP_SIDED
   vec3 outlineNormal = normalize( normalMatrix * objectNormal );
 
   vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
@@ -76,9 +78,9 @@ void main() {
 
 const fragmentShader = /* glsl */ `
 #include <common>
-// colorspace_pars_fragment не подключаем: three добавляет его в префикс
-// любого фрагментного шейдера сам, и явный include продублировал бы
-// тела функций — шейдер не соберётся
+// colorspace_pars_fragment is not included: three prepends it to every
+// fragment shader on its own, and an explicit include would duplicate the
+// function bodies — the shader would fail to compile
 #include <fog_pars_fragment>
 
 uniform vec3 outlineColor;
@@ -91,7 +93,7 @@ varying vec2 vOutlineUv;
 
 void main() {
   #ifdef OUTLINE_USE_MAP
-  // Текстура лежит в sRGB, а считать надо в линейном пространстве
+  // The texture is in sRGB, but the maths must be done in linear space
   vec3 base = sRGBTransferEOTF( texture2D( outlineMap, vOutlineUv ) ).rgb;
   #else
   vec3 base = outlineColor;
@@ -105,7 +107,7 @@ void main() {
 }
 `;
 
-/** Материалы кэшируются: одна программа на цвет или на текстуру. */
+/** Materials are cached: one program per colour or per texture. */
 const materials = new Map<string, THREE.ShaderMaterial>();
 
 function outlineMaterial(
@@ -120,8 +122,8 @@ function outlineMaterial(
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
-    // clone, а не merge: merge портит объекты Color, а туман приносит
-    // свои uniform'ы, без которых чанки fog_* не соберутся
+    // clone, not merge: merge mangles Color objects, and fog brings its
+    // own uniforms, without which the fog_* chunks will not compile
     uniforms: {
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       thickness: { value: thickness },
@@ -139,9 +141,9 @@ function outlineMaterial(
 }
 
 /**
- * Досчитывает атрибут smoothNormal: нормали, усреднённые по вершинам,
- * стоящим в одной точке. Атрибут кладётся в общую с оригиналом геометрию —
- * тоновый материал его просто не читает.
+ * Computes the smoothNormal attribute: normals averaged over vertices that
+ * sit at the same point. The attribute goes into the geometry shared with
+ * the original — the toon material simply never reads it.
  */
 function ensureSmoothNormals(geometry: THREE.BufferGeometry): void {
   if (geometry.getAttribute('smoothNormal') !== undefined) return;
@@ -149,8 +151,9 @@ function ensureSmoothNormals(geometry: THREE.BufferGeometry): void {
   const position = geometry.getAttribute('position');
   const normal = geometry.getAttribute('normal');
 
-  // Округление до 1e-5: экспортёр пишет float32, точных совпадений ждать
-  // нельзя, а на таком допуске соседние вершины ещё не слипаются
+  // Rounded to 1e-5: the exporter writes float32, so exact matches cannot
+  // be expected, and at this tolerance neighbouring vertices do not yet
+  // stick together
   const keyOf = (i: number): string =>
     `${Math.round(position.getX(i) * 1e5)},${Math.round(position.getY(i) * 1e5)},${Math.round(position.getZ(i) * 1e5)}`;
 
@@ -175,7 +178,7 @@ function ensureSmoothNormals(geometry: THREE.BufferGeometry): void {
     const key = keys[i];
     const sum = key === undefined ? undefined : sums.get(key);
     if (sum === undefined) continue;
-    // Нулевая сумма возможна на встречных нормалях — тогда оставляем свою
+    // A zero sum is possible with opposing normals — keep our own then
     const length = sum.length();
     if (length < 1e-6) {
       data[i * 3] = normal.getX(i);
@@ -192,16 +195,16 @@ function ensureSmoothNormals(geometry: THREE.BufferGeometry): void {
 }
 
 export interface OutlineOptions {
-  /** Плоский цвет обводки. Игнорируется, если передана текстура. */
+  /** Flat outline colour. Ignored when a texture is passed. */
   color: number;
-  /** Текстура объекта: контур возьмёт её и затемнит. */
+  /** The object's texture: the outline takes it and darkens it. */
   map?: THREE.Texture | undefined;
   thickness?: number;
 }
 
 /**
- * Строит меш-обводку для одного меша. Возвращает null, если геометрия
- * не годится (нет нормалей — раздувать не по чему).
+ * Builds the outline mesh for a single mesh. Returns null if the geometry
+ * is unusable (no normals — nothing to inflate along).
  */
 export function createOutline(source: THREE.Mesh, options: OutlineOptions): THREE.Mesh | null {
   if (source.geometry.getAttribute('normal') === undefined) return null;
@@ -210,9 +213,9 @@ export function createOutline(source: THREE.Mesh, options: OutlineOptions): THRE
   const { color, map = null, thickness = OUTLINE_THICKNESS } = options;
   const material = outlineMaterial(color, thickness, map);
 
-  // Копия встаёт рядом с оригиналом в том же родителе, поэтому обязана
-  // повторить его локальный трансформ: у KayKit он единичный, но
-  // полагаться на это нельзя — у пропсов будет иначе
+  // The copy sits beside the original under the same parent, so it has to
+  // repeat the original's local transform: on KayKit it is identity, but
+  // we cannot rely on that — props will be different
   const copyTransform = (target: THREE.Object3D): void => {
     target.position.copy(source.position);
     target.quaternion.copy(source.quaternion);
@@ -222,7 +225,7 @@ export function createOutline(source: THREE.Mesh, options: OutlineOptions): THRE
   const finish = (outline: THREE.Mesh): THREE.Mesh => {
     copyTransform(outline);
     outline.frustumCulled = source.frustumCulled;
-    // Контур не отбрасывает тень: он же не объект, а его силуэт
+    // The outline casts no shadow: it is not the object, just its silhouette
     outline.castShadow = false;
     outline.receiveShadow = false;
     outline.renderOrder = source.renderOrder - 1;
@@ -233,7 +236,7 @@ export function createOutline(source: THREE.Mesh, options: OutlineOptions): THRE
   if (source instanceof THREE.SkinnedMesh) {
     const outline = new THREE.SkinnedMesh(source.geometry, material);
     finish(outline);
-    // Общий скелет: собственного скиннинга у копии нет, она повторяет позу
+    // Shared skeleton: the copy has no skinning of its own, it repeats the pose
     outline.bind(source.skeleton, source.bindMatrix);
     outline.bindMode = source.bindMode;
     return outline;

@@ -10,19 +10,21 @@ import type { Circle } from './Obstacles';
 import { heightAt } from './heightfield';
 
 /**
- * Реквизит рабочих мест: грядки, козлы с брёвнами, камыш у воды, скамьи.
+ * Work-site props: garden beds, sawhorses with logs, reeds at the water,
+ * benches.
  *
- * До него занятия происходили в пустоте — садовник копал ровную траву,
- * пильщик пилил воздух. Точки работы задаются данными (config/work.ts),
- * и реквизит строится по тем же данным, так что двигать огород
- * по-прежнему нужно ровно в одном месте.
+ * Before them the occupations happened in a void — the gardener dug flat
+ * grass, the sawyer sawed air. Work points are defined by data
+ * (config/work.ts), and the props are built from that same data, so
+ * moving the vegetable patch is still a change in exactly one place.
  *
- * Всё склеивается по цветам в несколько мешей, как двери нор: пятнадцать
- * мест по четыре предмета стоили бы под сотню вызовов отрисовки.
+ * Everything is merged by colour into a handful of meshes, like the
+ * burrow doors: fifteen sites with four items each would cost close to a
+ * hundred draw calls.
  */
 export class WorkSites {
   readonly group = new THREE.Group();
-  /** Круги реквизита: сквозь козлы и грядку ходить не следует. */
+  /** Prop circles: you shouldn't walk through a sawhorse or a bed. */
   readonly blockers: Circle[] = [];
 
   constructor() {
@@ -39,7 +41,7 @@ export class WorkSites {
       const spot = propPosition(point);
       const yaw = workFacing(point);
       const base = heightAt(spot.x, spot.z);
-      // Небольшой разброс поворота, чтобы ряд грядок не выглядел чертежом
+      // A little rotation spread so a row of beds isn't a blueprint
       const random = makeRandom(hashSeed(point.id));
       const tilt = yaw + (random() - 0.5) * 0.5;
 
@@ -61,8 +63,8 @@ export class WorkSites {
       merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged);
       mesh.name = `worksite_parts_${color.toString(16)}`;
-      // Сначала в граф, потом стилизация: обводку applyStyle вешает
-      // рядом с мешем, значит родитель нужен уже сейчас
+      // Into the graph first, styling second: applyStyle hangs the
+      // outline next to the mesh, so the parent has to exist by then
       this.group.add(mesh);
       applyStyle(mesh, { color, outline: true });
     }
@@ -93,7 +95,7 @@ function propsFor(role: VillagerRole, random: () => number): Part[] {
   }
 }
 
-/** Грядка: земляной короб и ростки рядами. */
+/** Garden bed: a box of soil and sprouts in rows. */
 function gardenBed(random: () => number): Part[] {
   const parts: Part[] = [];
 
@@ -111,7 +113,7 @@ function gardenBed(random: () => number): Part[] {
   return parts;
 }
 
-/** Козлы с бревном: то, что пилят. */
+/** Sawhorse with a log: the thing being sawed. */
 function sawBench(): Part[] {
   const parts: Part[] = [];
 
@@ -135,7 +137,7 @@ function sawBench(): Part[] {
   return parts;
 }
 
-/** Камыш у воды и ящик под улов. */
+/** Reeds at the water and a crate for the catch. */
 function reeds(random: () => number): Part[] {
   const parts: Part[] = [];
 
@@ -152,7 +154,7 @@ function reeds(random: () => number): Part[] {
   return parts;
 }
 
-/** Скамья на площади: бездельнику надо где-то бездельничать. */
+/** Bench on the square: an idler needs somewhere to idle. */
 function bench(): Part[] {
   const parts: Part[] = [];
 

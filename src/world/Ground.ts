@@ -4,23 +4,23 @@ import type { MeshBVH } from 'three-mesh-bvh';
 import { TERRAIN_PROBE_HEIGHT } from '../config/constants';
 
 export interface GroundSample {
-  /** Высота земли в запрошенной точке. */
+  /** Ground height at the requested point. */
   height: number;
-  /** Нормаль поверхности, мировая. */
+  /** Surface normal, in world space. */
   normal: THREE.Vector3;
-  /** Угол между нормалью и вертикалью, радианы. */
+  /** Angle between the normal and vertical, in radians. */
   slope: number;
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
 
 /**
- * Запросы к рельефу: высота под точкой и препятствия на пути луча.
+ * Terrain queries: the height under a point and whatever a ray hits.
  *
- * Высоту можно было бы взять из heightAt() напрямую и дешевле, но меш —
- * это кусочно-линейная аппроксимация той функции, и на сетке в метр они
- * расходятся на сантиметры. Персонаж должен стоять на том, что нарисовано,
- * поэтому спрашиваем именно геометрию.
+ * The height could be read from heightAt() directly, and more cheaply,
+ * but the mesh is a piecewise-linear approximation of that function, and
+ * on a one-meter grid the two drift apart by centimeters. The character
+ * has to stand on what is actually drawn, so we ask the geometry itself.
  */
 export class Ground {
   private readonly ray = new THREE.Ray();
@@ -34,9 +34,9 @@ export class Ground {
   constructor(private readonly bvh: MeshBVH) {}
 
   /**
-   * Земля под точкой (x, z). Возвращает переиспользуемый объект —
-   * копируйте, если нужно сохранить между кадрами.
-   * null означает, что точка вне долины.
+   * The ground under point (x, z). Returns a reused object — copy it if
+   * you need to keep the value between frames.
+   * null means the point is outside the valley.
    */
   sample(x: number, z: number): GroundSample | null {
     this.ray.origin.set(x, TERRAIN_PROBE_HEIGHT, z);
@@ -52,8 +52,8 @@ export class Ground {
   }
 
   /**
-   * Первое попадание луча в рельеф. Нужно камере, чтобы не заезжать
-   * внутрь холма. Возвращает расстояние до удара или null.
+   * First hit of a ray against the terrain. The camera needs it so it
+   * does not slide inside a hill. Returns the distance to the hit, or null.
    */
   raycastDistance(origin: THREE.Vector3, direction: THREE.Vector3, maxDistance: number): number | null {
     this.ray.origin.copy(origin);

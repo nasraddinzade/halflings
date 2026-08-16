@@ -1,40 +1,42 @@
-// Точки работы — данные, а не код (шаг 5 в docs/PROMPTS.md).
-// Чтобы передвинуть огород, правится этот файл и больше ничего.
+// Work points are data, not code (step 5 in docs/PROMPTS.md).
+// To move the vegetable garden, you edit this file and nothing else.
 
 import type { VillagerRole } from './villagers';
 
 export interface WorkPoint {
   id: string;
   role: VillagerRole;
-  /** Координаты в метрах от центра долины. */
+  /** Coordinates in meters from the center of the valley. */
   x: number;
   z: number;
 }
 
 /**
- * Клип, который житель крутит на работе.
+ * The clip a villager loops while working.
  *
- * У KayKit соглашение: инфинитив — полное действие с замахом и возвратом,
- * герундий — короткая петля середины (docs/ASSETS.md, раздел 4). Для
- * жителя, который работает подолгу, нужен именно герундий.
+ * KayKit has a convention: the infinitive is the full action with wind-up
+ * and return, the gerund is a short loop of the middle (docs/ASSETS.md,
+ * section 4). For a villager who works for long stretches, the gerund is
+ * exactly what's needed.
  */
 export const ROLE_WORK_CLIP: Readonly<Record<VillagerRole, string>> = {
   gardener: 'Digging',
   miller: 'Sawing',
   fisher: 'Fishing_Idle',
-  // Бездельник «работает» тем, что глазеет по сторонам
+  // The idler "works" by gawking around
   idler: 'Idle_B',
 };
 
 /**
- * Рабочие места деревни. Держатся в радиусе ~25 м от центра — там
- * рельеф ровный (см. CENTER_CALM_* в constants.ts).
+ * The village's work spots. They stay within ~25 m of the center, where
+ * the terrain is flat (see CENTER_CALM_* in constants.ts).
  *
- * Рыбаки стоят на северном берегу реки, в 4.2 м от её оси: там ещё суша,
- * а до воды рукой подать. Координаты посчитаны по riverCenterZ(x) —
- * если сдвинуть русло в constants.ts, эти три точки надо пересчитать.
+ * Fishers stand on the north bank of the river, 4.2 m from its axis:
+ * still dry land, with the water within arm's reach. The coordinates were
+ * computed from riverCenterZ(x) — if the riverbed is moved in
+ * constants.ts, these three points have to be recomputed.
  */
-/** На сколько метров реквизит стоит перед жителем. */
+/** How many meters in front of the villager the prop stands. */
 export const PROP_DISTANCE = 0.95;
 
 export const WORK_POINTS: readonly WorkPoint[] = [
@@ -58,12 +60,12 @@ export const WORK_POINTS: readonly WorkPoint[] = [
   { id: 'square-3', role: 'idler', x: -3.5, z: 11 },
 ];
 
-/** Куда житель смотрит за работой: к центру долины, туда же и реквизит. */
+/** Where a villager faces at work: the valley center — and the prop too. */
 export function workFacing(point: WorkPoint): number {
   return Math.atan2(-point.x, -point.z);
 }
 
-/** Где стоит грядка, козлы или камыш — перед жителем, а не под ним. */
+/** Where the garden bed, sawhorse or reeds go: in front, not underneath. */
 export function propPosition(point: WorkPoint): { x: number; z: number } {
   const yaw = workFacing(point);
   return {

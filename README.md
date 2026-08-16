@@ -1,84 +1,88 @@
 # halflings
 
-Браузерная 3D-игра: прогулка по деревне полуросликов. Замкнутая долина,
-норы в холмах с круглыми дверями, река, тридцать жителей со своими
-занятиями. Ни боёвки, ни инвентаря.
+A browser 3D game: a walk through a halfling village. A closed valley,
+burrows dug into hills with round doors, a river, thirty villagers each
+with their own occupation. No combat, no inventory.
 
-Цель — витрина навыков в 3D-вебе. Приоритет у картинки и плавности,
-а не у объёма контента: лучше маленький мир, который выглядит дорого,
-чем большой и пустой.
+The goal is a showcase of 3D web skills. The priority is the picture and
+smooth framerate, not the amount of content: better a small world that
+looks expensive than a big empty one.
 
-## Стек
+## Stack
 
-Vite + TypeScript в строгом режиме, three.js без обёрток,
-`three-mesh-bvh` для коллизий по террейну. Бэкенда нет, всё раздаётся
-статикой. Из зависимостей в рантайме — только three и BVH.
+Vite + TypeScript in strict mode, three.js with no wrappers,
+`three-mesh-bvh` for terrain collision. There is no backend, everything
+is served as static files. The only runtime dependencies are three and BVH.
 
-## Запуск
+## Running it
 
 ```bash
 npm install && npm run dev
 ```
 
-Клик по окну захватывает мышь. WASD — идти, Shift — бежать,
-пробел — прыжок, Esc — отпустить мышь.
+Clicking the window captures the mouse. WASD to walk, Shift to run,
+Space to jump, Esc to release the mouse.
 
-## Что внутри
+## What's inside
 
-**Долина.** Рельеф считается детерминированной функцией высот, без
-`Math.random`: чаша с ровной серединой под деревню, холмами и крутым
-бортом по краю. Борт круче предельного угла подъёма, поэтому граница
-мира держится сама — никаких невидимых стен. Замкнутость кольца
-проверена численно по 3600 направлениям.
+**The valley.** The terrain comes from a deterministic height function,
+with no `Math.random`: a bowl with a flat middle for the village, hills,
+and a steep rim along the edge. The rim is steeper than the maximum
+climbable angle, so the world border holds by itself — no invisible
+walls. The ring was checked numerically for gaps along 3600 directions.
 
-**Жители.** Собираются из частей шести разных персонажей CC0-пака на
-общий скелет и склеиваются в один `SkinnedMesh` — иначе каждый стоил бы
-шесть draw calls. Внешность, одежда и повадки выводятся из имени, так
-что деревня одинакова между запусками. Занятия — автомат
-`idle → move → work`, рабочие места заданы данными.
+**Villagers.** They are assembled from parts of six different characters
+of a CC0 pack onto a shared skeleton and merged into a single
+`SkinnedMesh` — otherwise each one would cost six draw calls. Looks,
+clothing and habits are derived from the name, so the village is the same
+between runs. Occupations are an `idle → move → work` state machine, and
+the workplaces are defined by data.
 
-**Расцветка.** Ячейка текстурного атласа пака трактуется как зона
-материала: цвета читаются из неё на загрузке и подтягиваются к ближайшим
-тонам палитры проекта. Разбиение на зоны остаётся авторским, цвета —
-свои. Меняется только одежда, кожа и глаза у всех одинаковые.
+**Coloring.** A cell of the pack's texture atlas is treated as a material
+zone: the colors are read out of it at load time and pulled to the nearest
+tones of the project palette. The split into zones stays the author's, the
+colors are ours. Only clothing changes; skin and eyes are the same for
+everyone.
 
-**Стиль.** Toon-шейдер с тремя ступенями освещения и обводка методом
-inverted hull, раздутая по сглаженной нормали. Единая палитра на весь
-проект: ни один ассет не приносит своих цветов.
+**Style.** A toon shader with three lighting steps and an inverted hull
+outline, inflated along the smoothed normal. One palette for the whole
+project: no asset brings colors of its own.
 
-**Производительность.** 120 fps при тридцати жителях, тысяче ста
-деревьях и тридцати тысячах пучков травы; в кадре 70–120 draw calls.
-Растительность идёт инстансингом по чанкам, дальние жители теряют
-обводку и частоту анимации, за 95 м не рисуются вовсе.
+**Performance.** 120 fps with thirty villagers, eleven hundred trees and
+thirty thousand grass tufts; 70–120 draw calls per frame. Vegetation is
+instanced per chunk, distant villagers lose their outline and animation
+rate, and past 95 m are not drawn at all.
 
-Подробный разбор решений — в [CLAUDE.md](CLAUDE.md), каталог ассетов
-с замерами — в [docs/ASSETS.md](docs/ASSETS.md), план работ — в
-[docs/PROMPTS.md](docs/PROMPTS.md).
+A detailed walkthrough of the decisions is in [CLAUDE.md](CLAUDE.md), the
+asset catalog with measurements is in [docs/ASSETS.md](docs/ASSETS.md),
+and the work plan is in [docs/PROMPTS.md](docs/PROMPTS.md).
 
-## Ассеты
+## Assets
 
-Персонажи и анимации — [KayKit](https://kaylousberg.com) от Kay Lousberg,
-лицензия CC0. Исходные паки в репозиторий не входят: нужные файлы
-осознанно скопированы в `assets/`. Всё остальное — рельеф, вода,
-растительность, двери нор, инструменты — геометрия, построенная кодом.
+Characters and animations are [KayKit](https://kaylousberg.com) by Kay
+Lousberg, licensed CC0. The source packs are not part of the repository:
+the files that are needed were deliberately copied into `assets/`.
+Everything else — terrain, water, vegetation, burrow doors, tools — is
+geometry built by code.
 
-В `assets/` сейчас 3.85 МБ, по сети под brotli — 1.19 МБ.
+`assets/` currently holds 3.85 MB, or 1.19 MB over the wire under brotli.
 
-Два инструмента приводят паковые файлы в рабочий вид. Первый вырезает
-из файлов анимаций меш-манекен, которому в игре делать нечего. Второй
-сжимает их через `EXT_meshopt_compression`; персонажей он намеренно не
-трогает, потому что квантизация ломает склейку частей на общий скелет.
+Two tools bring the pack files into working shape. The first cuts the
+mannequin mesh out of the animation files, since it has nothing to do in
+the game. The second compresses them with `EXT_meshopt_compression`; it
+deliberately leaves the characters alone, because quantization breaks
+merging parts onto a shared skeleton.
 
 ```bash
 npm run assets
 ```
 
-Обоим нужны распакованные паки в корне проекта. Каждый сверяет результат
-с исходником по именам клипов, длительностям и костям и отказывается
-записывать файл, если что-то разошлось.
+Both need the unpacked packs in the project root. Each one verifies its
+result against the source by clip names, durations and bones, and refuses
+to write the file if anything diverged.
 
-## Про имена
+## About the names
 
-Проект вдохновлён Широм Толкина, но имена из легендариума защищены
-товарными знаками и в репозитории не используются. Вместо них —
-нейтральные `halfling`, `village`, `valley`, `river`.
+The project is inspired by Tolkien's Shire, but names from the legendarium
+are protected by trademarks and are not used in the repository. Neutral
+ones are used instead: `halfling`, `village`, `valley`, `river`.

@@ -11,8 +11,8 @@ const game = new Game(canvas, hint);
 await game.load();
 game.start();
 
-// Vite подменяет модули на лету — без этого каждое сохранение оставляло бы
-// позади живой цикл, свой рендерер и свои слушатели событий
+// Vite swaps modules on the fly — without this, every save would leave
+// behind a live loop with its own renderer and its own event listeners
 if (import.meta.hot) {
   import.meta.hot.dispose(() => game.dispose());
 }

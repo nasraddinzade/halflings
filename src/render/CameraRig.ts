@@ -15,12 +15,12 @@ import {
 import type { Ground } from '../world/Ground';
 
 /**
- * Камера от третьего лица на «пружинном штативе».
+ * Third-person camera on a "spring rig".
  *
- * Сглаживается не позиция камеры, а точка, за которой она следит: если
- * лагает сама камера, при вращении мышью картинка плывёт с задержкой и
- * управление кажется вязким. Так поворот отзывается мгновенно, а
- * подтягивание за бегущим персонажем остаётся мягким.
+ * What gets smoothed is not the camera position but the point it follows:
+ * if the camera itself lags, mouse rotation makes the picture drift behind
+ * the input and the controls feel sluggish. This way turning responds
+ * instantly, while catching up with a running character stays soft.
  */
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
@@ -43,7 +43,7 @@ export class CameraRig {
     );
   }
 
-  /** Направление камеры по горизонтали: от него отсчитывается движение. */
+  /** Camera heading in the horizontal plane: movement is measured from it. */
   get yawAngle(): number {
     return this.yaw;
   }
@@ -73,14 +73,14 @@ export class CameraRig {
       this.smoothTarget.copy(this.desiredTarget);
       this.initialised = true;
     } else {
-      // Экспоненциальное сглаживание, независимое от частоты кадров:
-      // при простом lerp(t) на 144 Гц камера догоняла бы вдвое быстрее,
-      // чем на 60, и ощущение управления менялось бы от монитора
+      // Frame-rate independent exponential smoothing: with a plain
+      // lerp(t) the camera would catch up twice as fast at 144 Hz as at
+      // 60, and the feel of the controls would depend on the monitor
       const alpha = 1 - Math.exp(-CAMERA_LAG * delta);
       this.smoothTarget.lerp(this.desiredTarget, alpha);
     }
 
-    // Точка на сфере вокруг цели: вверх по pitch, вокруг по yaw
+    // A point on the sphere around the target: up by pitch, around by yaw
     const horizontal = Math.cos(this.pitch) * CAMERA_DISTANCE;
     this.offset.set(
       Math.sin(this.yaw) * horizontal,
@@ -88,7 +88,7 @@ export class CameraRig {
       Math.cos(this.yaw) * horizontal,
     );
 
-    // Не даём камере уехать внутрь холма
+    // Do not let the camera slide inside a hill
     this.direction.copy(this.offset).normalize();
     const blocked = ground.raycastDistance(this.smoothTarget, this.direction, CAMERA_DISTANCE);
     const distance = blocked === null

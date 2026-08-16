@@ -10,51 +10,52 @@ import {
 } from '../../config/burrows';
 
 /**
- * Геометрия норы, посчитанная из параметров.
+ * Burrow geometry, computed from the parameters.
  *
- * Здесь только математика: и рельеф, и меши строятся из одних и тех же
- * функций, поэтому фасад не может разойтись с холмом.
+ * Math only: the terrain and the meshes are both built from the same
+ * functions, so the facade cannot drift apart from the mound.
  *
- * Устройство: холм срезан вертикальной плоскостью, срез закрыт куском
- * геометрии с дырой под дверь. Отсюда две гарантии — дверь не может быть
- * перекрыта землёй (она дыра в фасаде, а не предмет перед ним), и фасад
- * не может не сойтись с холмом (силуэт считается той же функцией).
+ * How it works: the mound is cut by a vertical plane, and the cut is
+ * closed by a piece of geometry with a hole for the door. That gives two
+ * guarantees — the door cannot be buried under earth (it is a hole in
+ * the facade, not an object in front of it), and the facade cannot fail
+ * to meet the mound (the silhouette comes from the same function).
  *
- * Профиль купола — половина эллипсоида, а не косинус. Косинусный купол
- * подходит к земле полого: чтобы вместить дверь, его приходится делать
- * широким, и срез такого блина даёт стену в одиннадцать метров, которая
- * сбоку читается фанерным щитом. У эллипсоида бока крутые, радиус можно
- * взять почти равным высоте, и срез выходит аркой чуть шире двери —
- * как у настоящих нор.
+ * The dome profile is half an ellipsoid, not a cosine. A cosine dome
+ * meets the ground at a shallow angle: to fit the door in you have to
+ * make it wide, and cutting such a pancake gives an eleven-meter wall
+ * that reads as a plywood board from the side. An ellipsoid has steep
+ * flanks, the radius can be taken nearly equal to the height, and the
+ * cut comes out as an arch a bit wider than the door — like real burrows.
  */
 
-/** Верх наличника над порогом. */
+/** Top of the door casing above the threshold. */
 export const DOOR_TOP = DOOR_CENTER_HEIGHT + DOOR_FRAME_RADIUS + DOOR_FRAME_TUBE;
 
 export interface BurrowFace {
-  /** Куда смотрит фасад, радианы. */
+  /** Which way the facade faces, radians. */
   yaw: number;
-  /** Центр среза в мировых координатах. */
+  /** Center of the cut in world coordinates. */
   x: number;
   z: number;
-  /** Насколько плоскость среза отстоит от середины холма. */
+  /** How far the cut plane stands off from the middle of the mound. */
   distance: number;
-  /** Уровень площадки, на которой стоит нора. */
+  /** Level of the pad the burrow stands on. */
   base: number;
-  /** Полуширина среза. */
+  /** Half-width of the cut. */
   halfWidth: number;
-  /** Высота арки посередине среза. */
+  /** Arch height at the middle of the cut. */
   height: number;
 }
 
-/** Купол норы над площадкой: половина эллипсоида. */
+/** The burrow dome above the pad: half an ellipsoid. */
 export function moundHeight(burrow: Burrow, x: number, z: number): number {
   const distance = Math.hypot(x - burrow.x, z - burrow.z);
   if (distance >= burrow.radius) return 0;
   return burrow.height * Math.sqrt(1 - (distance / burrow.radius) ** 2);
 }
 
-/** Высота арки на срезе, на боковом смещении s от двери. */
+/** Arch height on the cut, at side offset s from the door. */
 export function faceHeightAt(burrow: Burrow, distance: number, s: number): number {
   const r = Math.hypot(s, distance);
   if (r >= burrow.radius) return 0;
@@ -62,11 +63,11 @@ export function faceHeightAt(burrow: Burrow, distance: number, s: number): numbe
 }
 
 /**
- * Насколько глубоко в холм уходит плоскость среза.
+ * How deep into the mound the cut plane goes.
  *
- * Считается так, чтобы над наличником осталось ровно FACE_CLEARANCE
- * земли, а не задаётся долей радиуса: при доле запас плавал бы вместе
- * с размером холма.
+ * Computed so that exactly FACE_CLEARANCE of earth is left above the
+ * casing, rather than set as a fraction of the radius: with a fraction
+ * the margin would drift along with the size of the mound.
  */
 export function faceDistance(burrow: Burrow): number {
   const wanted = DOOR_TOP + FACE_CLEARANCE;
@@ -75,9 +76,9 @@ export function faceDistance(burrow: Burrow): number {
 }
 
 /**
- * Точка фасада на плоскости. Отдельно от faceOf, потому что нужна там,
- * где рельефа ещё нет: растительность и раскраска земли обходят двери,
- * а высота им для этого не требуется.
+ * The facade point on the plane. Separate from faceOf because it is
+ * needed where there is no terrain yet: vegetation and ground painting
+ * steer clear of the doors, and they do not need the height for that.
  */
 export function facePoint(burrow: Burrow): { x: number; z: number } {
   const yaw = Math.atan2(-burrow.x, -burrow.z);
@@ -88,7 +89,7 @@ export function facePoint(burrow: Burrow): { x: number; z: number } {
   };
 }
 
-/** Всё, что нужно и рельефу, и построителю мешей. */
+/** Everything both the terrain and the mesh builder need. */
 export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => number): BurrowFace {
   const yaw = Math.atan2(-burrow.x, -burrow.z);
   const distance = faceDistance(burrow);
@@ -98,8 +99,8 @@ export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => 
     x: burrow.x + Math.sin(yaw) * distance,
     z: burrow.z + Math.cos(yaw) * distance,
     distance,
-    // Уровень площадки берём в середине холма: на него равняется
-    // и рельеф, и низ фасада, поэтому он должен быть один
+    // Pad level is taken at the middle of the mound: the terrain and
+    // the bottom of the facade both line up with it, so it must be one
     base: valleyFloorAt(burrow.x, burrow.z),
     halfWidth: Math.sqrt(Math.max(0, burrow.radius ** 2 - distance ** 2)),
     height: faceHeightAt(burrow, distance, 0),
@@ -107,8 +108,9 @@ export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => 
 }
 
 /**
- * Насколько рельеф под норой подтянут к уровню площадки.
- * Без выравнивания волны долины лезут перед фасадом и топят низ двери.
+ * How far the terrain under the burrow is pulled up to the pad level.
+ * Without the leveling, valley swells climb up in front of the facade
+ * and drown the bottom of the door.
  */
 export function padWeight(burrow: Burrow, x: number, z: number): number {
   const distance = Math.hypot(x - burrow.x, z - burrow.z);
@@ -119,7 +121,7 @@ export function padWeight(burrow: Burrow, x: number, z: number): number {
   return 1 - t * t * (3 - 2 * t);
 }
 
-/** Купол позади плоскости среза; перед ней его нет. */
+/** The dome behind the cut plane; in front of it there is none. */
 export function moundContribution(burrow: Burrow, face: BurrowFace, x: number, z: number): number {
   const mound = moundHeight(burrow, x, z);
   if (mound <= 0) return 0;
@@ -139,9 +141,9 @@ export interface SilhouettePoint {
 }
 
 /**
- * Силуэт среза: по нему строится контур фасада, и он же гарантирует,
- * что фасад накрывает рельеф. Низ ровный, потому что земля под норой
- * выровнена площадкой.
+ * Silhouette of the cut: the facade outline is built from it, and it is
+ * also what guarantees the facade covers the terrain. The bottom is
+ * level because the ground under the burrow is flattened by the pad.
  */
 export function faceSilhouette(
   burrow: Burrow,

@@ -1,27 +1,28 @@
-// Единая палитра проекта (решение №6). Ни один ассет не приносит свои
-// цвета: всё, что попадает в сцену, красится отсюда через render/style.ts.
+// The project's single palette (decision #6). No asset brings colors of
+// its own: everything entering the scene is painted from here through
+// render/style.ts.
 //
-// Настроение: поздний летний день в закрытой долине. Тёплая земля,
-// приглушённая зелень, холодное небо для контраста.
+// Mood: a late summer day in a closed valley. Warm earth, muted greens,
+// a cool sky for contrast.
 
 export const PALETTE = {
-  // --- атмосфера ---
+  // --- atmosphere ---
   sky: 0x9dc0d4,
-  /** Туман держим близко к небу, чтобы даль растворялась, а не мутнела. */
+  /** Keep the fog close to the sky so distance dissolves, not muddies. */
   fog: 0xa8c6d6,
   sunlight: 0xfff1d4,
-  /** Подсветка сверху: небо. */
+  /** Fill light from above: the sky. */
   skyBounce: 0xa8c4d6,
-  /** Подсветка снизу: отражение от травы. */
+  /** Fill light from below: bounce off the grass. */
   groundBounce: 0x6b7a4e,
 
-  // --- земля ---
+  // --- ground ---
   grass: 0x7d9e55,
   grassDry: 0x9aa85c,
   earth: 0x8a6a49,
   rock: 0x9098a0,
 
-  // --- постройки ---
+  // --- buildings ---
   wood: 0xa9794f,
   woodDark: 0x74502f,
   thatch: 0xc7a262,
@@ -29,7 +30,7 @@ export const PALETTE = {
   roofTile: 0xb35a43,
   door: 0x4f7f6b,
 
-  // --- полурослики ---
+  // --- halflings ---
   skin: 0xe9bb92,
   hair: 0x7c4a2c,
   shirt: 0xc4653f,
@@ -37,21 +38,21 @@ export const PALETTE = {
   trousers: 0x6d6a58,
   boots: 0x5c4230,
 
-  // --- вода и акценты ---
+  // --- water and accents ---
   water: 0x5b93a8,
   bloom: 0xd9705f,
-  /** Самый тёмный тон: глаза, зрачки, глухие детали. */
+  /** The darkest tone: eyes, pupils, solid dark details. */
   ink: 0x241f1c,
-  /** Тёмный металл: пряжки, оковка. */
+  /** Dark metal: buckles, fittings. */
   steel: 0x5b636a,
 } as const;
 
 export type PaletteKey = keyof typeof PALETTE;
 
 /**
- * Семейство говорит, можно ли перекрашивать зону от жителя к жителю.
- * Одежда — можно и нужно, кожа и волосы — нет: иначе получится не
- * разнообразие, а зелёные лица.
+ * The family says whether a zone may be recolored from one villager to
+ * the next. Clothing — yes, and it should be; skin and hair — no, or what
+ * you get is not variety but green faces.
  */
 export type ColorFamily = 'skin' | 'hair' | 'cloth' | 'leather' | 'metal' | 'light' | 'dark';
 
@@ -61,9 +62,9 @@ export interface Tone {
 }
 
 /**
- * Тона, которыми красятся персонажи. Каждая ячейка пакового атласа
- * подтягивается к ближайшему из них — так цвет художника пака заменяется
- * цветом проекта, но разбиение на зоны сохраняется.
+ * The tones characters are painted with. Every cell of the pack atlas is
+ * pulled to the nearest one — that way the pack artist's color is
+ * replaced by the project's, while the split into zones is preserved.
  */
 export const CHARACTER_TONES: readonly Tone[] = [
   { color: PALETTE.skin, family: 'skin' },
@@ -80,12 +81,12 @@ export const CHARACTER_TONES: readonly Tone[] = [
   { color: PALETTE.rock, family: 'metal' },
   { color: PALETTE.steel, family: 'metal' },
   { color: PALETTE.plaster, family: 'light' },
-  // Без почти чёрного глаза персонажей уезжали в коричневый: ближайшим
-  // к #13191b оказывался цвет сапог
+  // Without a near-black the characters' eyes drifted to brown: the tone
+  // nearest to #13191b turned out to be the boot color
   { color: PALETTE.ink, family: 'dark' },
 ];
 
-/** Варианты одежды: чем житель отличается от соседа. */
+/** Clothing variants: what makes one villager differ from a neighbor. */
 export const CLOTH_VARIANTS: readonly number[] = [
   PALETTE.shirt,
   PALETTE.shirtCool,
@@ -96,11 +97,11 @@ export const CLOTH_VARIANTS: readonly number[] = [
 ];
 
 /**
- * Ближайший тон проекта к произвольному цвету.
+ * The project tone nearest to an arbitrary color.
  *
- * Расстояние считаем по «redmean» — дешёвой поправке к евклидову
- * расстоянию в RGB, которая заметно ближе к человеческому восприятию:
- * без неё тёмно-синий и тёмно-зелёный кажутся алгоритму соседями.
+ * Distance is measured with "redmean" — a cheap correction to Euclidean
+ * distance in RGB that is noticeably closer to human perception: without
+ * it the algorithm thinks dark blue and dark green are neighbors.
  */
 export function nearestTone(color: number): Tone {
   const r1 = (color >> 16) & 0xff;
@@ -130,12 +131,12 @@ export function nearestTone(color: number): Tone {
 }
 
 /**
- * Затемнение цвета для обводки. Обводка не чёрная, а тёмная версия
- * самого объекта (решение №5) — так она читается как форма, а не как
- * наклеенный сверху контур.
+ * Darkening a color for the outline. The outline is not black but a dark
+ * version of the object itself (decision #5) — that way it reads as form
+ * rather than a contour pasted on top.
  *
- * Умножаем каналы, а не вычитаем: вычитание уводит насыщенные цвета
- * в грязь, умножение сохраняет тон.
+ * Multiply the channels instead of subtracting: subtraction drags
+ * saturated colors into mud, multiplication keeps the hue.
  */
 export function darken(color: number, factor: number): number {
   const r = Math.round(((color >> 16) & 0xff) * factor);

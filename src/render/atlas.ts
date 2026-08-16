@@ -6,34 +6,38 @@ import type { ToolZone } from '../config/tools';
 import type { PartFile } from '../config/villagers';
 
 /**
- * Атлас жителей: перенос зон пака в палитру проекта.
+ * Villager atlas: moving the pack's zones onto the project palette.
  *
- * Что не сработало раньше. Паковый атлас — сетка 8×4, и первым подходом
- * был сдвиг UV на целую колонку. Но UV-острова одной части размазаны по
- * четырём-восьми колонкам сразу (docs/ASSETS.md, раздел 6), поэтому сдвиг
- * двигал их все разом: кожа уезжала на цвет ткани, ткань на цвет металла.
- * Получалась не расцветка, а лотерея.
+ * What did not work before. The pack atlas is an 8×4 grid, and the first
+ * approach was to shift UVs by a whole column. But the UV islands of a
+ * single part are smeared across four to eight columns at once
+ * (docs/ASSETS.md, section 6), so the shift moved all of them together:
+ * skin slid onto the cloth colour, cloth onto the metal colour. What came
+ * out was not a colour scheme but a lottery.
  *
- * Что делаем вместо этого. Ячейка пакового атласа — и есть зона материала,
- * так её задал художник: тут кожа, тут рубаха, тут сапоги. Мы читаем
- * исходную текстуру, для каждой из 32 ячеек берём её цвет и подтягиваем
- * к ближайшему тону проекта. Дальше UV каждой вершины переписывается на
- * один тексель нового атласа: колонка — зона, строка — вариант расцветки.
+ * What we do instead. A cell of the pack atlas is itself a material zone —
+ * that is how the artist laid it out: skin here, shirt there, boots over
+ * there. We read the source texture, take the colour of each of the 32
+ * cells and snap it to the nearest project tone. Then every vertex UV is
+ * rewritten to a single texel of the new atlas: column — zone, row —
+ * colour variant.
  *
- * Разбиение на зоны при этом целиком остаётся авторским, а цвета —
- * целиком нашими (решение №6). Развёртку пака не трогаем, Blender не нужен.
+ * The zone split thus stays entirely the artist's, while the colours are
+ * entirely ours (decision #6). The pack's UV layout is untouched, no
+ * Blender needed.
  *
- * Вариант меняет только те зоны, что попали в семейство одежды. Кожа
- * и волосы одинаковы у всех: иначе вместо разнообразия вышли бы
- * разноцветные лица.
+ * A variant changes only the zones that fall into the cloth family. Skin
+ * and hair are the same for everyone: otherwise, instead of variety, we
+ * would get multicoloured faces.
  */
 
 const CELLS_PER_FILE = SOURCE_COLUMNS * SOURCE_ROWS;
 
 /**
- * Колонки под пропсы, приписанные после зон пака. Инструменты не берут
- * цвет из паковых текстур — им нужны свои, и одинаковые во всех строках
- * вариантов, чтобы деревянный черенок не менялся вместе с рубахой.
+ * Columns for props, appended after the pack's zones. Tools do not take
+ * their colour from the pack textures — they need their own, identical
+ * across every variant row, so that a wooden handle does not change along
+ * with the shirt.
  */
 const PROP_ZONES: Readonly<Record<ToolZone, number>> = {
   wood: PALETTE.wood,
@@ -42,7 +46,7 @@ const PROP_ZONES: Readonly<Record<ToolZone, number>> = {
 };
 const PROP_ORDER: readonly ToolZone[] = ['wood', 'metal', 'dark'];
 
-/** Источники, из которых GLTFLoader отдаёт паковую текстуру. */
+/** The forms in which GLTFLoader hands back the pack texture. */
 export type AtlasImage = HTMLImageElement | HTMLCanvasElement | ImageBitmap | OffscreenCanvas;
 
 export interface AtlasSource {
@@ -55,7 +59,7 @@ export class ZoneAtlas {
   private readonly fileOrder: readonly PartFile[];
   private readonly zoneCount: number;
 
-  /** UV текселя, которым красится кусок инструмента. */
+  /** UV of the texel a piece of a tool is painted with. */
   propUv(zone: ToolZone, variant: number): readonly [number, number] {
     const index = PROP_ORDER.indexOf(zone);
     const column = this.zoneCount - PROP_ORDER.length + Math.max(0, index);
@@ -75,7 +79,7 @@ export class ZoneAtlas {
     const fileOrder = sources.map((source) => source.file);
     const zoneCount = sources.length * CELLS_PER_FILE + PROP_ORDER.length;
 
-    // Цвет каждой ячейки каждого пакового атласа -> ближайший тон проекта
+    // Colour of every cell of every pack atlas -> nearest project tone
     const tones = sources.flatMap((source) =>
       sampleCells(source.image).map((color) => nearestTone(color)),
     );
@@ -115,9 +119,9 @@ export class ZoneAtlas {
   }
 
   /**
-   * Переписывает UV вершины: из координаты в паковом атласе — в один
-   * тексель нашего. Возвращает центр текселя, чтобы NearestFilter брал
-   * его гарантированно, без риска зацепить соседний.
+   * Rewrites a vertex UV: from a coordinate in the pack atlas into a
+   * single texel of ours. Returns the texel centre so NearestFilter is
+   * guaranteed to pick it, with no risk of catching the neighbour.
    */
   remap(file: PartFile, variant: number, u: number, v: number): readonly [number, number] {
     const fileIndex = this.fileOrder.indexOf(file);
@@ -139,7 +143,7 @@ function clampIndex(value: number, count: number): number {
   return Math.min(count - 1, Math.max(0, value));
 }
 
-/** Цвета 32 ячеек пакового атласа: берём середину каждой. */
+/** Colours of the 32 pack atlas cells: we sample the centre of each. */
 function sampleCells(image: AtlasImage): number[] {
   const canvas = document.createElement('canvas');
   canvas.width = image.width;
@@ -152,8 +156,8 @@ function sampleCells(image: AtlasImage): number[] {
   const colors: number[] = [];
   for (let row = 0; row < SOURCE_ROWS; row++) {
     for (let column = 0; column < SOURCE_COLUMNS; column++) {
-      // Ячейка — вертикальный градиент; середина представляет её честнее
-      // краёв, где начинается переход к соседней
+      // The cell is a vertical gradient; its centre represents it more
+      // honestly than the edges, where the blend into the next one starts
       const x = Math.floor(((column + 0.5) / SOURCE_COLUMNS) * image.width);
       const y = Math.floor(((row + 0.5) / SOURCE_ROWS) * image.height);
       const pixel = context.getImageData(x, y, 1, 1).data;

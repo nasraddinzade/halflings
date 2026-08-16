@@ -23,11 +23,11 @@ import type { Villager } from './buildVillager';
 export type VillagerState = 'idle' | 'move' | 'work';
 
 /**
- * Поведение жителя: простой конечный автомат idle → move → work → idle.
+ * Villager behaviour: a simple state machine idle → move → work → idle.
  *
- * Каждый житель ходит между местом отдыха и своим рабочим местом.
- * Длительности выведены из имени, как и внешность, — деревня оживает
- * одинаково при каждом запуске, но жители не шагают строем.
+ * Every villager walks between a resting spot and their own workplace.
+ * The durations are derived from the name, same as the looks — the village
+ * comes alive identically on every run, but nobody marches in step.
  */
 export class VillagerBrain {
   private state: VillagerState = 'idle';
@@ -55,10 +55,11 @@ export class VillagerBrain {
     this.random = makeRandom(hashSeed(villager.config.id));
 
     this.workPoint = new THREE.Vector2(work.x, work.z);
-    // За работой житель смотрит на свой реквизит, а не куда пришёл
+    // While working a villager faces their prop, not the way they came in
     this.workYaw = workFacing(work);
-    // Место отдыха — в паре метров от рабочего, в своём для каждого
-    // направлении: иначе все стояли бы в одной точке
+    // The resting spot sits a couple of metres from the workplace, in a
+    // direction of its own for each villager: otherwise they'd all stand
+    // in the same point
     const angle = this.random() * Math.PI * 2;
     const distance = between(this.random, 2.5, 4.5);
     this.restPoint = new THREE.Vector2(
@@ -75,12 +76,12 @@ export class VillagerBrain {
     for (const name of [CLIP.idle, CLIP.walk, this.workClipName]) {
       this.clips.add(name, animations.require(name));
     }
-    // Смещение фазы разводит деревню: без него все дышат в такт
+    // The phase offset spreads the village out: without it all breathe in time
     const idle = animations.require(CLIP.idle);
     this.clips.start(CLIP.idle, this.random() * idle.duration);
 
-    // Первый простой считаем от нуля: с обычным разбросом вся деревня
-    // выходила бы на работу почти одновременно и потом шла бы строем
+    // The first idle runs from zero: with the usual spread the whole village
+    // would set off for work at almost the same time and then march in step
     this.timeLeft = this.random() * VILLAGER_FIRST_IDLE_MAX;
     this.apply();
   }
@@ -93,8 +94,9 @@ export class VillagerBrain {
   get z(): number { return this.position.z; }
 
   /**
-   * Сдвиг извне: расталкивание жителей и обход дверей. Мозг про соседей
-   * не знает — эту работу делает Village, которому видны все сразу.
+   * A nudge from outside: pushing villagers apart and routing around doors.
+   * The brain knows nothing about neighbours — that job belongs to Village,
+   * which sees all of them at once.
    */
   nudge(dx: number, dz: number): void {
     this.position.x += dx;
@@ -114,7 +116,7 @@ export class VillagerBrain {
         break;
       case 'work':
         this.timeLeft -= delta;
-        // Доворачиваем к грядке: пришёл он с любой стороны
+        // Turn the rest of the way to the bed: he arrived from any side
         this.turnTowards(this.workYaw, delta);
         this.apply();
         if (this.timeLeft <= 0) this.startIdling();
@@ -124,7 +126,7 @@ export class VillagerBrain {
     this.villager.mixer.update(delta);
   }
 
-  /** Идём то на работу, то обратно на своё место. */
+  /** We walk to work, then back to our own spot, and so on. */
   private startMoving(): void {
     this.target = this.target === this.restPoint ? this.workPoint : this.restPoint;
     this.state = 'move';
@@ -148,7 +150,7 @@ export class VillagerBrain {
     const distance = this.direction.length();
 
     if (distance <= VILLAGER_ARRIVE_RADIUS) {
-      // Пришли: на рабочем месте работаем, на своём — отдыхаем
+      // Arrived: at the workplace we work, at our own spot we rest
       if (this.target === this.workPoint) this.startWorking();
       else this.startIdling();
       return;
@@ -171,7 +173,7 @@ export class VillagerBrain {
 
   private turnTowards(targetYaw: number, delta: number): void {
     let difference = targetYaw - this.yaw;
-    // Кратчайший путь по кругу, иначе разворот пойдёт длинной стороной
+    // Shortest way round the circle, otherwise the turn takes the long side
     difference = Math.atan2(Math.sin(difference), Math.cos(difference));
     this.yaw += difference * (1 - Math.exp(-VILLAGER_TURN_RATE * delta));
   }
@@ -183,8 +185,8 @@ export class VillagerBrain {
 
   private crossFade(next: string): void {
     this.clips.fadeTo(next, VILLAGER_CLIP_FADE);
-    // Шаг подгоняется под скорость, иначе ноги проскальзывают: root motion
-    // в клипах KayKit отсутствует (docs/ASSETS.md, раздел 4)
+    // The stride is matched to the speed, otherwise the feet slip: KayKit
+    // clips have no root motion (docs/ASSETS.md, section 4)
     if (next === CLIP.walk) {
       this.clips.setTimeScale(VILLAGER_WALK_SPEED / VILLAGER_WALK_CLIP_SPEED);
     }

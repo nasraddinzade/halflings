@@ -30,18 +30,19 @@ import type { LocomotionInput } from './LocomotionState';
 export interface ControllerFrame {
   wantsRun: boolean;
   intent: Readonly<MoveIntent>;
-  /** Прыжок нажат в этом кадре. */
+  /** Jump was pressed on this frame. */
   jumpPressed: boolean;
-  /** Куда смотрит камера: движение отсчитывается от неё. */
+  /** Where the camera looks: movement is measured from it. */
   cameraYaw: number;
 }
 
 /**
- * Движение игрока по рельефу.
+ * Player movement over the terrain.
  *
- * Физдвижка нет намеренно (CLAUDE.md): для героя, который ходит по
- * heightmap, хватает луча вниз. Персонаж — точка на поверхности, а не
- * капсула: стен в срезе нет, а с рельефом разбирается проверка уклона.
+ * There is deliberately no physics engine (CLAUDE.md): for a hero who
+ * walks on a heightmap, a downward ray is enough. The character is a
+ * point on the surface, not a capsule: this slice has no walls, and
+ * the terrain is handled by the slope check.
  */
 export class PlayerController {
   readonly position = new THREE.Vector3();
@@ -54,8 +55,9 @@ export class PlayerController {
   private coyoteLeft = 0;
   private jumpBufferLeft = 0;
   private jumpedThisFrame = false;
-  // Камера по умолчанию стоит со стороны +Z, а модель в +Z и смотрит.
-  // Без этого персонаж на старте пялится в объектив, пока не пойдёшь.
+  // The camera sits on the +Z side by default, and the model faces +Z.
+  // Without this the character stares into the lens at spawn until you
+  // start walking.
   private modelYaw = Math.PI;
 
   private readonly desired = new THREE.Vector3();
@@ -74,7 +76,7 @@ export class PlayerController {
     this.syncTransform();
   }
 
-  /** Горизонтальная скорость, м/с. */
+  /** Horizontal speed, m/s. */
   get speed(): number {
     return Math.hypot(this.velocity.x, this.velocity.z);
   }
@@ -87,7 +89,7 @@ export class PlayerController {
     return this.grounded;
   }
 
-  /** Состояние для машины анимаций. */
+  /** State for the animation state machine. */
   get locomotion(): LocomotionInput {
     return {
       speed: this.speed,
@@ -118,8 +120,8 @@ export class PlayerController {
       return;
     }
 
-    // Небольшая пауза перед восстановлением: иначе выгодно
-    // «стрекотать» шифтом и бежать бесконечно
+    // A short pause before regen kicks in: otherwise it pays to
+    // machine-gun the shift key and run forever
     if (this.staminaHold > 0) {
       this.staminaHold -= delta;
       return;
@@ -127,7 +129,7 @@ export class PlayerController {
     this.stamina = Math.min(STAMINA_MAX, this.stamina + STAMINA_REGEN * delta);
   }
 
-  /** На нуле бег блокируется, пока стамина не отрастёт выше порога. */
+  /** At zero, running is blocked until stamina regrows past the threshold. */
   private canRun(): boolean {
     return this.stamina > 0 && (this.stamina >= STAMINA_RUN_THRESHOLD || this.staminaHold > 0);
   }
@@ -135,7 +137,7 @@ export class PlayerController {
   private applyHorizontal(frame: ControllerFrame, delta: number): void {
     const { intent, cameraYaw } = frame;
 
-    // Намерение из осей камеры в мировые: вперёд — туда, куда смотрит камера
+    // Intent from camera axes to world axes: forward is where the camera looks
     const sin = Math.sin(cameraYaw);
     const cos = Math.cos(cameraYaw);
     this.desired.set(
@@ -156,8 +158,8 @@ export class PlayerController {
       ? (moving ? GROUND_ACCELERATION : GROUND_DECELERATION)
       : AIR_ACCELERATION;
 
-    // Тот же экспоненциальный подход, что у камеры: поведение
-    // не должно зависеть от частоты кадров
+    // The same exponential approach as the camera: behaviour must
+    // not depend on the frame rate
     const alpha = 1 - Math.exp(-rate * delta);
     this.horizontal.lerp(this.desired, alpha);
 
@@ -173,9 +175,9 @@ export class PlayerController {
     if (this.grounded) this.coyoteLeft = COYOTE_TIME;
     else if (this.coyoteLeft > 0) this.coyoteLeft -= delta;
 
-    // Койот-тайм прощает прыжок, нажатый чуть позже схода с края;
-    // буфер — нажатый чуть раньше приземления. Без них прыжок
-    // ощущается капризным, хотя формально работает
+    // Coyote time forgives a jump pressed slightly after stepping off
+    // an edge; the buffer forgives one pressed slightly before landing.
+    // Without them the jump feels finicky, even though it formally works
     if (this.jumpBufferLeft > 0 && this.coyoteLeft > 0) {
       this.velocity.y = JUMP_SPEED;
       this.grounded = false;
@@ -186,7 +188,7 @@ export class PlayerController {
   }
 
   private integrate(delta: number): void {
-    // 1. Горизонталь — с проверкой, что в склон не упираемся
+    // 1. Horizontal — with a check that we are not running into a slope
     const nextX = this.position.x + this.velocity.x * delta;
     const nextZ = this.position.z + this.velocity.z * delta;
     const ahead = this.ground.sample(nextX, nextZ);
@@ -195,8 +197,8 @@ export class PlayerController {
       || (ahead.slope > MAX_SLOPE && ahead.height > this.position.y + STEP_HEIGHT);
 
     if (blocked) {
-      // Упёрлись в борт долины или в слишком крутой холм: гасим
-      // горизонтальную скорость, но падать не мешаем
+      // Ran into the valley wall or a hill that is too steep: kill
+      // the horizontal speed, but don't get in the way of falling
       this.velocity.x = 0;
       this.velocity.z = 0;
     } else {
@@ -205,15 +207,15 @@ export class PlayerController {
       this.groundNormal.copy(ahead.normal);
     }
 
-    // 2. Препятствия: дверь норы и жители. Скорость не гасим — вдоль
-    //    круга персонаж должен скользить, а не залипать
+    // 2. Obstacles: the burrow door and villagers. Speed is not killed —
+    //    along the circle the character should slide, not stick
     this.obstacles.resolve(this.position, PLAYER_RADIUS);
 
-    // 3. Вертикаль
+    // 3. Vertical
     this.velocity.y -= GRAVITY * delta;
     this.position.y += this.velocity.y * delta;
 
-    // 4. Контакт с землёй
+    // 4. Ground contact
     const below = this.ground.sample(this.position.x, this.position.z);
     if (below === null) return;
 
@@ -225,8 +227,8 @@ export class PlayerController {
       return;
     }
 
-    // Спуск с горки: без притягивания персонаж отрывается на каждом
-    // бугорке и вместо бега получается серия мелких прыжков
+    // Running downhill: without snapping, the character lifts off on
+    // every bump and the run turns into a string of little hops
     const gap = this.position.y - below.height;
     if (this.grounded && this.velocity.y <= 0 && gap < GROUND_SNAP) {
       this.position.y = below.height;
@@ -242,8 +244,8 @@ export class PlayerController {
     if (this.speed < 0.05) return;
 
     const targetYaw = Math.atan2(this.velocity.x, this.velocity.z) + MODEL_YAW_OFFSET;
-    // Кратчайший путь по кругу: без нормализации разворот на 180°
-    // мог бы пойти «длинной стороной»
+    // Shortest way around the circle: without normalising, a 180°
+    // turn could go the long way round
     let difference = targetYaw - this.modelYaw;
     difference = Math.atan2(Math.sin(difference), Math.cos(difference));
 

@@ -1,21 +1,22 @@
 import * as THREE from 'three';
 
 /**
- * Набор клипов на одном микшере с переключением через кроссфейд.
+ * A set of clips on a single mixer, switched with cross-fades.
  *
- * Голая обёртка над `AnimationMixer`: никакой логики о том, когда что
- * играть, здесь нет — этим заняты `LocomotionState` у игрока и
- * `VillagerBrain` у жителей. Раньше каждый из них держал свою копию
- * одного и того же кода переключения, и они уже начали расходиться
- * в мелочах.
+ * A bare wrapper over `AnimationMixer`: no logic about when to play
+ * what lives here — that is the job of `LocomotionState` for the
+ * player and `VillagerBrain` for the villagers. Each of them used to
+ * keep its own copy of the same switching code, and the copies had
+ * already started drifting apart in small details.
  *
- * Что именно стоит держать в одном месте: у `crossFadeFrom` есть
- * требование, о котором легко забыть, — целевое действие должно быть
- * сброшено, включено и запущено с весом 1 **до** вызова, иначе переход
- * идёт из нуля в ноль и на кадр проступает T-поза.
+ * What is worth keeping in one place: `crossFadeFrom` has a
+ * requirement that is easy to forget — the target action must be
+ * reset, enabled and started with weight 1 **before** the call,
+ * otherwise the transition runs from zero to zero and the T-pose
+ * shows through for a frame.
  */
 export interface ClipOptions {
-  /** Играть один раз и замереть на последнем кадре. */
+  /** Play once and freeze on the last frame. */
   once?: boolean;
 }
 
@@ -35,14 +36,14 @@ export class ClipPlayer {
     return this;
   }
 
-  /** Имя клипа, который играет сейчас. */
+  /** Name of the clip that is playing right now. */
   get current(): string {
     return this.currentName;
   }
 
   /**
-   * Запускает первый клип без перехода. `offset` разводит фазы —
-   * иначе десяток персонажей дышит в такт.
+   * Starts the first clip with no transition. `offset` spreads the
+   * phases apart — otherwise a dozen characters breathe in unison.
    */
   start(name: string, offset = 0): void {
     const action = this.require(name);
@@ -52,7 +53,7 @@ export class ClipPlayer {
     this.currentName = name;
   }
 
-  /** Переход на другой клип. На тот же клип — ничего не делает. */
+  /** Fade to another clip. Fading to the same clip does nothing. */
   fadeTo(name: string, duration: number): void {
     if (name === this.currentName) return;
 
@@ -69,12 +70,12 @@ export class ClipPlayer {
     this.currentName = name;
   }
 
-  /** Скорость проигрывания текущего клипа: ею гонят шаг под скорость. */
+  /** Playback rate of the current clip: it matches stride to speed. */
   setTimeScale(scale: number): void {
     this.require(this.currentName).timeScale = scale;
   }
 
-  /** Действие по имени — нужно там, где важно время внутри клипа. */
+  /** Action by name — needed where the time inside the clip matters. */
   require(name: string): THREE.AnimationAction {
     const action = this.actions.get(name);
     if (action === undefined) {

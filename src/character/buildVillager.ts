@@ -25,28 +25,28 @@ import { toolForRole } from '../config/tools';
 import { cloneArmature, mergeParts, prepareAttachment, preparePart } from './mergeSkinned';
 
 /**
- * Пустая кость-крепление на конце кисти (docs/ASSETS.md, раздел 3).
+ * Empty attachment bone at the end of the hand (docs/ASSETS.md, section 3).
  *
- * Имя прогоняется через санитайзер three: в glTF кость зовётся
- * `handslot.r`, но точка у three — разделитель пути к свойству, и она
- * вырезается ещё при загрузке. В скелете кость лежит под `handslotr`.
+ * The name is run through three's sanitiser: in the glTF the bone is called
+ * `handslot.r`, but for three a dot is a property-path separator and gets
+ * stripped at load time. In the skeleton the bone sits under `handslotr`.
  */
 const HAND_SLOT_BONE = THREE.PropertyBinding.sanitizeNodeName('handslot.r');
 
 export interface Villager {
   readonly config: VillagerConfig;
-  /** Двигают его; масштаб уже применён. */
+  /** This is what you move; the scale is already applied. */
   readonly root: THREE.Group;
   readonly mesh: THREE.SkinnedMesh;
-  /** Обводки: гасятся на дальних дистанциях (шаг 6). */
+  /** Outlines: switched off at long distances (step 6). */
   readonly outlines: readonly THREE.Mesh[];
   readonly mixer: THREE.AnimationMixer;
   readonly triangles: number;
 }
 
 /**
- * Библиотека частей: шесть файлов пака, разобранные по мешам.
- * Геометрия из неё только читается — на сборке всегда делается копия.
+ * Part library: the pack's six files, taken apart into meshes.
+ * Its geometry is only ever read — assembly always works on a copy.
  */
 export class PartLibrary {
   private readonly meshes = new Map<string, THREE.SkinnedMesh>();
@@ -65,8 +65,8 @@ export class PartLibrary {
       gltf.scene.traverse((child) => {
         if (child instanceof THREE.SkinnedMesh) library.meshes.set(child.name, child);
       });
-      // Скелет берём из одного файла: у всех он идентичен, но опираться
-      // надо на что-то одно, иначе порядок костей поплывёт между жителями
+      // Take the skeleton from a single file: it is identical everywhere,
+      // but we need one fixed reference, or bone order drifts per villager
       if (name === 'Rogue') library.template = gltf.scene;
 
       const image = findTextureImage(gltf.scene);
@@ -98,7 +98,7 @@ export class PartLibrary {
   }
 }
 
-/** Паковая текстура нужна, чтобы прочитать цвета её 32 ячеек. */
+/** The pack texture is needed to read the colours of its 32 cells. */
 function findTextureImage(root: THREE.Object3D): AtlasSource['image'] | null {
   let found: AtlasSource['image'] | null = null;
   root.traverse((child) => {
@@ -114,8 +114,8 @@ function findTextureImage(root: THREE.Object3D): AtlasSource['image'] | null {
 }
 
 /**
- * Конфиг жителя выводится из имени детерминированно: один и тот же
- * житель выглядит одинаково между сессиями, и хранить его негде не надо.
+ * A villager's config is derived from the name deterministically: the same
+ * villager looks the same between sessions, and nothing has to be stored.
  */
 export function configFromSeed(name: string): VillagerConfig {
   const random = makeRandom(hashSeed(name));
@@ -135,12 +135,12 @@ export function configFromSeed(name: string): VillagerConfig {
   };
 }
 
-/** Собирает жителя: части из разных файлов -> один SkinnedMesh. */
+/** Assembles a villager: parts from different files -> one SkinnedMesh. */
 export function buildVillager(library: PartLibrary, config: VillagerConfig): Villager {
   const armature = cloneArmature(library.skeletonTemplate);
 
-  // Каждой группе — свой вариант одежды. Руки красятся заодно с телом:
-  // рукав и торс должны совпадать по цвету.
+  // Each group gets its own clothing variant. The arms are coloured along
+  // with the body: sleeve and torso have to match in colour.
   const atlas = library.atlas;
   const groups: Array<{ source: PartSource; variant: number }> = [
     { source: requirePart(HEADS, config.head, 'head'), variant: config.palette.head },
@@ -163,15 +163,15 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
   addTool(pieces, library, armature, config);
 
   const geometry = mergeParts(pieces);
-  // Копии больше не нужны: их данные скопированы в общий буфер
+  // The copies are no longer needed: their data went into the shared buffer
   for (const piece of pieces) piece.dispose();
 
   const mesh = new THREE.SkinnedMesh(geometry);
   mesh.name = `villager_${config.id}`;
-  // Сфера отсечения считается по рест-позе и в движении тесновата:
-  // расширяем с запасом и оставляем отсечение включённым. Выключить его
-  // было бы проще, но тогда все тридцать жителей рисуются всегда,
-  // даже те, что за спиной у камеры.
+  // The culling sphere is computed from the rest pose and is a bit tight
+  // once the character moves: we widen it with margin and leave culling on.
+  // Turning culling off would be easier, but then all thirty villagers are
+  // drawn every frame, even the ones behind the camera.
   if (geometry.boundingSphere !== null) {
     geometry.boundingSphere.radius *= CHARACTER_BOUNDS_MARGIN;
   }
@@ -181,8 +181,8 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
   root.name = `villager_${config.id}_root`;
   root.add(armature.root);
   root.add(mesh);
-  // Привязку делаем после добавления в граф, иначе bindMatrixInverse
-  // посчитается от ещё не обновлённого matrixWorld
+  // Bind after adding to the graph, otherwise bindMatrixInverse gets
+  // computed from a matrixWorld that hasn't been updated yet
   mesh.bind(armature.skeleton, armature.bindMatrix);
 
   const outlines = applyStyle(mesh, {
@@ -202,7 +202,7 @@ export function buildVillager(library: PartLibrary, config: VillagerConfig): Vil
   return { config, root, mesh, outlines, mixer: new THREE.AnimationMixer(root), triangles };
 }
 
-/** Кладёт инструмент по роли в правую руку. */
+/** Puts the tool for the role into the right hand. */
 function addTool(
   pieces: THREE.BufferGeometry[],
   library: PartLibrary,
@@ -217,7 +217,7 @@ function addTool(
 
   const boneInverse = armature.skeleton.boneInverses[boneIndex];
   if (boneInverse === undefined) throw new Error('[villagers] нет обратной матрицы кости');
-  // Куда кость смотрела в момент привязки — туда и ставим предмет
+  // The item goes wherever the bone was pointing at bind time
   const bindMatrix = boneInverse.clone().invert();
 
   for (const part of parts) {

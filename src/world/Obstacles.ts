@@ -1,7 +1,7 @@
 import type * as THREE from 'three';
 
 
-/** Сторона ячейки пространственной сетки, метры. */
+/** Side of a spatial grid cell, in meters. */
 const CELL = 8;
 
 export interface Circle {
@@ -11,29 +11,31 @@ export interface Circle {
 }
 
 /**
- * Препятствия на плоскости — круги, и только.
+ * Obstacles on the plane — circles, and nothing else.
  *
- * Полноценный физдвижок проекту не нужен (CLAUDE.md): по рельефу ходят
- * лучом вниз, а всё, обо что можно стукнуться, круглое в плане — дверь,
- * житель, игрок. Разведение двух кругов — три строки и никакой
- * зависимости, тогда как физдвижок притащил бы мегабайт ради того же.
+ * The project does not need a real physics engine (CLAUDE.md): the
+ * terrain is walked with a downward ray, and everything you can bump
+ * into is a circle in plan — a door, a villager, the player. Separating
+ * two circles is three lines and no dependency, whereas a physics engine
+ * would drag in a megabyte for the same result.
  *
- * Высоту не учитываем: перепрыгнуть жителя всё равно нельзя, а дверь
- * стоит на ровной площадке.
+ * Height is ignored: you cannot jump over a villager anyway, and a door
+ * stands on flat ground.
  */
 export class Obstacles {
-  /** Неподвижные и немногочисленные: двери нор. Проверяются перебором. */
+  /** Static and few in number: burrow doors. Checked by brute force. */
   private readonly statics: Circle[] = [];
   /**
-   * Стволы деревьев. Их за тысячу, и перебирать их каждый кадр нельзя —
-   * раскладываем по сетке и смотрим только девять ячеек вокруг точки.
+   * Tree trunks. There are over a thousand of them, and scanning them all
+   * every frame is out — we bin them into a grid and look at only the
+   * nine cells around the point.
    */
   private readonly grid = new Map<number, Circle[]>();
   private readonly nearby: Circle[] = [];
-  /** Подвижные: жители. Village обновляет их каждый кадр. */
+  /** Moving ones: villagers. Village refreshes them every frame. */
   private dynamics: readonly Circle[] = [];
 
-  /** Немногочисленные неподвижные круги: двери нор, реквизит. */
+  /** A handful of static circles: burrow doors, props. */
   addStatic(circles: readonly Circle[]): void {
     this.statics.push(...circles);
   }
@@ -42,7 +44,7 @@ export class Obstacles {
     this.dynamics = circles;
   }
 
-  /** Раскладывает неподвижные круги по сетке. Вызывается один раз. */
+  /** Bins static circles into the grid. Called once. */
   addToGrid(circles: readonly Circle[]): void {
     for (const circle of circles) {
       const key = cellKey(circle.x, circle.z);
@@ -53,8 +55,8 @@ export class Obstacles {
   }
 
   /**
-   * Круги из девяти ячеек вокруг точки. Возвращает переиспользуемый
-   * массив: за кадр он читается сразу и наружу не утекает.
+   * Circles from the nine cells around the point. Returns a reused
+   * array: within a frame it is read right away and never escapes.
    */
   private collectNearby(x: number, z: number): Circle[] {
     this.nearby.length = 0;
@@ -70,8 +72,8 @@ export class Obstacles {
   }
 
   /**
-   * Выталкивает точку из всех кругов, в которые она залезла.
-   * Меняет position на месте; возвращает true, если что-то подвинулось.
+   * Pushes the point out of every circle it has ended up inside.
+   * Mutates position in place; returns true if anything moved.
    */
   resolve(position: THREE.Vector3, radius: number, includeDynamic = true): boolean {
     let moved = false;
@@ -81,7 +83,7 @@ export class Obstacles {
     return moved;
   }
 
-  /** Проверка без изменения — нужна, чтобы не заводить жителя в дверь. */
+  /** A read-only check — keeps a villager from being walked into a door. */
   blocked(x: number, z: number, radius: number): boolean {
     if (overlaps(x, z, radius, this.statics)) return true;
     return overlaps(x, z, radius, this.collectNearby(x, z));
@@ -96,7 +98,7 @@ function overlaps(x: number, z: number, radius: number, circles: readonly Circle
   return false;
 }
 
-/** Ключ ячейки. Смещение делает индексы неотрицательными. */
+/** Cell key. The offset keeps the indices non-negative. */
 function pack(cx: number, cz: number): number {
   return (cz + 4096) * 8192 + (cx + 4096);
 }
@@ -117,8 +119,8 @@ function pushOut(position: THREE.Vector3, radius: number, circles: readonly Circ
 
     const distance = Math.sqrt(squared);
     if (distance < 1e-4) {
-      // Ровно в центре направление не определено — толкаем вбок,
-      // иначе делили бы на ноль и получили NaN на весь трансформ
+      // Dead center leaves the direction undefined — shove sideways,
+      // otherwise we would divide by zero and NaN the whole transform
       position.x += limit;
       moved = true;
       continue;

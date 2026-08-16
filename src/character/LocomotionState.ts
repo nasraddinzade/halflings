@@ -13,38 +13,39 @@ import { CLIP, type ClipKey } from '../config/assets';
 import type { AnimationLibrary } from './AnimationLibrary';
 import { ClipPlayer } from './ClipPlayer';
 
-/** Что контроллер сообщает про персонажа каждый кадр. */
+/** What the controller reports about the character every frame. */
 export interface LocomotionInput {
-  /** Горизонтальная скорость, м/с. */
+  /** Horizontal speed, m/s. */
   speed: number;
   grounded: boolean;
-  /** Вертикальная скорость: по знаку различаем взлёт и падение. */
+  /** Vertical speed: the sign tells rising apart from falling. */
   verticalSpeed: number;
-  /** Взведён в кадре, когда прыжок только что оттолкнулся. */
+  /** Raised on the frame where the jump has just pushed off. */
   jumped: boolean;
 }
 
 /**
- * Машина состояний анимаций игрока.
+ * Animation state machine for the player.
  *
- * Root motion в клипах KayKit отсутствует — ходьба и бег «бегут на
- * месте» (проверено при инвентаризации: смещение кости root ненулевое
- * только у четырёх клипов уворота). Значит скорость задаёт контроллер,
- * а клип подгоняется под неё через timeScale, иначе ноги проскальзывают.
+ * KayKit clips carry no root motion — walking and running "run in
+ * place" (checked during the asset inventory: the root bone offset is
+ * non-zero only in the four dodge clips). So the controller sets the
+ * speed and the clip is fitted to it via timeScale, otherwise the feet
+ * slide.
  *
- * Переключением клипов заведует ClipPlayer, здесь только правила выбора.
+ * ClipPlayer handles the switching; only the selection rules live here.
  */
 export class LocomotionState {
   private readonly clips: ClipPlayer;
   private current: ClipKey = 'idle';
-  /** Не даём приземлению прерваться следующим же кадром. */
+  /** Keeps the landing from being cut off on the very next frame. */
   private landingLeft = 0;
 
   constructor(mixer: THREE.AnimationMixer, library: AnimationLibrary) {
     this.clips = new ClipPlayer(mixer);
 
     for (const [key, name] of Object.entries(CLIP) as Array<[ClipKey, string]>) {
-      // Прыжок и приземление играются один раз и замирают на последнем кадре
+      // Jump and landing play once and freeze on the last frame
       const once = key === 'jumpStart' || key === 'jumpLand';
       this.clips.add(key, library.require(name), { once });
     }
@@ -52,7 +53,7 @@ export class LocomotionState {
     this.clips.start('idle');
   }
 
-  /** Имя текущего клипа — его показывает отладочная панель. */
+  /** Name of the current clip — the debug panel displays it. */
   get currentClip(): string {
     return CLIP[this.current];
   }
@@ -62,8 +63,8 @@ export class LocomotionState {
 
     const next = this.pick(input);
     if (next !== this.current) {
-      // На отрыв от земли переключаемся резче: плавный переход
-      // размазал бы толчок и прыжок выглядел бы вялым
+      // Switch harder on leaving the ground: a smooth fade would
+      // smear the push-off and the jump would look limp
       this.clips.fadeTo(next, next === 'jumpStart' ? ANIM_FADE_FAST : ANIM_FADE);
       this.current = next;
       if (next === 'jumpLand') {
@@ -78,13 +79,13 @@ export class LocomotionState {
     if (input.jumped) return 'jumpStart';
 
     if (!input.grounded) {
-      // Пока идёт короткий Jump_Start, не перебиваем его петлёй полёта
+      // While the short Jump_Start runs, don't cut it off with the air loop
       const start = this.clips.require('jumpStart');
       const startPlaying = this.current === 'jumpStart' && start.time < start.getClip().duration;
       return startPlaying ? 'jumpStart' : 'jumpAir';
     }
 
-    // Только что коснулись земли — доигрываем приземление
+    // Just touched down — play the landing through
     if (this.current === 'jumpAir' || this.current === 'jumpStart') return 'jumpLand';
     if (this.current === 'jumpLand' && this.landingLeft > 0 && input.speed < WALK_SPEED * 0.5) {
       return 'jumpLand';

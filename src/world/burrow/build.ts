@@ -17,22 +17,22 @@ import { buildMoundMesh } from './mesh';
 import { DOOR_TOP, faceOf, type BurrowFace } from './profile';
 
 /**
- * Построитель нор. Из четырёх чисел на нору собирает готовый дом.
+ * Burrow builder. Turns four numbers per burrow into a finished house.
  *
- * Холм строит mesh.ts — вместе с фасадом, одним мешем. Здесь только
- * то, что на него навешивается: створка, арка со спицами по образцу
- * дверей Хоббитона, ручка, тёмная глубина за дверью, плитняк дорожки
- * и печная труба.
+ * The mound is built by mesh.ts — facade included, as a single mesh.
+ * Only what hangs off it lives here: the door leaf, the spoked arch
+ * modelled on the classic round village doors, the knob, the dark
+ * depth behind the door, the path flagstones and the chimney.
  *
- * Отдельной плоской панели фасада больше нет: пока холм и фасад были
- * разными объектами, панель обязана была быть плоской и с любого
- * ракурса, кроме фронтального, читалась приставленным щитом.
+ * There is no separate flat facade panel any more: while the mound and
+ * the facade were different objects, the panel had to be flat, and from
+ * any angle but head-on it read as a board propped against the hill.
  */
 
 export interface BurrowBuild {
-  /** Холмы вместе с вдавленными фасадами, цвет в вершинах. */
+  /** Mounds with their pressed-in facades, color in the vertices. */
   mounds: THREE.BufferGeometry;
-  /** Столярка и камень дорожки, по цветам. */
+  /** Joinery and path stone, grouped by color. */
   parts: Map<number, THREE.BufferGeometry>;
   blockers: Array<{ x: number; z: number; radius: number }>;
 }
@@ -62,7 +62,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
 
     mounds.push(buildMoundMesh(burrow, face));
 
-    // Тёмная глубина за створкой
+    // Dark depth behind the door leaf
     const recess = new THREE.CircleGeometry(DOOR_FRAME_RADIUS, 22);
     recess.translate(0, DOOR_CENTER_HEIGHT, 0);
     add(PALETTE.ink, place(recess, FACE_OFFSET + 0.01));
@@ -79,13 +79,13 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
 
     for (const stone of pathStones(random)) add(PALETTE.rock, place(stone, FACE_OFFSET));
 
-    // Труба на макушке холма
+    // Chimney on the crown of the mound
     const pipe = new THREE.CylinderGeometry(0.13, 0.16, 0.6, 8);
     pipe.translate(burrow.x, face.base + burrow.height - 0.15, burrow.z);
     add(PALETTE.rock, pipe);
 
-    // Холм теперь меш, а не рельеф, поэтому непроходимость задаётся
-    // кругом: иначе сквозь нору можно было бы пройти насквозь
+    // The mound is a mesh now, not terrain, so impassability is set by
+    // a circle: otherwise you could walk straight through the burrow
     blockers.push({ x: burrow.x, z: burrow.z, radius: burrow.radius * 0.85 });
     blockers.push({ x: face.x, z: face.z, radius: DOOR_FRAME_RADIUS + 0.4 });
   }
@@ -107,7 +107,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
   return { mounds: merged, parts, blockers };
 }
 
-/** Толстая деревянная арка со спицами — примета круглой двери. */
+/** Thick wooden arch with spokes — the mark of a round door. */
 function doorFrame(): Array<{ geometry: THREE.BufferGeometry; color: number }> {
   const parts: Array<{ geometry: THREE.BufferGeometry; color: number }> = [];
 
@@ -115,7 +115,7 @@ function doorFrame(): Array<{ geometry: THREE.BufferGeometry; color: number }> {
   ring.translate(0, DOOR_CENTER_HEIGHT, 0);
   parts.push({ geometry: ring, color: PALETTE.wood });
 
-  // Спицы веером, как у колеса
+  // Spokes fanned out like a wheel's
   for (let i = 0; i < 6; i++) {
     const angle = (Math.PI * i) / 5;
     const spoke = new THREE.BoxGeometry(DOOR_FRAME_RADIUS * 1.9, 0.055, 0.05);
@@ -127,7 +127,7 @@ function doorFrame(): Array<{ geometry: THREE.BufferGeometry; color: number }> {
   return parts;
 }
 
-/** Плитняк перед дверью. */
+/** Flagstones in front of the door. */
 function pathStones(random: () => number): THREE.BufferGeometry[] {
   const stones: THREE.BufferGeometry[] = [];
   for (let i = 0; i < PATH_STONES; i++) {
@@ -141,8 +141,8 @@ function pathStones(random: () => number): THREE.BufferGeometry[] {
 }
 
 /**
- * Проверка, которую раньше делал я глазами и трижды ошибся: помещается
- * ли дверь в срез. Генератор обязан ловить это сам.
+ * A check I used to do by eye and got wrong three times: does the door
+ * fit into the cut. The generator has to catch this itself.
  */
 function checkFits(burrow: Burrow, face: BurrowFace): void {
   if (face.height < DOOR_TOP) {

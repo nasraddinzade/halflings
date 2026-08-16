@@ -4,12 +4,12 @@ import { SHADOW_EXTENT, SHADOW_MAP_SIZE } from '../config/constants';
 import { PALETTE } from '../config/palette';
 
 /**
- * Свет под toon-шейдер.
+ * Lighting tuned for the toon shader.
  *
- * Ступени рампы рисует направленный источник: именно его вклад
- * MeshToonMaterial раскладывает на три уровня. Заполняющий свет держим
- * заметно слабее — подними его, и всё уедет на верхнюю ступень, картинка
- * станет плоской и ступеней вообще не будет видно.
+ * The ramp steps come from the directional light: its contribution is what
+ * MeshToonMaterial splits into three levels. The fill light is kept
+ * noticeably weaker — raise it and everything lands on the top step, the
+ * image goes flat and the steps stop being visible at all.
  */
 export class Lighting {
   private readonly sun: THREE.DirectionalLight;
@@ -22,8 +22,9 @@ export class Lighting {
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.setScalar(SHADOW_MAP_SIZE);
 
-    // Карта теней покрывает не всю долину, а коробку вокруг игрока:
-    // на 256 метров разрешения не хватило бы, тень стала бы кашей
+    // The shadow map covers a box around the player, not the whole valley:
+    // over 256 metres the resolution would not be enough and the shadow
+    // would turn to mush
     const shadowCamera = this.sun.shadow.camera;
     shadowCamera.left = -SHADOW_EXTENT;
     shadowCamera.right = SHADOW_EXTENT;
@@ -33,15 +34,16 @@ export class Lighting {
     shadowCamera.far = 90;
     shadowCamera.updateProjectionMatrix();
     this.sun.shadow.bias = -0.0006;
-    // 2 см были нужны против самозатенения персонажей; теперь они
-    // тени не принимают, и большой сдвиг только отрывал бы тень от ног
+    // 2 cm was needed against character self-shadowing; they no longer
+    // receive shadows, and a large offset would only tear the shadow away
+    // from their feet
     this.sun.shadow.normalBias = 0.008;
 
     scene.add(this.sun);
     scene.add(this.sun.target);
   }
 
-  /** Коробка теней едет за игроком, иначе он из неё выйдет. */
+  /** The shadow box travels with the player, or he walks out of it. */
   update(focus: THREE.Vector3): void {
     this.sun.target.position.copy(focus);
     this.sun.target.updateMatrixWorld();

@@ -1,15 +1,15 @@
-// Вырезает меш-манекен из GLB с анимациями, оставляя только скелет и клипы.
+// Strips the dummy mesh from animation GLBs, keeping only skeleton and clips.
 //
-// Зачем: файлы KayKit с анимациями везут внутри манекен на 6916 треугольников.
-// В игре из них читается только gltf.animations, меш — мёртвый вес: в пяти
-// нужных файлах это ~3 МБ из 4.4.
+// Why: KayKit animation files carry a 6916-triangle dummy inside. The game
+// reads only gltf.animations from them, so the mesh is dead weight: across
+// the five files we need that is ~3 MB out of 4.4.
 //
-// Что удаляется: meshes, skins, materials, узлы с мешами.
-// Что остаётся: узлы костей с рест-позой, animations и их аксессоры.
-// Кости не трогаются — треки клипов адресуют их по имени.
+// Removed: meshes, skins, materials, nodes that carry a mesh.
+// Kept: bone nodes with the rest pose, animations and their accessors.
+// Bones are left untouched — clip tracks address them by name.
 //
-// Запуск: node tools/strip-anim-meshes.mjs
-// Зависимостей нет: GLB разбирается и пересобирается вручную.
+// Run: node tools/strip-anim-meshes.mjs
+// No dependencies: the GLB is parsed and rebuilt by hand.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -19,7 +19,7 @@ const SRC = path.join(ROOT, 'KayKit_Character_Animations_1.1',
   'KayKit_Character_Animations_1.1', 'Animations', 'gltf', 'Rig_Medium');
 const OUT = path.join(ROOT, 'assets', 'animations');
 
-// Только категории, разрешённые в CLAUDE.md. Combat* и Special не берём.
+// Only the categories allowed by CLAUDE.md. Combat* and Special are out.
 const FILES = {
   'Rig_Medium_General.glb': 'general.glb',
   'Rig_Medium_MovementBasic.glb': 'movement.glb',
@@ -74,11 +74,11 @@ function writeGlb(file, json, bin) {
   return total;
 }
 
-/** Достаёт данные аксессора плотно упакованными, снимая byteStride. */
+/** Pulls accessor data out tightly packed, dropping byteStride. */
 function extractAccessor(src, accessor) {
   const elementSize = COMPONENT_BYTES[accessor.componentType] * TYPE_COUNT[accessor.type];
   const out = Buffer.alloc(accessor.count * elementSize);
-  if (accessor.bufferView === undefined) return out; // разреженный/нулевой — редкость
+  if (accessor.bufferView === undefined) return out; // sparse/empty — rare
   const view = src.json.bufferViews[accessor.bufferView];
   const stride = view.byteStride || elementSize;
   const base = (view.byteOffset || 0) + (accessor.byteOffset || 0);
@@ -92,14 +92,15 @@ function strip(srcFile) {
   const src = readGlb(srcFile);
   const j = src.json;
 
-  // 1. Узлы на выброс — те, что несут меш. Остальное скелет и контейнер рига.
+  // 1. Nodes to drop are the ones carrying a mesh. The rest is the skeleton
+  //    and the rig container.
   const dropped = new Set();
   j.nodes.forEach((n, i) => { if (n.mesh !== undefined) dropped.add(i); });
 
   const keptNodes = j.nodes.map((_, i) => i).filter((i) => !dropped.has(i));
   const nodeRemap = new Map(keptNodes.map((oldIdx, newIdx) => [oldIdx, newIdx]));
 
-  // Ни один канал не должен указывать на выброшенный узел.
+  // No channel is allowed to point at a dropped node.
   for (const anim of j.animations || []) {
     for (const ch of anim.channels) {
       if (ch.target.node !== undefined && dropped.has(ch.target.node)) {
@@ -108,7 +109,8 @@ function strip(srcFile) {
     }
   }
 
-  // 2. Аксессоры, на которые ссылаются сэмплеры анимаций, — только они и нужны.
+  // 2. The accessors referenced by animation samplers — those are the only
+  //    ones we need.
   const keptAccessors = [];
   const accessorRemap = new Map();
   const keepAccessor = (oldIdx) => {
@@ -132,7 +134,7 @@ function strip(srcFile) {
     })),
   }));
 
-  // 3. Новый буфер: каждый аксессор — свой плотно упакованный bufferView.
+  // 3. New buffer: every accessor gets its own tightly packed bufferView.
   const chunks = [];
   const bufferViews = [];
   const accessors = [];
@@ -140,7 +142,7 @@ function strip(srcFile) {
   for (const oldIdx of keptAccessors) {
     const acc = j.accessors[oldIdx];
     const data = extractAccessor(src, acc);
-    // выравнивание по 4 байта — требование спеки для bufferView
+    // 4-byte alignment — the spec requires it for bufferView
     const padding = (4 - (cursor % 4)) % 4;
     if (padding) { chunks.push(Buffer.alloc(padding)); cursor += padding; }
     bufferViews.push({ buffer: 0, byteOffset: cursor, byteLength: data.length });
@@ -160,7 +162,7 @@ function strip(srcFile) {
   }
   const bin = Buffer.concat(chunks);
 
-  // 4. Узлы: снять ссылки на меш и скин, переиндексировать детей.
+  // 4. Nodes: drop the mesh and skin references, reindex the children.
   const nodes = keptNodes.map((oldIdx) => {
     const n = { ...j.nodes[oldIdx] };
     delete n.mesh;
@@ -191,7 +193,7 @@ function strip(srcFile) {
   return { out, bin, src };
 }
 
-/** Пересчитывает то, что должно совпасть до и после. */
+/** Recomputes the things that must match before and after. */
 function fingerprint(glb) {
   const j = glb.json;
   const clips = (j.animations || []).map((a) => {
@@ -215,7 +217,7 @@ for (const [srcName, outName] of Object.entries(FILES)) {
   const { out, bin, src } = strip(srcPath);
   const size = writeGlb(outPath, out, bin);
 
-  // Сверка: клипы, их длительности, число каналов и набор костей не изменились.
+  // Check: clips, durations, channel counts and the bone set are unchanged.
   const a = fingerprint(src);
   const b = fingerprint(readGlb(outPath));
   const ok = JSON.stringify(a) === JSON.stringify(b);

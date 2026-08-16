@@ -4,27 +4,27 @@ import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ANIMATION_URLS, IGNORED_CLIPS } from '../config/assets';
 
 /**
- * Реестр клипов из нескольких GLB.
+ * Registry of clips gathered from several GLB files.
  *
- * Ретаргет не нужен: имена костей у всех файлов пака совпадают
- * с базовой моделью — 23 из 23, одинаковая иерархия и рест-поза
- * (сверено в docs/ASSETS.md, раздел 3). Микшер связывает треки
- * с костями по имени, а не по индексу, поэтому клип из одного файла
- * спокойно играется на скелете из другого.
+ * No retargeting needed: bone names in every file of the pack match
+ * the base model — 23 out of 23, same hierarchy and same rest pose
+ * (verified in docs/ASSETS.md, section 3). The mixer binds tracks to
+ * bones by name, not by index, so a clip from one file plays happily
+ * on a skeleton from another.
  */
 export class AnimationLibrary {
   private readonly clips = new Map<string, THREE.AnimationClip>();
 
   static async load(loader: GLTFLoader): Promise<AnimationLibrary> {
     const library = new AnimationLibrary();
-    // Файлы независимы — грузим разом, а не по очереди
+    // The files are independent — load them all at once, not in turn
     const files = await Promise.all(ANIMATION_URLS.map((url) => loader.loadAsync(url)));
 
     for (const file of files) {
       for (const clip of file.animations) {
         if (IGNORED_CLIPS.includes(clip.name)) continue;
-        // T-Pose отсеян выше, но столкнуться могут и другие имена —
-        // молча перетирать клип хуже, чем сказать об этом
+        // T-Pose is filtered out above, but other names can collide
+        // too — silently overwriting a clip is worse than saying so
         if (library.clips.has(clip.name)) {
           console.warn(`[animations] клип "${clip.name}" встречается дважды, взят первый`);
           continue;
@@ -35,7 +35,7 @@ export class AnimationLibrary {
     return library;
   }
 
-  /** Клип по имени. Отсутствие клипа — ошибка сборки ассетов, не рантайма. */
+  /** Clip by name. A missing clip is an asset build error, not runtime. */
   require(name: string): THREE.AnimationClip {
     const clip = this.clips.get(name);
     if (clip === undefined) {

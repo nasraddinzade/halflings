@@ -26,25 +26,26 @@ import { riverCarve } from './heightfield';
 import type { Ground } from './Ground';
 
 /**
- * Трава и кусты инстансингом.
+ * Grass and bushes by instancing.
  *
- * InstancedMesh рисует тысячи копий одной геометрии за один draw call:
- * видеокарте отдаётся геометрия плюс массив матриц, а не тысяча объектов.
- * Двенадцать тысяч пучков травы обычными мешами стоили бы двенадцать
- * тысяч вызовов и убили бы кадр; здесь их считанные десятки.
+ * InstancedMesh draws thousands of copies of one geometry in a single
+ * draw call: the GPU is handed the geometry plus an array of matrices,
+ * not a thousand objects. Twelve thousand grass tufts as ordinary meshes
+ * would cost twelve thousand calls and kill the frame; here it's dozens.
  *
- * Разбиение на чанки нужно именно ради отсечения. Один InstancedMesh на
- * всю долину имел бы сферу отсечения размером с долину — то есть был бы
- * виден всегда и рисовался целиком, даже когда в кадре пара кустов.
- * Чанк накрывает свой кусок карты, и три четверти долины за спиной
- * камеры отсекаются бесплатно.
+ * The split into chunks exists precisely for culling. A single
+ * InstancedMesh for the whole valley would have a bounding sphere the
+ * size of the valley — meaning it would always be visible and drawn in
+ * full, even with a couple of bushes on screen. A chunk covers its own
+ * piece of the map, and three quarters of the valley behind the camera
+ * get culled for free.
  *
- * Обводки у растительности нет намеренно: контур на пучке в тридцать
- * сантиметров не читается, а draw call'ы удвоил бы.
+ * Vegetation has no outline on purpose: a contour on a thirty-centimetre
+ * tuft doesn't read, and it would double the draw calls.
  */
 export class Vegetation {
   private readonly chunks: THREE.InstancedMesh[] = [];
-  /** Стволы как препятствия: сквозь дерево ходить нельзя. */
+  /** Trunks as obstacles: you can't walk through a tree. */
   readonly treeTrunks: Circle[] = [];
 
   constructor(scene: THREE.Scene, ground: Ground) {
@@ -53,15 +54,15 @@ export class Vegetation {
     const grass = grassGeometry();
     const bush = bushGeometry();
 
-    // Раскладываем по чанкам заранее, чтобы знать размер каждого
+    // Bucket into chunks up front so we know the size of each one
     const grassByChunk = scatter(GRASS_COUNT, ground, random);
     const bushByChunk = scatter(BUSH_COUNT, ground, random);
 
     this.addTrees(scene, ground, random);
 
     this.addChunks(scene, grass, grassByChunk, PALETTE.grass, PALETTE.grassDry, 'grass');
-    // Кусты темнее и зеленее травы. С оливково-серым они читались
-    // как валуны, особенно приплюснутые
+    // Bushes are darker and greener than the grass. In olive-grey they
+    // read as boulders, the flattened ones especially
     this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.85), PALETTE.door, 'bush');
   }
 
@@ -96,25 +97,26 @@ export class Vegetation {
     for (const [key, placements] of byChunk) {
       if (placements.length === 0) continue;
 
-      // Геометрия общая на все чанки: клонируем ссылку, не данные
+      // The geometry is shared by all chunks: we copy the reference,
+      // not the data
       const mesh = new THREE.InstancedMesh(geometry, material, placements.length);
       mesh.name = `${name}_chunk_${key}`;
       mesh.castShadow = false;
-      // Тень трава принимает: без этого она светится на затенённой земле
+      // Grass does receive shadow: without it, it glows on shaded ground
       mesh.receiveShadow = true;
 
       placements.forEach((placement, index) => {
         matrix.compose(placement.position, placement.rotation, placement.scale);
         mesh.setMatrixAt(index, matrix);
-        // Цвет инстанса разводит однотонное поле на два оттенка
+        // Per-instance colour breaks a single-tone field into two shades
         color.set(colorA).lerp(tint.set(colorB), placement.tint);
         mesh.setColorAt(index, color);
       });
 
       mesh.instanceMatrix.needsUpdate = true;
       if (mesh.instanceColor !== null) mesh.instanceColor.needsUpdate = true;
-      // Сфера считается по инстансам чанка и потому тесная — ради этого
-      // всё и затевалось
+      // The sphere is computed from this chunk's instances and is
+      // therefore tight — which was the whole point of the exercise
       mesh.computeBoundingSphere();
 
       scene.add(mesh);
@@ -124,9 +126,10 @@ export class Vegetation {
 }
 
 /**
- * Деревья. Ствол и крона разного цвета, но это один инстансовый меш:
- * цвет запечён в вершины, а не задан материалом. Иначе на каждый чанк
- * приходилось бы по два InstancedMesh ради двух цветов.
+ * Trees. Trunk and crown are different colours, yet this is one instanced
+ * mesh: the colour is baked into the vertices instead of being set by the
+ * material. Otherwise every chunk would need two InstancedMeshes just to
+ * get two colours.
  */
 function addTreesTo(
   scene: THREE.Scene,
@@ -147,7 +150,7 @@ function addTreesTo(
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
 
-    // Середина долины остаётся открытой: там деревня и площадь
+    // The middle of the valley stays open: village and square are there
     if (radius < TREE_CLEARING_RADIUS) continue;
 
     const sample = ground.sample(x, z);
@@ -183,8 +186,8 @@ function addTreesTo(
     if (placements.length === 0) continue;
     const mesh = new THREE.InstancedMesh(geometry, material, placements.length);
     mesh.name = `tree_chunk_${key}`;
-    // Тень от деревьев держит долину вместе; коробка теней невелика,
-    // так что в проход попадают только ближние чанки
+    // Tree shadows hold the valley together; the shadow box is small,
+    // so only the nearby chunks make it into the pass
     mesh.castShadow = true;
     mesh.receiveShadow = true;
 
@@ -200,7 +203,7 @@ function addTreesTo(
   }
 }
 
-/** Ствол и две кроны, цвет — в атрибут вершин. */
+/** Trunk and two crowns, colour goes into the vertex attribute. */
 function treeGeometry(): THREE.BufferGeometry {
   const paint = (geometry: THREE.BufferGeometry, hex: number): THREE.BufferGeometry => {
     const color = new THREE.Color(hex);
@@ -215,9 +218,10 @@ function treeGeometry(): THREE.BufferGeometry {
     return geometry;
   };
 
-  // Цилиндр индексированный, а икосаэдр нет: mergeGeometries требует,
-  // чтобы индекс был либо у всех, либо ни у кого. Сводим к «ни у кого» —
-  // обратный путь через mergeVertices сварил бы гранёные кроны в гладкие
+  // The cylinder is indexed, the icosahedron is not: mergeGeometries
+  // demands that either everyone has an index or no one does. We settle
+  // on "no one" — going the other way via mergeVertices would weld the
+  // faceted crowns smooth
   const trunk = new THREE.CylinderGeometry(0.17, 0.26, 2.3, 6).toNonIndexed();
   trunk.translate(0, 1.15, 0);
 
@@ -244,15 +248,15 @@ interface Placement {
   tint: number;
 }
 
-/** Раскладывает точки по долине и группирует их по чанкам. */
+/** Scatters points across the valley and groups them into chunks. */
 function scatter(count: number, ground: Ground, random: () => number): Map<number, Placement[]> {
   const byChunk = new Map<number, Placement[]>();
   const axis = new THREE.Vector3(0, 1, 0);
   const chunkSize = (VALLEY_RADIUS * 2) / VEGETATION_CHUNKS;
 
   for (let i = 0; i < count; i++) {
-    // Корень от радиуса даёт равномерную плотность по площади: без него
-    // всё сбилось бы к центру
+    // The square root on the radius gives even density per unit area:
+    // without it everything would bunch up towards the centre
     const radius = Math.sqrt(random()) * VALLEY_RADIUS * 0.95;
     const angle = random() * Math.PI * 2;
     const x = Math.cos(angle) * radius;
@@ -260,12 +264,12 @@ function scatter(count: number, ground: Ground, random: () => number): Map<numbe
 
     const sample = ground.sample(x, z);
     if (sample === null) continue;
-    // На круче трава не держится — и заодно борт долины остаётся голым
+    // Grass won't hold on a steep slope — and it leaves the rim bare too
     if (sample.slope > VEGETATION_MAX_SLOPE) continue;
-    // И в реке тоже: пучки, торчащие из воды, сразу выдают подделку
+    // Nor in the river: tufts poking out of the water give the fake away
     if (riverCarve(x, z) > 0.05) continue;
-    // И внутри норы: холм теперь меш, земля под ним ровная, и пучки
-    // прорастали бы прямо сквозь крышу
+    // Nor inside a burrow: the hill is a mesh now, the ground under it
+    // is flat, and tufts would sprout straight through the roof
     if (BURROWS.some((b) => Math.hypot(x - b.x, z - b.z) < b.radius + 0.6)) continue;
 
     const scale = 0.7 + random() * 0.6;
@@ -289,20 +293,21 @@ function scatter(count: number, ground: Ground, random: () => number): Map<numbe
 }
 
 /**
- * Пучок травы: четырёхгранная пирамидка без донышка — четыре треугольника.
- * Донышко всё равно прижато к земле, а на тридцати тысячах инстансов
- * это вдвое меньше геометрии.
+ * A grass tuft: a four-sided pyramid with no bottom cap — four triangles.
+ * The cap is pressed against the ground anyway, and across thirty
+ * thousand instances that is half as much geometry.
  */
 function grassGeometry(): THREE.BufferGeometry {
   const geometry = new THREE.ConeGeometry(GRASS_HEIGHT * 0.3, GRASS_HEIGHT, 4, 1, true);
-  // Конус строится вокруг центра, а сажать его надо основанием на землю
+  // The cone is built around its centre, but it has to be planted with
+  // its base on the ground
   geometry.translate(0, GRASS_HEIGHT / 2, 0);
   return geometry;
 }
 
 /**
- * Куст: гранёный шар чуть выше своей ширины. Приплюснутый читался
- * как камень — форма важнее цвета.
+ * Bush: a faceted sphere a little taller than it is wide. The flattened
+ * version read as a rock — shape matters more than colour here.
  */
 function bushGeometry(): THREE.BufferGeometry {
   const geometry = new THREE.IcosahedronGeometry(BUSH_RADIUS, 0);

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { PIXEL_RATIO_CAP, SHADOW_MAP_SIZE } from '../config/constants';
 import { PALETTE } from '../config/palette';
 
-/** WebGLRenderer плюс подписка на resize. Цвета берутся из палитры. */
+/** WebGLRenderer plus a resize subscription. Colours come from the palette. */
 export class Renderer {
   readonly webgl: THREE.WebGLRenderer;
   private onResize?: (width: number, height: number) => void;
@@ -12,15 +12,15 @@ export class Renderer {
     this.webgl = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.webgl.setClearColor(PALETTE.sky);
     this.webgl.shadowMap.enabled = true;
-    // PCFSoftShadowMap в three 0.185 объявлен устаревшим и всё равно
-    // подменяется на PCFShadowMap — ставим его явно
+    // PCFSoftShadowMap is deprecated in three 0.185 and gets swapped for
+    // PCFShadowMap anyway — so set it explicitly
     this.webgl.shadowMap.type = THREE.PCFShadowMap;
     this.applySize();
 
     window.addEventListener('resize', this.handleResize);
   }
 
-  /** Регистрирует слушателя — камере нужно пересчитать aspect. */
+  /** Registers a listener — the camera needs to recompute its aspect. */
   setResizeHandler(handler: (width: number, height: number) => void): void {
     this.onResize = handler;
     handler(window.innerWidth, window.innerHeight);
@@ -31,8 +31,8 @@ export class Renderer {
   }
 
   /**
-   * Счётчики последнего кадра. three сбрасывает их сам на каждом render(),
-   * поэтому читать надо после отрисовки, а не до.
+   * Counters for the last frame. three resets them itself on every
+   * render(), so they have to be read after drawing, not before.
    */
   get frameStats(): { calls: number; triangles: number } {
     const { render } = this.webgl.info;
@@ -49,7 +49,7 @@ export class Renderer {
   }
 
   private applySize(): void {
-    // Ретина на 3x съедает кадры ни за что: выше двух не поднимаемся
+    // A 3x retina display eats frames for nothing: never go above two
     this.webgl.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
     this.webgl.setSize(window.innerWidth, window.innerHeight, false);
   }

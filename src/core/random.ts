@@ -1,8 +1,8 @@
-// Детерминированная случайность. Math.random в проекте не используется:
-// житель с одним и тем же именем обязан выглядеть и вести себя одинаково
-// между сессиями (решение №2).
+// Deterministic randomness. Math.random is not used in this project:
+// a villager with the same name must look and behave identically across
+// sessions (decision #2).
 
-/** FNV-1a: строка в 32 бита. */
+/** FNV-1a: string to 32 bits. */
 export function hashSeed(seed: string): number {
   let hash = 0x811c9dc5;
   for (let i = 0; i < seed.length; i++) {
@@ -12,7 +12,7 @@ export function hashSeed(seed: string): number {
   return hash >>> 0;
 }
 
-/** mulberry32: маленький генератор на одном 32-битном состоянии. */
+/** mulberry32: a tiny generator over a single 32-bit state. */
 export function makeRandom(seed: number): () => number {
   let state = seed;
   return () => {
@@ -30,7 +30,7 @@ export function pick<T>(items: readonly T[], random: () => number): T {
   return item;
 }
 
-/** Случайное число в диапазоне. */
+/** Random number within a range. */
 export function between(random: () => number, min: number, max: number): number {
   return min + random() * (max - min);
 }

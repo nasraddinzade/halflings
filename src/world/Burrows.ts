@@ -7,12 +7,14 @@ import { valleyFloor } from './heightfield';
 import type { Circle } from './Obstacles';
 
 /**
- * Норы: холм даёт рельеф, фасад и столярку — генератор в burrow/.
+ * Burrows: the mound gives the landform, the facade and the joinery come
+ * from the generator in burrow/.
  *
- * Тени нора не отбрасывает намеренно. Фасад лежит заподлицо с холмом,
- * солнце скользит вдоль него, и карта теней при 1.4 см на тексель
- * размазывала от наличника грязные пятна по всему склону. Тень на землю
- * здесь ничего не добавляет, а артефакты убирает целиком.
+ * The burrow casts no shadow, and that is deliberate. The facade sits
+ * flush with the mound, the sun grazes along it, and at 1.4 cm per texel
+ * the shadow map smeared dirty blotches from the door casing all over the
+ * slope. A shadow on the ground adds nothing here, and dropping it gets
+ * rid of the artifacts entirely.
  */
 export class Burrows {
   readonly group = new THREE.Group();
@@ -27,10 +29,10 @@ export class Burrows {
     const mounds = new THREE.Mesh(built.mounds);
     mounds.name = 'burrow_mounds';
     this.group.add(mounds);
-    // Холм — часть пейзажа, поэтому без обводки, как и земля.
-    // Тень отбрасывает, но не принимает: ниша под дверь утоплена, купол
-    // затеняет сам себя, и при 1.4 см на тексель это не мягкое
-    // затемнение, а жёсткая тёмная дуга поперёк всего фасада.
+    // The mound is part of the landscape, so no outline, same as the ground.
+    // It casts shadows but does not receive them: the door niche is
+    // recessed, the dome shadows itself, and at 1.4 cm per texel that is
+    // not soft shading but a hard dark arc across the whole facade.
     applyStyle(mounds, {
       color: PALETTE.grass,
       vertexColors: true,
@@ -43,7 +45,7 @@ export class Burrows {
       const mesh = new THREE.Mesh(geometry);
       mesh.name = `burrow_part_${color.toString(16)}`;
       this.group.add(mesh);
-      // Столярка лежит в нише: тень на неё падала бы от её же краёв
+      // Joinery sits in the niche: a shadow on it would come from its own edges
       applyStyle(mesh, { color, outline: true, castShadow: false, receiveShadow: false });
     }
   }

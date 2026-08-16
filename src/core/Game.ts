@@ -34,12 +34,12 @@ import { Terrain } from '../world/Terrain';
 import { Input } from './Input';
 
 /**
- * Единственный requestAnimationFrame проекта. Модули своих циклов
- * не заводят — порядок обновлений должен быть виден в одном месте.
+ * The project's only requestAnimationFrame. Modules do not start loops
+ * of their own — the update order has to be visible in one place.
  */
 export class Game {
   private readonly scene = new THREE.Scene();
-  /** Timer вместо Clock: Clock в three 0.185 объявлен устаревшим. */
+  /** Timer instead of Clock: Clock is deprecated as of three 0.185. */
   private readonly timer = new THREE.Timer();
 
   private readonly renderer: Renderer;
@@ -49,7 +49,7 @@ export class Game {
   private readonly ground: Ground;
   private readonly obstacles = new Obstacles();
   private readonly input: Input;
-  /** null, когда DEBUG_PANEL выключён: модуль тогда просто не существует. */
+  /** null when DEBUG_PANEL is off: the module then simply does not exist. */
   private readonly debug: DebugPanel | null = DEBUG_PANEL ? new DebugPanel() : null;
 
   private player!: Player;
@@ -73,7 +73,7 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement, private readonly hint: HTMLElement) {
     this.scene.background = new THREE.Color(PALETTE.sky);
-    // Туман цветом почти как небо: даль растворяется, а не сереет
+    // Fog nearly matches the sky: distance dissolves rather than greys out
     this.scene.fog = new THREE.Fog(PALETTE.fog, FOG_NEAR, FOG_FAR);
 
     this.renderer = new Renderer(canvas);
@@ -91,11 +91,11 @@ export class Game {
     this.scene.add(this.workSites.group);
     this.obstacles.addToGrid(this.workSites.blockers);
 
-    // Растительность ставится сразу: она статична и зависит только
-    // от рельефа, ждать загрузки персонажей ей незачем
+    // Vegetation goes in right away: it is static and depends only on
+    // the terrain, so it has no reason to wait for the characters to load
     if (GRASS_ENABLED) {
       this.vegetation = new Vegetation(this.scene, this.ground);
-      // Стволы — неподвижные препятствия, кладём их в сетку один раз
+      // Trunks are immovable obstacles, so put them in the grid once
       this.obstacles.addToGrid(this.vegetation.treeTrunks);
     }
 
@@ -103,17 +103,17 @@ export class Game {
       this.hint.hidden = locked;
     });
 
-    // Page Visibility API: пока вкладка скрыта, время не идёт
+    // Page Visibility API: while the tab is hidden, time does not advance
     this.timer.connect(document);
   }
 
   async load(): Promise<void> {
     const loader = new GLTFLoader();
-    // Файлы анимаций сжаты EXT_meshopt_compression (tools/compress-animations.mjs).
-    // Без декодера GLTFLoader на них просто упадёт
+    // Animation files use EXT_meshopt_compression (tools/compress-animations.mjs).
+    // Without the decoder, GLTFLoader simply throws when loading them
     loader.setMeshoptDecoder(MeshoptDecoder);
 
-    // Модель, клипы и части жителей независимы — грузим параллельно
+    // Model, clips and villager parts are independent — load in parallel
     const [player, library, parts] = await Promise.all([
       loadPlayer(loader),
       AnimationLibrary.load(loader),
@@ -136,9 +136,9 @@ export class Game {
       this.village = new Village(this.scene, parts, library, this.ground, this.obstacles);
     }
 
-    // Компилируем шейдеры до первого кадра: иначе на старте будет
-    // заметная пауза, а ошибки в шейдере обводки всплыли бы только
-    // тогда, когда объект впервые попадёт в кадр
+    // Compile shaders before the first frame: otherwise there is a
+    // noticeable stall at startup, and errors in the outline shader would
+    // only surface once the object first came into view
     await this.renderer.webgl.compileAsync(this.scene, this.cameraRig.camera);
   }
 
@@ -171,13 +171,13 @@ export class Game {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.tick);
 
-    // Потолок нужен, когда кадр всё-таки затянулся: за один большой шаг
-    // персонаж проскочил бы сквозь землю
+    // The cap matters when a frame does drag out: in one big step the
+    // character would shoot straight through the ground
     this.timer.update();
     const delta = Math.min(this.timer.getDelta(), MAX_DELTA);
 
-    // Порядок обновлений фиксирован:
-    // ввод -> камера -> контроллер -> анимации -> свет -> кадр
+    // The update order is fixed:
+    // input -> camera -> controller -> animation -> light -> frame
     const mouse = this.input.getMouseDelta();
     this.cameraRig.rotate(mouse.x, mouse.y);
 
@@ -188,8 +188,8 @@ export class Game {
 
     this.controller.update(this.frame, delta);
 
-    // Камера идёт после контроллера, чтобы следить за уже новой
-    // позицией: иначе она отстаёт ровно на кадр и картинка дрожит
+    // The camera runs after the controller to follow the already updated
+    // position: otherwise it lags exactly one frame and the picture jitters
     this.cameraRig.update(this.controller.position, this.ground, delta);
 
     this.locomotion.update(this.controller.locomotion, delta);
@@ -201,7 +201,7 @@ export class Game {
 
     this.renderer.render(this.scene, this.cameraRig.camera);
 
-    // Строго после render(): счётчики кадра до отрисовки ещё пустые
+    // Strictly after render(): before drawing, the frame counters are empty
     if (this.debug !== null) {
       const stats = this.renderer.frameStats;
       this.debug.update({

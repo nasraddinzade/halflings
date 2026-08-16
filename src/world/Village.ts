@@ -17,21 +17,22 @@ import type { Ground } from './Ground';
 import type { Circle, Obstacles } from './Obstacles';
 
 /**
- * Население долины: собирает жителей по конфигу и раздаёт им занятия.
+ * The valley's population: assembles villagers from config and hands out
+ * their occupations.
  *
- * Роль выпадает из seed, а рабочие места заданы данными (config/work.ts),
- * поэтому их количество и роли не обязаны совпадать. Житель встаёт на
- * ближайшее свободное место своей роли, а если мест этой роли нет —
- * получает место бездельника и просто живёт в деревне.
+ * The role falls out of the seed, while work sites are defined by data
+ * (config/work.ts), so their counts and roles need not match. A villager
+ * takes the nearest free site of their own role, and if there is no site
+ * for that role — they get an idler's site and simply live in the village.
  */
 export class Village {
   readonly villagers: Villager[] = [];
   private readonly brains: VillagerBrain[] = [];
-  /** Накопленное время для жителей, чей микшер обновляется через кадр. */
+  /** Accrued time for villagers whose mixer updates every other frame. */
   private readonly pending: number[] = [];
   private frame = 0;
   private visibleCount = 0;
-  /** Круги жителей: их читает контроллер игрока через Obstacles. */
+  /** Villager circles: the player controller reads them via Obstacles. */
   private readonly circles: Circle[] = [];
 
   constructor(
@@ -41,8 +42,8 @@ export class Village {
     ground: Ground,
     private readonly obstacles: Obstacles,
   ) {
-    // Счётчик занятости по ролям: жители расходятся по местам
-    // по кругу, а не толпятся на первом
+    // Per-role occupancy counter: villagers spread over the sites
+    // round-robin instead of crowding onto the first one
     const nextByRole = new Map<VillagerRole, number>();
 
     for (const name of VILLAGER_NAMES.slice(0, VILLAGER_COUNT)) {
@@ -62,21 +63,21 @@ export class Village {
     return this.villagers.reduce((sum, villager) => sum + villager.triangles, 0);
   }
 
-  /** Сколько жителей сейчас работает — пригодится отладочной панели. */
+  /** How many villagers are working — handy for the debug panel. */
   get working(): number {
     return this.brains.filter((brain) => brain.currentState === 'work').length;
   }
 
-  /** Сколько жителей реально попало в кадр — метрика для панели. */
+  /** How many villagers actually made it on screen — a panel metric. */
   get visible(): number {
     return this.visibleCount;
   }
 
   /**
-   * LOD по расстоянию. Дорого в жителе не столько треугольники, сколько
-   * два draw call'а (меш плюс обводка) и пересчёт двадцати трёх костей
-   * каждый кадр. Поэтому дальние теряют сперва обводку, потом частоту
-   * анимации, а совсем дальние просто не рисуются.
+   * Distance-based LOD. What costs in a villager is not so much the
+   * triangles as the two draw calls (mesh plus outline) and recomputing
+   * twenty-three bones every frame. So distant ones lose the outline
+   * first, then animation rate, and the farthest are simply not drawn.
    */
   update(delta: number, cameraPosition: THREE.Vector3): void {
     this.frame++;
@@ -91,8 +92,8 @@ export class Village {
 
       if (distance > LOD_CULL) {
         villager.root.visible = false;
-        // Время всё равно копим: житель не должен телепортироваться,
-        // когда игрок вернётся
+        // We still accrue the time: the villager must not teleport
+        // once the player comes back
         this.pending[i] = (this.pending[i] ?? 0) + delta;
         continue;
       }
@@ -104,9 +105,9 @@ export class Village {
       for (const outline of villager.outlines) outline.visible = near;
 
       const owed = (this.pending[i] ?? 0) + delta;
-      // Вблизи обновляем каждый кадр, дальше — раз в LOD_ANIMATION_STRIDE,
-      // отдавая накопленное время разом: анимация идёт с той же скоростью,
-      // просто реже пересчитывается
+      // Up close we update every frame, further out once per
+      // LOD_ANIMATION_STRIDE, handing over the accrued time in one go:
+      // the animation runs at the same speed, just recomputed less often
       if (near || (this.frame + i) % LOD_ANIMATION_STRIDE === 0) {
         brain.update(owed);
         this.pending[i] = 0;
@@ -120,10 +121,10 @@ export class Village {
   }
 
   /**
-   * Расталкивание. Жители сходятся на общие рабочие места и без этого
-   * стоят друг в друге. Толкаем на половину перекрытия и по одному
-   * проходу: полное разведение за кадр выглядит как отскок, а лишние
-   * проходы на тридцати телах не окупаются.
+   * Pushing apart. Villagers converge on shared work sites and without
+   * this they stand inside each other. We push by half the overlap and
+   * do a single pass: separating them fully in one frame looks like a
+   * bounce, and extra passes don't pay off for thirty bodies.
    */
   private separate(): void {
     for (let i = 0; i < this.brains.length; i++) {
@@ -146,7 +147,7 @@ export class Village {
         b.nudge(dx * push, dz * push);
       }
 
-      // И из дверей нор: житель не должен стоять в проёме
+      // And out of burrow doors: a villager must not stand in the opening
       if (this.obstacles.blocked(a.x, a.z, VILLAGER_RADIUS)) {
         const away = Math.hypot(a.x, a.z) || 1;
         a.nudge((a.x / away) * 0.08, (a.z / away) * 0.08);

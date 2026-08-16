@@ -5,19 +5,19 @@ import { darken } from '../config/palette';
 import { createOutline } from './Outline';
 
 /**
- * Единая точка стилизации (решение №6). Всё, что попадает в сцену,
- * проходит через applyStyle: материал из ассета выбрасывается и
- * заменяется тоновым из палитры проекта.
+ * The single styling entry point (decision #6). Everything that ends up in
+ * the scene goes through applyStyle: the material that came with the asset
+ * is thrown away and replaced with a toon one from the project palette.
  */
 
 /**
- * Рампа освещения для MeshToonMaterial.
+ * Lighting ramp for MeshToonMaterial.
  *
- * MeshToonMaterial берёт освещённость, полученную обычным способом, и
- * вместо плавной подстановки читает по ней цвет из этой одномерной
- * текстуры. NearestFilter превращает градиент в ступени: три текселя —
- * три уровня света, тень / полутон / свет. Без Nearest получился бы
- * тот же градиент, только через текстуру.
+ * MeshToonMaterial takes the illumination computed the usual way and,
+ * instead of applying it smoothly, uses it to look up a colour in this
+ * one-dimensional texture. NearestFilter turns the gradient into steps:
+ * three texels — three light levels, shadow / midtone / light. Without
+ * Nearest we would get the same gradient, only routed through a texture.
  */
 function createToonGradient(steps: number): THREE.DataTexture {
   const data = new Uint8Array(steps);
@@ -34,7 +34,7 @@ function createToonGradient(steps: number): THREE.DataTexture {
 
 const gradientMap = createToonGradient(TOON_STEPS);
 
-/** Материалы кэшируются: одинаковый цвет или атлас — одна программа. */
+/** Materials are cached: same colour or same atlas — one program. */
 const surfaces = new Map<string, THREE.MeshToonMaterial>();
 
 export function toonSurface(color: number, map: THREE.Texture | null = null): THREE.MeshToonMaterial {
@@ -43,8 +43,8 @@ export function toonSurface(color: number, map: THREE.Texture | null = null): TH
   if (cached !== undefined) return cached;
 
   const material = new THREE.MeshToonMaterial({
-    // С текстурой цвет должен быть белым: MeshToonMaterial перемножает
-    // color и map, и любой другой оттенок подкрасил бы весь атлас
+    // With a texture the colour must be white: MeshToonMaterial multiplies
+    // color by map, and any other tint would stain the whole atlas
     color: map === null ? color : 0xffffff,
     gradientMap,
     fog: true,
@@ -55,11 +55,11 @@ export function toonSurface(color: number, map: THREE.Texture | null = null): TH
 }
 
 /**
- * Материал для геометрии, у которой цвет запечён в вершины.
+ * Material for geometry with the colour baked into the vertices.
  *
- * Нужен дереву: ствол и крона разного цвета, но это один инстансовый
- * меш. Красить их порознь значило бы два InstancedMesh на чанк, то есть
- * вдвое больше вызовов ради двух цветов.
+ * Trees need it: trunk and crown are different colours, yet it is one
+ * instanced mesh. Colouring them separately would mean two InstancedMeshes
+ * per chunk — twice the draw calls for the sake of two colours.
  */
 let vertexColored: THREE.MeshToonMaterial | null = null;
 
@@ -76,25 +76,25 @@ export function toonVertexColored(): THREE.MeshToonMaterial {
 }
 
 export interface StyleOptions {
-  /** Цвет из палитры. Другие источники цвета в проекте не допускаются. */
+  /** Colour from the palette. No other colour source is allowed here. */
   color: number;
-  /** Цвет берётся из атрибута вершин, а не из палитры одним тоном. */
+  /** Colour comes from a vertex attribute, not one flat palette tone. */
   vertexColors?: boolean;
-  /** Атлас проекта — для жителей, у которых цвет задан развёрткой. */
+  /** The project atlas — for villagers whose colour is set by the UVs. */
   map?: THREE.Texture | undefined;
-  /** Обводка inverted hull. Для земли не нужна — контур у неё бессмысленен. */
+  /** Inverted hull outline. The ground needs none — it makes no sense there. */
   outline?: boolean;
   castShadow?: boolean;
   receiveShadow?: boolean;
 }
 
 /**
- * Проходит по поддереву, подменяет материалы и по желанию навешивает
- * обводку. Обводки собираются в список и добавляются после обхода:
- * добавлять детей прямо в traverse — значит обходить и их тоже.
+ * Walks the subtree, swaps the materials and optionally attaches outlines.
+ * The outlines are collected into a list and added after the walk: adding
+ * children inside traverse means traversing them too.
  *
- * Возвращает созданные обводки: их гасят по расстоянию (шаг 6),
- * и для этого нужны ссылки.
+ * Returns the outlines it created: they get faded out by distance (step 6),
+ * and that needs references to them.
  */
 export function applyStyle(root: THREE.Object3D, options: StyleOptions): THREE.Mesh[] {
   const {
@@ -103,8 +103,8 @@ export function applyStyle(root: THREE.Object3D, options: StyleOptions): THREE.M
   } = options;
 
   const material = vertexColors ? toonVertexColored() : toonSurface(color, map ?? null);
-  // Без текстуры контур — затемнённый цвет объекта; с текстурой он
-  // затемняет её сам, попиксельно (см. Outline.ts)
+  // Without a texture the outline is the object's darkened colour; with
+  // one it darkens the texture itself, per pixel (see Outline.ts)
   const outlineColor = darken(color, OUTLINE_DARKEN);
   const pending: Array<{ parent: THREE.Object3D; outline: THREE.Mesh }> = [];
 

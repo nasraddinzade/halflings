@@ -1,21 +1,22 @@
-// Норы полуросликов — данные, как и точки работы.
-// Нора описывается четырьмя числами; всё остальное считает генератор
-// в world/burrow/. Добавить нору — добавить строку.
+// Halfling burrows are data, just like the work points.
+// A burrow is described by four numbers; everything else is computed by
+// the generator in world/burrow/. Adding a burrow means adding a row.
 
 export interface Burrow {
   id: string;
-  /** Центр холма. */
+  /** Center of the mound. */
   x: number;
   z: number;
-  /** Радиус и высота холма в метрах. */
+  /** Radius and height of the mound, in meters. */
   radius: number;
   height: number;
 }
 
 /**
- * Круглая дверь. Диаметр 1.34 м — попадает в 1.2–1.5 м, как у дверей
- * Хоббитона, и соразмерен полурослику ростом 1.1 м. Порог поднят на
- * 0.2 м: через настоящую круглую дверь переступают, а не входят вровень.
+ * Round door. The 1.34 m diameter lands in the 1.2–1.5 m range of the
+ * reference burrow doors and is proportionate to a 1.1 m halfling. The
+ * sill is raised by 0.2 m: a real round door is stepped over, not walked
+ * through flush with the ground.
  */
 export const DOOR_RADIUS = 0.55;
 export const DOOR_FRAME_RADIUS = 0.6;
@@ -24,50 +25,55 @@ export const DOOR_SILL = 0.2;
 export const DOOR_CENTER_HEIGHT = DOOR_SILL + DOOR_FRAME_RADIUS + DOOR_FRAME_TUBE;
 
 /**
- * Сколько земли остаётся над наличником. Глубина, на которую фасад
- * уходит в холм, считается из этого числа, а не задаётся долей радиуса:
- * при доле запас плавал вместе с размером холма, и на маленьких норах
- * дверь вылезала макушкой наружу.
+ * How much earth is left above the door frame. The depth the facade sinks
+ * into the mound is derived from this number instead of being set as a
+ * fraction of the radius: with a fraction the clearance drifted along
+ * with the mound size, and on small burrows the top of the door poked out.
  */
 export const FACE_CLEARANCE = 0.55;
 /**
- * Фасад — плоский срез холма, и это правильно: у настоящих нор перед
- * дверью каменная стенка. Щитом он выглядел не из-за плоскости, а из-за
- * пропорций холма. Блин радиусом 6.5 м при высоте 2.9 в срезе даёт
- * стену одиннадцати метров; полусфера даёт арку чуть шире двери.
+ * The facade is a flat cut through the mound, and that is right: real
+ * burrows have a stone wall in front of the door. It looked like a shield
+ * not because it was flat but because of the mound's proportions. A
+ * pancake 6.5 m in radius and 2.9 m tall cuts into an eleven-meter wall;
+ * a hemisphere gives an arch just slightly wider than the door.
  */
 export const FACE_CUT_BLEND = 0.8;
-/** Насколько геометрия вынесена вперёд, чтобы не мерцать с рельефом. */
+/** How far the geometry is pushed forward so it doesn't z-fight terrain. */
 export const FACE_OFFSET = 0.04;
 /**
- * Вдавленный под дверь участок купола. Внутри INNER поверхность ровно
- * в дверной плоскости, к OUTER плавно возвращается к куполу. Это и есть
- * весь «фасад»: круг чуть больше метра, а не отдельная панель.
+ * The patch of the dome pressed in for the door. Inside INNER the surface
+ * lies exactly in the door plane; by OUTER it eases back to the dome.
+ * That is the entire "facade": a circle a little over a meter across, not
+ * a separate panel.
  */
 export const DIMPLE_INNER = 1.05;
 export const DIMPLE_OUTER = 1.85;
-/** Разбиение купола: колец по высоте, сегментов по кругу. */
+/** Dome tessellation: rings along the height, segments around it. */
 export const MOUND_RINGS = 16;
 export const MOUND_SEGMENTS = 40;
-/** Плитняк дорожки перед дверью. */
+/** Flagstones of the path in front of the door. */
 export const PATH_STONES = 4;
 /**
- * Земля под норой выравнивается в площадку, и уже на неё встаёт купол.
- * Без этого естественный рельеф долины лезет перед фасадом и топит низ
- * двери. Отступ задан в метрах, а не в долях радиуса: с долями у мелких
- * холмов площадка кончалась прямо перед порогом.
+ * The ground under a burrow is levelled into a pad, and the dome stands
+ * on that. Without it the valley's natural terrain rides up in front of
+ * the facade and drowns the bottom of the door. The margin is in meters,
+ * not in fractions of the radius: with fractions the pad on small mounds
+ * ran out right in front of the threshold.
  */
 export const PAD_MARGIN = 3.6;
 export const PAD_FADE = 2.6;
 
 /**
- * Норы кольцом вокруг деревенской площади. Юг оставлен реке, поэтому
- * их там нет. Двери смотрят к центру долины — угол выводится из
- * координат, дублировать его в данных незачем.
+ * Burrows in a ring around the village square. The south is left to the
+ * river, so there are none there. The doors face the center of the
+ * valley — the angle is derived from the coordinates, no point
+ * duplicating it in the data.
  */
 /**
- * Холм близок к полусфере: радиус примерно равен высоте. Тогда срез
- * получается почти полукругом — аркой над дверью, а не стеной.
+ * A mound is close to a hemisphere: the radius roughly equals the height.
+ * Then the cut comes out almost a semicircle — an arch over the door
+ * rather than a wall.
  */
 export const BURROWS: readonly Burrow[] = [
   { id: 'burrow-1', x: -25, z: 4, radius: 3.4, height: 3.2 },
@@ -78,7 +84,7 @@ export const BURROWS: readonly Burrow[] = [
   { id: 'burrow-6', x: 24, z: -7, radius: 3, height: 2.9 },
 ];
 
-/** Куда смотрит дверь: всегда к центру долины. */
+/** Which way the door faces: always toward the center of the valley. */
 export function doorFacing(burrow: Burrow): number {
   return Math.atan2(-burrow.x, -burrow.z);
 }

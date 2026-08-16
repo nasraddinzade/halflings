@@ -3,6 +3,7 @@ import { MeshBVH } from 'three-mesh-bvh';
 
 import { VALLEY_SEGMENTS, VALLEY_SIZE } from '../config/constants';
 import { PALETTE } from '../config/palette';
+import { paintGround } from './groundColor';
 import { applyStyle } from '../render/style';
 import { heightAt } from './heightfield';
 
@@ -37,6 +38,9 @@ export class Terrain {
     }
     position.needsUpdate = true;
     geometry.computeVertexNormals();
+    // Цвет по вершинам: тропы, откосы, берега. Считается после смещения
+    // высот, потому что смотрит на уже готовый рельеф
+    paintGround(geometry);
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
 
@@ -48,6 +52,7 @@ export class Terrain {
     // с силуэтом, а не для поверхности, на которой всё стоит
     applyStyle(this.mesh, {
       color: PALETTE.grass,
+      vertexColors: true,
       outline: false,
       castShadow: false,
       receiveShadow: true,

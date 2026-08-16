@@ -78,6 +78,8 @@ export function toonVertexColored(): THREE.MeshToonMaterial {
 export interface StyleOptions {
   /** Цвет из палитры. Другие источники цвета в проекте не допускаются. */
   color: number;
+  /** Цвет берётся из атрибута вершин, а не из палитры одним тоном. */
+  vertexColors?: boolean;
   /** Атлас проекта — для жителей, у которых цвет задан развёрткой. */
   map?: THREE.Texture | undefined;
   /** Обводка inverted hull. Для земли не нужна — контур у неё бессмысленен. */
@@ -95,9 +97,12 @@ export interface StyleOptions {
  * и для этого нужны ссылки.
  */
 export function applyStyle(root: THREE.Object3D, options: StyleOptions): THREE.Mesh[] {
-  const { color, map, outline = false, castShadow = true, receiveShadow = true } = options;
+  const {
+    color, map, vertexColors = false,
+    outline = false, castShadow = true, receiveShadow = true,
+  } = options;
 
-  const material = toonSurface(color, map ?? null);
+  const material = vertexColors ? toonVertexColored() : toonSurface(color, map ?? null);
   // Без текстуры контур — затемнённый цвет объекта; с текстурой он
   // затемняет её сам, попиксельно (см. Outline.ts)
   const outlineColor = darken(color, OUTLINE_DARKEN);

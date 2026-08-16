@@ -136,6 +136,19 @@ export const RIVER_SEGMENTS_ACROSS = 6;
 export const RIVER_WAVE_HEIGHT = 0.035;
 export const RIVER_WAVE_SPEED = 1.1;
 
+// --- раскраска земли --------------------------------------------------------
+
+/** Круче этого сквозь траву проступает земля. */
+export const GROUND_DIRT_SLOPE = (26 * Math.PI) / 180;
+export const GROUND_ROCK_SLOPE = (44 * Math.PI) / 180;
+/** Полуширина утоптанной тропы и длина растушёвки её края. */
+export const PATH_WIDTH = 1.1;
+export const PATH_BLEND = 1.6;
+/** Полоса голого берега вдоль воды. */
+export const BANK_WIDTH = 1.2;
+/** Частота пятен, которыми зелень уходит в сухую. */
+export const GROUND_PATCH_FREQUENCY = 0.035;
+
 export const SPAWN_X = 0;
 export const SPAWN_Z = 0;
 

@@ -3,6 +3,8 @@ import { DEBUG_REFRESH, STAMINA_MAX } from '../config/constants';
 /** Всё, что панель показывает за кадр. Собирается в Game. */
 export interface DebugSnapshot {
   delta: number;
+  /** Где стоит игрок: без этого не понять, дошёл ли он куда собирался. */
+  position: { x: number; y: number; z: number };
   drawCalls: number;
   triangles: number;
   clip: string;
@@ -22,7 +24,7 @@ interface Row {
 
 const ROWS = [
   'fps', 'draw calls', 'треугольников', 'клип',
-  'скорость', 'стамина', 'на земле', 'работают', 'в кадре',
+  'скорость', 'стамина', 'на земле', 'работают', 'в кадре', 'позиция',
 ] as const;
 
 /**
@@ -94,6 +96,8 @@ export class DebugPanel {
     this.set('на земле', snapshot.grounded ? 'да' : 'нет');
     this.set('работают', snapshot.working === null ? '—' : String(snapshot.working));
     this.set('в кадре', snapshot.visibleVillagers === null ? '—' : String(snapshot.visibleVillagers));
+    const p = snapshot.position;
+    this.set('позиция', `${p.x.toFixed(1)} ${p.y.toFixed(1)} ${p.z.toFixed(1)}`);
   }
 
   dispose(): void {

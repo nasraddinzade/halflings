@@ -13,7 +13,7 @@ import {
   VILLAGER_WORK_MIN,
 } from '../config/constants';
 import { CLIP } from '../config/assets';
-import { ROLE_WORK_CLIP, type WorkPoint } from '../config/work';
+import { ROLE_WORK_CLIP, workFacing, type WorkPoint } from '../config/work';
 import { between, hashSeed, makeRandom } from '../core/random';
 import type { Ground } from '../world/Ground';
 import type { AnimationLibrary } from './AnimationLibrary';
@@ -37,6 +37,7 @@ export class VillagerBrain {
   private readonly restPoint: THREE.Vector2;
   private readonly workPoint: THREE.Vector2;
   private target: THREE.Vector2;
+  private readonly workYaw: number;
 
   private readonly clips: ClipPlayer;
   private yaw: number;
@@ -54,6 +55,8 @@ export class VillagerBrain {
     this.random = makeRandom(hashSeed(villager.config.id));
 
     this.workPoint = new THREE.Vector2(work.x, work.z);
+    // За работой житель смотрит на свой реквизит, а не куда пришёл
+    this.workYaw = workFacing(work);
     // Место отдыха — в паре метров от рабочего, в своём для каждого
     // направлении: иначе все стояли бы в одной точке
     const angle = this.random() * Math.PI * 2;
@@ -111,6 +114,9 @@ export class VillagerBrain {
         break;
       case 'work':
         this.timeLeft -= delta;
+        // Доворачиваем к грядке: пришёл он с любой стороны
+        this.turnTowards(this.workYaw, delta);
+        this.apply();
         if (this.timeLeft <= 0) this.startIdling();
         break;
     }

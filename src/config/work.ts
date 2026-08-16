@@ -34,6 +34,9 @@ export const ROLE_WORK_CLIP: Readonly<Record<VillagerRole, string>> = {
  * а до воды рукой подать. Координаты посчитаны по riverCenterZ(x) —
  * если сдвинуть русло в constants.ts, эти три точки надо пересчитать.
  */
+/** На сколько метров реквизит стоит перед жителем. */
+export const PROP_DISTANCE = 0.95;
+
 export const WORK_POINTS: readonly WorkPoint[] = [
   { id: 'garden-1', role: 'gardener', x: -8, z: 10 },
   { id: 'garden-2', role: 'gardener', x: -11.5, z: 13 },
@@ -54,3 +57,17 @@ export const WORK_POINTS: readonly WorkPoint[] = [
   { id: 'square-2', role: 'idler', x: 3.5, z: 12 },
   { id: 'square-3', role: 'idler', x: -3.5, z: 11 },
 ];
+
+/** Куда житель смотрит за работой: к центру долины, туда же и реквизит. */
+export function workFacing(point: WorkPoint): number {
+  return Math.atan2(-point.x, -point.z);
+}
+
+/** Где стоит грядка, козлы или камыш — перед жителем, а не под ним. */
+export function propPosition(point: WorkPoint): { x: number; z: number } {
+  const yaw = workFacing(point);
+  return {
+    x: point.x + Math.sin(yaw) * PROP_DISTANCE,
+    z: point.z + Math.cos(yaw) * PROP_DISTANCE,
+  };
+}

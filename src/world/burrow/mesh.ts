@@ -87,8 +87,12 @@ export function buildMoundMesh(burrow: Burrow, face: BurrowFace): THREE.BufferGe
     for (let segment = 0; segment < MOUND_SEGMENTS; segment++) {
       const a = ring * stride + segment;
       const b = a + stride;
-      // Обход даёт нормаль наружу купола
-      indices.push(a, a + 1, b, b, a + 1, b + 1);
+      // Порядок вершин задаёт сторону грани. Соседний индекс идёт по
+      // кругу, следующий ряд — вверх, и обход a -> b -> a+1 даёт нормаль
+      // наружу купола. При обратном порядке нормали смотрят внутрь,
+      // передние грани оказываются с изнанки, и холм выглядит прозрачным:
+      // сквозь ближнюю стенку видно внутреннюю сторону дальней.
+      indices.push(a, b, a + 1, b, b + 1, a + 1);
     }
   }
 

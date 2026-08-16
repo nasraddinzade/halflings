@@ -16,7 +16,8 @@ import {
   TREE_MAX_SLOPE,
   TREE_TRUNK_RADIUS,
 } from '../config/constants';
-import { BURROWS, doorPosition } from '../config/burrows';
+import { BURROWS } from '../config/burrows';
+import { facePoint } from './burrow/profile';
 import { PALETTE, darken } from '../config/palette';
 import { makeRandom } from '../core/random';
 import { toonSurface, toonVertexColored } from '../render/style';
@@ -134,7 +135,7 @@ function addTreesTo(
   trunks: Circle[],
   chunks: THREE.InstancedMesh[],
 ): void {
-  const doors = BURROWS.map((burrow) => doorPosition(burrow));
+  const doors = BURROWS.map((burrow) => facePoint(burrow));
   const geometry = treeGeometry();
   const material = toonVertexColored();
   const chunkSize = (VALLEY_RADIUS * 2) / VEGETATION_CHUNKS;

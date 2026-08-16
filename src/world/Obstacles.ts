@@ -1,7 +1,5 @@
 import type * as THREE from 'three';
 
-import { DOOR_BLOCK_RADIUS } from '../config/constants';
-import { BURROWS, doorPosition } from '../config/burrows';
 
 /** Сторона ячейки пространственной сетки, метры. */
 const CELL = 8;
@@ -35,11 +33,9 @@ export class Obstacles {
   /** Подвижные: жители. Village обновляет их каждый кадр. */
   private dynamics: readonly Circle[] = [];
 
-  constructor() {
-    for (const burrow of BURROWS) {
-      const door = doorPosition(burrow);
-      this.statics.push({ x: door.x, z: door.z, radius: DOOR_BLOCK_RADIUS });
-    }
+  /** Немногочисленные неподвижные круги: двери нор, реквизит. */
+  addStatic(circles: readonly Circle[]): void {
+    this.statics.push(...circles);
   }
 
   setDynamic(circles: readonly Circle[]): void {

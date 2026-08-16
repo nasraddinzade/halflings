@@ -11,7 +11,8 @@ import {
   SPAWN_Z,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
-import { BURROWS, doorPosition } from '../config/burrows';
+import { BURROWS } from '../config/burrows';
+import { facePoint } from './burrow/profile';
 import { WORK_POINTS, propPosition } from '../config/work';
 import { hashSeed, makeRandom } from '../core/random';
 import { heightAt, riverCarve } from './heightfield';
@@ -41,7 +42,7 @@ function buildPaths(): Segment[] {
 
   // От площади к каждой двери
   for (const burrow of BURROWS) {
-    const door = doorPosition(burrow);
+    const door = facePoint(burrow);
     segments.push({ ax: SPAWN_X, az: SPAWN_Z, bx: door.x, bz: door.z });
   }
 

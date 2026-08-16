@@ -1,104 +1,45 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-import {
-  BURROWS,
-  DOOR_CENTER_HEIGHT,
-  DOOR_FRAME_RADIUS,
-  DOOR_FRAME_TUBE,
-  DOOR_RADIUS,
-  doorFacing,
-  doorPosition,
-} from '../config/burrows';
 import { PALETTE } from '../config/palette';
 import { applyStyle } from '../render/style';
-import { heightAt } from './heightfield';
+import { buildBurrows } from './burrow/build';
+import { valleyFloor } from './heightfield';
+import type { Circle } from './Obstacles';
 
 /**
- * Круглые двери нор.
+ * Норы: холм даёт рельеф, фасад и столярку — генератор в burrow/.
  *
- * Холмы делает рельеф (heightfield.ts), а здесь только фасад: створка,
- * наличник, ручка, тёмная глубина за дверью и порог. Врезать саму
- * дверь в террейн бессмысленно — сетка у него метровая, дверной проём
- * в метр тридцать на ней просто не выразить.
- *
- * Все шесть нор склеиваются в один меш на цвет: шесть отдельных нор
- * стоили бы под тридцать draw call'ов вместе с обводкой, а так их пять.
+ * Тени нора не отбрасывает намеренно. Фасад лежит заподлицо с холмом,
+ * солнце скользит вдоль него, и карта теней при 1.4 см на тексель
+ * размазывала от наличника грязные пятна по всему склону. Тень на землю
+ * здесь ничего не добавляет, а артефакты убирает целиком.
  */
 export class Burrows {
   readonly group = new THREE.Group();
+  readonly blockers: Circle[];
 
   constructor() {
     this.group.name = 'burrows';
 
-    // По куску геометрии на цвет: внутри цвета всё сливается в один меш
-    const byColor = new Map<number, THREE.BufferGeometry[]>();
-    const add = (color: number, geometry: THREE.BufferGeometry): void => {
-      const bucket = byColor.get(color);
-      if (bucket === undefined) byColor.set(color, [geometry]);
-      else bucket.push(geometry);
-    };
+    const built = buildBurrows(valleyFloor);
+    this.blockers = built.blockers;
 
-    for (const burrow of BURROWS) {
-      const door = doorPosition(burrow);
-      const yaw = doorFacing(burrow);
-      const base = heightAt(door.x, door.z);
+    const face = new THREE.Mesh(built.face);
+    face.name = 'burrow_faces';
+    this.group.add(face);
+    applyStyle(face, {
+      color: PALETTE.earth,
+      vertexColors: true,
+      outline: false,
+      castShadow: false,
+      receiveShadow: true,
+    });
 
-      // Локальная система двери: она смотрит в +Z, потом всё поворачивается
-      const place = (geometry: THREE.BufferGeometry): THREE.BufferGeometry => {
-        geometry.rotateY(yaw);
-        geometry.translate(door.x, base, door.z);
-        return geometry;
-      };
-
-      // Тёмная подложка под створкой. Сперва здесь был цилиндр вглубь
-      // холма — и торчал из склона чёрной плитой: площадка перед дверью
-      // срезает землю и на полметра позади дверной плоскости, так что
-      // хоронить в холме нечего. Плоский диск задачу решает тем же:
-      // по краю створки видна темнота, а снаружи его просто нет,
-      // потому что задние грани отсекаются.
-      // Земляной откос вокруг проёма. Стенку рисует рельеф, но сетка
-      // у него метровая, и по краю двери остаётся зазор, в который
-      // видно траву склона. Кольцо земли его закрывает и заодно
-      // читается как срез грунта, в который дверь и врезана.
-      const surround = new THREE.CircleGeometry(DOOR_FRAME_RADIUS + 0.34, 22);
-      surround.translate(0, DOOR_CENTER_HEIGHT, -0.1);
-      add(PALETTE.earth, place(surround));
-
-      const recess = new THREE.CircleGeometry(DOOR_FRAME_RADIUS, 20);
-      recess.translate(0, DOOR_CENTER_HEIGHT, -0.04);
-      add(PALETTE.ink, place(recess));
-
-      const panel = new THREE.CircleGeometry(DOOR_RADIUS, 20);
-      panel.translate(0, DOOR_CENTER_HEIGHT, 0.02);
-      add(PALETTE.wood, place(panel));
-
-      const frame = new THREE.TorusGeometry(DOOR_FRAME_RADIUS, DOOR_FRAME_TUBE, 8, 20);
-      frame.translate(0, DOOR_CENTER_HEIGHT, 0);
-      add(PALETTE.woodDark, place(frame));
-
-      // Ручка посреди створки — примета круглой двери
-      const knob = new THREE.SphereGeometry(0.06, 8, 6);
-      knob.translate(0, DOOR_CENTER_HEIGHT, 0.07);
-      add(PALETTE.thatch, place(knob));
-
-      const step = new THREE.BoxGeometry(1.5, 0.12, 0.6);
-      step.translate(0, 0.05, 0.4);
-      add(PALETTE.rock, place(step));
-    }
-
-    for (const [color, geometries] of byColor) {
-      const merged = mergeGeometries(geometries, false);
-      for (const geometry of geometries) geometry.dispose();
-      if (merged === null) throw new Error('[burrows] не удалось склеить геометрию');
-
-      merged.computeBoundingSphere();
-      const mesh = new THREE.Mesh(merged);
-      mesh.name = `burrow_parts_${color.toString(16)}`;
-      // Сначала в граф, потом стилизация: обводку applyStyle вешает
-      // рядом с мешем, то есть родитель ему нужен уже сейчас
+    for (const [color, geometry] of built.woodwork) {
+      const mesh = new THREE.Mesh(geometry);
+      mesh.name = `burrow_woodwork_${color.toString(16)}`;
       this.group.add(mesh);
-      applyStyle(mesh, { color, outline: true });
+      applyStyle(mesh, { color, outline: true, castShadow: false, receiveShadow: true });
     }
   }
 

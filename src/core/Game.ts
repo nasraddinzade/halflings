@@ -87,6 +87,7 @@ export class Game {
 
     if (this.river !== null) this.scene.add(this.river.mesh);
     this.scene.add(this.burrows.group);
+    this.obstacles.addStatic(this.burrows.blockers);
     this.scene.add(this.workSites.group);
     this.obstacles.addToGrid(this.workSites.blockers);
 

@@ -57,6 +57,14 @@ export class Burrows {
       // хоронить в холме нечего. Плоский диск задачу решает тем же:
       // по краю створки видна темнота, а снаружи его просто нет,
       // потому что задние грани отсекаются.
+      // Земляной откос вокруг проёма. Стенку рисует рельеф, но сетка
+      // у него метровая, и по краю двери остаётся зазор, в который
+      // видно траву склона. Кольцо земли его закрывает и заодно
+      // читается как срез грунта, в который дверь и врезана.
+      const surround = new THREE.CircleGeometry(DOOR_FRAME_RADIUS + 0.34, 22);
+      surround.translate(0, DOOR_CENTER_HEIGHT, -0.1);
+      add(PALETTE.earth, place(surround));
+
       const recess = new THREE.CircleGeometry(DOOR_FRAME_RADIUS, 20);
       recess.translate(0, DOOR_CENTER_HEIGHT, -0.04);
       add(PALETTE.ink, place(recess));

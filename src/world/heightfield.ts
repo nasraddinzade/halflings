@@ -27,6 +27,7 @@ import {
 } from '../config/constants';
 import {
   BURROWS,
+  PORCH_BACK_BLEND,
   PORCH_BLEND,
   PORCH_LENGTH,
   PORCH_WIDTH,
@@ -145,7 +146,8 @@ function porchBlend(x: number, z: number): { weight: number; level: number } {
     // Площадка лежит перед дверью и чуть заходит за её плоскость,
     // чтобы порог не оказался на переломе
     const alongEdge = 1 - smoothstep(PORCH_LENGTH, PORCH_LENGTH + PORCH_BLEND, forward);
-    const behindEdge = smoothstep(-0.25 - PORCH_BLEND, -0.25, forward);
+    // Назад срез обрывается коротко: за дверью должна встать стенка
+    const behindEdge = smoothstep(-0.25 - PORCH_BACK_BLEND, -0.25, forward);
     const acrossEdge = 1 - smoothstep(PORCH_WIDTH, PORCH_WIDTH + PORCH_BLEND, Math.abs(side));
     const local = alongEdge * behindEdge * acrossEdge;
     if (local <= weight) continue;

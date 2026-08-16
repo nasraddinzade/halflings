@@ -27,20 +27,24 @@ export class Burrows {
     const mounds = new THREE.Mesh(built.mounds);
     mounds.name = 'burrow_mounds';
     this.group.add(mounds);
-    // Холм — часть пейзажа, поэтому без обводки, как и земля
+    // Холм — часть пейзажа, поэтому без обводки, как и земля.
+    // Тень отбрасывает, но не принимает: ниша под дверь утоплена, купол
+    // затеняет сам себя, и при 1.4 см на тексель это не мягкое
+    // затемнение, а жёсткая тёмная дуга поперёк всего фасада.
     applyStyle(mounds, {
       color: PALETTE.grass,
       vertexColors: true,
       outline: false,
       castShadow: true,
-      receiveShadow: true,
+      receiveShadow: false,
     });
 
     for (const [color, geometry] of built.parts) {
       const mesh = new THREE.Mesh(geometry);
       mesh.name = `burrow_part_${color.toString(16)}`;
       this.group.add(mesh);
-      applyStyle(mesh, { color, outline: true, castShadow: false, receiveShadow: true });
+      // Столярка лежит в нише: тень на неё падала бы от её же краёв
+      applyStyle(mesh, { color, outline: true, castShadow: false, receiveShadow: false });
     }
   }
 

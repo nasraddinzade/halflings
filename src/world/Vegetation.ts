@@ -153,6 +153,7 @@ function addTreesTo(
     const sample = ground.sample(x, z);
     if (sample === null || sample.slope > TREE_MAX_SLOPE) continue;
     if (riverCarve(x, z) > 0.05) continue;
+    if (BURROWS.some((b) => Math.hypot(x - b.x, z - b.z) < b.radius + 1.5)) continue;
     if (doors.some((d) => Math.hypot(x - d.x, z - d.z) < TREE_DOOR_CLEARANCE)) continue;
 
     const scale = 0.75 + random() * 0.65;
@@ -263,6 +264,9 @@ function scatter(count: number, ground: Ground, random: () => number): Map<numbe
     if (sample.slope > VEGETATION_MAX_SLOPE) continue;
     // И в реке тоже: пучки, торчащие из воды, сразу выдают подделку
     if (riverCarve(x, z) > 0.05) continue;
+    // И внутри норы: холм теперь меш, земля под ним ровная, и пучки
+    // прорастали бы прямо сквозь крышу
+    if (BURROWS.some((b) => Math.hypot(x - b.x, z - b.z) < b.radius + 0.6)) continue;
 
     const scale = 0.7 + random() * 0.6;
     const placement: Placement = {

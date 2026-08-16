@@ -39,10 +39,16 @@ export const FACE_CLEARANCE = 0.55;
 export const FACE_CUT_BLEND = 0.8;
 /** Насколько геометрия вынесена вперёд, чтобы не мерцать с рельефом. */
 export const FACE_OFFSET = 0.04;
-/** Сколько точек берётся на силуэт среза. */
-export const FACE_SILHOUETTE_STEPS = 40;
-/** На сколько низ фасада уходит в грунт, чтобы на стыке не было щели. */
-export const FACE_SINK = 0.3;
+/**
+ * Вдавленный под дверь участок купола. Внутри INNER поверхность ровно
+ * в дверной плоскости, к OUTER плавно возвращается к куполу. Это и есть
+ * весь «фасад»: круг чуть больше метра, а не отдельная панель.
+ */
+export const DIMPLE_INNER = 1.05;
+export const DIMPLE_OUTER = 1.85;
+/** Разбиение купола: колец по высоте, сегментов по кругу. */
+export const MOUND_RINGS = 16;
+export const MOUND_SEGMENTS = 40;
 /** Плитняк дорожки перед дверью. */
 export const PATH_STONES = 4;
 /**

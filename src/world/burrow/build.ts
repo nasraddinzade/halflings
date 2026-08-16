@@ -8,38 +8,37 @@ import {
   DOOR_FRAME_TUBE,
   DOOR_RADIUS,
   FACE_OFFSET,
-  FACE_SILHOUETTE_STEPS,
-  FACE_SINK,
   PATH_STONES,
   type Burrow,
 } from '../../config/burrows';
-import { PALETTE, darken } from '../../config/palette';
+import { PALETTE } from '../../config/palette';
 import { hashSeed, makeRandom } from '../../core/random';
-import { DOOR_TOP, faceOf, faceSilhouette, type BurrowFace } from './profile';
+import { buildMoundMesh } from './mesh';
+import { DOOR_TOP, faceOf, type BurrowFace } from './profile';
 
 /**
  * Построитель нор. Из четырёх чисел на нору собирает готовый дом.
  *
- * Состав взят с натуры (двери Хоббитона): срез холма забран каменной
- * стенкой, в ней круглый проём, проём обрамлён толстой деревянной аркой
- * со спицами, перед дверью плитняк. Прежний фасад был земляным пятном,
- * и дом читался как дыра в пригорке.
+ * Холм строит mesh.ts — вместе с фасадом, одним мешем. Здесь только
+ * то, что на него навешивается: створка, арка со спицами по образцу
+ * дверей Хоббитона, ручка, тёмная глубина за дверью, плитняк дорожки
+ * и печная труба.
  *
- * Фасад строится как фигура с дырой: контур повторяет силуэт среза,
- * отверстие приходится ровно на проём. Поэтому дверь не может быть
- * перекрыта землёй, а фасад не может разойтись с холмом.
+ * Отдельной плоской панели фасада больше нет: пока холм и фасад были
+ * разными объектами, панель обязана была быть плоской и с любого
+ * ракурса, кроме фронтального, читалась приставленным щитом.
  */
 
 export interface BurrowBuild {
-  /** Каменная стенка фасада, с цветом в вершинах. */
-  face: THREE.BufferGeometry;
+  /** Холмы вместе с вдавленными фасадами, цвет в вершинах. */
+  mounds: THREE.BufferGeometry;
   /** Столярка и камень дорожки, по цветам. */
   parts: Map<number, THREE.BufferGeometry>;
   blockers: Array<{ x: number; z: number; radius: number }>;
 }
 
 export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): BurrowBuild {
-  const faces: THREE.BufferGeometry[] = [];
+  const mounds: THREE.BufferGeometry[] = [];
   const byColor = new Map<number, THREE.BufferGeometry[]>();
   const blockers: BurrowBuild['blockers'] = [];
 
@@ -61,7 +60,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
       return geometry;
     };
 
-    faces.push(place(facePanel(burrow, face), FACE_OFFSET));
+    mounds.push(buildMoundMesh(burrow, face));
 
     // Тёмная глубина за створкой
     const recess = new THREE.CircleGeometry(DOOR_FRAME_RADIUS, 22);
@@ -85,13 +84,16 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
     pipe.translate(burrow.x, face.base + burrow.height - 0.15, burrow.z);
     add(PALETTE.rock, pipe);
 
+    // Холм теперь меш, а не рельеф, поэтому непроходимость задаётся
+    // кругом: иначе сквозь нору можно было бы пройти насквозь
+    blockers.push({ x: burrow.x, z: burrow.z, radius: burrow.radius * 0.85 });
     blockers.push({ x: face.x, z: face.z, radius: DOOR_FRAME_RADIUS + 0.4 });
   }
 
-  const face = mergeGeometries(faces, false);
-  for (const geometry of faces) geometry.dispose();
-  if (face === null) throw new Error('[burrow] не удалось склеить фасады');
-  face.computeBoundingSphere();
+  const merged = mergeGeometries(mounds, false);
+  for (const geometry of mounds) geometry.dispose();
+  if (merged === null) throw new Error('[burrow] не удалось склеить холмы');
+  merged.computeBoundingSphere();
 
   const parts = new Map<number, THREE.BufferGeometry>();
   for (const [color, geometries] of byColor) {
@@ -102,56 +104,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
     parts.set(color, merged);
   }
 
-  return { face, parts, blockers };
-}
-
-/** Каменная стенка среза с круглым проёмом. */
-function facePanel(burrow: Burrow, face: BurrowFace): THREE.BufferGeometry {
-  const silhouette = faceSilhouette(burrow, face, FACE_SILHOUETTE_STEPS, FACE_SINK);
-  const first = silhouette[0];
-  if (first === undefined) throw new Error('[burrow] пустой силуэт среза');
-
-  const shape = new THREE.Shape();
-  shape.moveTo(first.s, first.bottom);
-  for (const point of silhouette) shape.lineTo(point.s, point.top);
-  for (let i = silhouette.length - 1; i >= 0; i--) {
-    const point = silhouette[i];
-    if (point !== undefined) shape.lineTo(point.s, point.bottom);
-  }
-  shape.closePath();
-
-  // Дыра чуть шире наличника: иначе на стыке видна щель в холм
-  const hole = new THREE.Path();
-  hole.absarc(0, DOOR_CENTER_HEIGHT, DOOR_FRAME_RADIUS + 0.02, 0, Math.PI * 2, true);
-  shape.holes.push(hole);
-
-  const geometry = new THREE.ShapeGeometry(shape, 22);
-  paintStonework(geometry);
-  return geometry;
-}
-
-/**
- * Кладка: светлый камень, местами темнее. Рисунок задаётся положением
- * вершины, поэтому не требует ни текстуры, ни лишнего материала.
- */
-function paintStonework(geometry: THREE.BufferGeometry): void {
-  const position = geometry.getAttribute('position');
-  const stone = new THREE.Color(PALETTE.plaster);
-  const shade = new THREE.Color(darken(PALETTE.rock, 0.85));
-  const color = new THREE.Color();
-  const data = new Float32Array(position.count * 3);
-
-  for (let i = 0; i < position.count; i++) {
-    const s = position.getX(i);
-    const y = position.getY(i);
-    const course = 0.5 + 0.5 * Math.sin(y * 7.3) * Math.cos(s * 5.1 + y * 2.7);
-    color.copy(stone).lerp(shade, 0.25 + course * 0.35);
-    data[i * 3] = color.r;
-    data[i * 3 + 1] = color.g;
-    data[i * 3 + 2] = color.b;
-  }
-
-  geometry.setAttribute('color', new THREE.BufferAttribute(data, 3));
+  return { mounds: merged, parts, blockers };
 }
 
 /** Толстая деревянная арка со спицами — примета круглой двери. */

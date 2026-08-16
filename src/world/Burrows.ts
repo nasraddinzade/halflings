@@ -24,14 +24,15 @@ export class Burrows {
     const built = buildBurrows(valleyFloor);
     this.blockers = built.blockers;
 
-    const face = new THREE.Mesh(built.face);
-    face.name = 'burrow_faces';
-    this.group.add(face);
-    applyStyle(face, {
-      color: PALETTE.plaster,
+    const mounds = new THREE.Mesh(built.mounds);
+    mounds.name = 'burrow_mounds';
+    this.group.add(mounds);
+    // Холм — часть пейзажа, поэтому без обводки, как и земля
+    applyStyle(mounds, {
+      color: PALETTE.grass,
       vertexColors: true,
       outline: false,
-      castShadow: false,
+      castShadow: true,
       receiveShadow: true,
     });
 

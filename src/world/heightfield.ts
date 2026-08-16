@@ -26,7 +26,7 @@ import {
   VALLEY_RADIUS,
 } from '../config/constants';
 import { BURROWS } from '../config/burrows';
-import { faceOf, moundContribution, padWeight, type BurrowFace } from './burrow/profile';
+import { faceOf, padWeight, type BurrowFace } from './burrow/profile';
 
 function clamp01(value: number): number {
   return value < 0 ? 0 : value > 1 ? 1 : value;
@@ -109,24 +109,20 @@ export function riverCarve(x: number, z: number): number {
 const FACES: ReadonlyArray<BurrowFace> = BURROWS.map((burrow) => faceOf(burrow, valleyFloor));
 
 /**
- * Земля под норами: сперва площадка, потом купол.
+ * Земля под норами выравнивается в площадку.
  *
- * Площадка обязательна. Естественный рельеф долины под холмом
- * волнистый, и без выравнивания он лезет перед фасадом: где-то
- * поднимается и топит низ двери, где-то оказывается выше края панели.
- * Срезать купол мало — ровнять надо саму землю.
+ * Сам холм рельефом больше не поднимается: он стал отдельным мешем
+ * вместе с фасадом (burrow/mesh.ts). Рельефу остаётся дать ему ровное
+ * основание — иначе волны долины лезут перед дверью и топят её низ.
  */
 function burrowGround(x: number, z: number, floor: number): number {
   let weight = 0;
   let level = floor;
-  let mounds = 0;
 
   for (let i = 0; i < BURROWS.length; i++) {
     const burrow = BURROWS[i];
     const face = FACES[i];
     if (burrow === undefined || face === undefined) continue;
-
-    mounds += moundContribution(burrow, face, x, z);
 
     // Норы стоят порознь, так что достаточно самой близкой площадки
     const w = padWeight(burrow, x, z);
@@ -136,7 +132,7 @@ function burrowGround(x: number, z: number, floor: number): number {
     }
   }
 
-  return lerp(floor, level, weight) + mounds;
+  return lerp(floor, level, weight);
 }
 
 /** Рельеф долины без нор и без русла. */

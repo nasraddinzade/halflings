@@ -60,7 +60,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
       return geometry;
     };
 
-    faces.push(place(facePanel(burrow, face, valleyFloorAt), FACE_OFFSET));
+    faces.push(place(facePanel(burrow, face), FACE_OFFSET));
 
     // Тёмная глубина за створкой
     const recess = new THREE.CircleGeometry(DOOR_FRAME_RADIUS, 20);
@@ -132,14 +132,8 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
  * ShapeGeometry триангулирует фигуру с отверстием сам, поэтому дыра
  * получается настоящей, а не нарисованной тёмным пятном.
  */
-function facePanel(
-  burrow: Burrow,
-  face: BurrowFace,
-  valleyFloorAt: (x: number, z: number) => number,
-): THREE.BufferGeometry {
-  const silhouette = faceSilhouette(
-    burrow, face, FACE_SILHOUETTE_STEPS, valleyFloorAt, FACE_SINK,
-  );
+function facePanel(burrow: Burrow, face: BurrowFace): THREE.BufferGeometry {
+  const silhouette = faceSilhouette(burrow, face, FACE_SILHOUETTE_STEPS, FACE_SINK);
   const first = silhouette[0];
   if (first === undefined) throw new Error('[burrow] пустой силуэт среза');
 

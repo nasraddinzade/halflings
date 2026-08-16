@@ -26,7 +26,7 @@ import {
   VALLEY_RADIUS,
 } from '../config/constants';
 import { BURROWS } from '../config/burrows';
-import { faceOf, moundContribution, type BurrowFace } from './burrow/profile';
+import { faceOf, moundContribution, padWeight, type BurrowFace } from './burrow/profile';
 
 function clamp01(value: number): number {
   return value < 0 ? 0 : value > 1 ? 1 : value;
@@ -108,16 +108,35 @@ export function riverCarve(x: number, z: number): number {
  */
 const FACES: ReadonlyArray<BurrowFace> = BURROWS.map((burrow) => faceOf(burrow, valleyFloor));
 
-/** Вклад всех нор: купол позади среза, перед срезом ничего. */
-function burrowMounds(x: number, z: number): number {
-  let total = 0;
+/**
+ * Земля под норами: сперва площадка, потом купол.
+ *
+ * Площадка обязательна. Естественный рельеф долины под холмом
+ * волнистый, и без выравнивания он лезет перед фасадом: где-то
+ * поднимается и топит низ двери, где-то оказывается выше края панели.
+ * Срезать купол мало — ровнять надо саму землю.
+ */
+function burrowGround(x: number, z: number, floor: number): number {
+  let weight = 0;
+  let level = floor;
+  let mounds = 0;
+
   for (let i = 0; i < BURROWS.length; i++) {
     const burrow = BURROWS[i];
     const face = FACES[i];
     if (burrow === undefined || face === undefined) continue;
-    total += moundContribution(burrow, face, x, z);
+
+    mounds += moundContribution(burrow, face, x, z);
+
+    // Норы стоят порознь, так что достаточно самой близкой площадки
+    const w = padWeight(burrow, x, z);
+    if (w > weight) {
+      weight = w;
+      level = face.base;
+    }
   }
-  return total;
+
+  return lerp(floor, level, weight) + mounds;
 }
 
 /** Рельеф долины без нор и без русла. */
@@ -140,7 +159,7 @@ export function valleyFloor(x: number, z: number): number {
 
 /** Высота земли без русла — по ней стоит вода. */
 export function groundHeight(x: number, z: number): number {
-  return valleyFloor(x, z) + burrowMounds(x, z);
+  return burrowGround(x, z, valleyFloor(x, z));
 }
 
 /** Высота земли в мировой точке (x, z), с прорезанным руслом. */

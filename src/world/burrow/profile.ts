@@ -4,6 +4,8 @@ import {
   DOOR_FRAME_TUBE,
   FACE_CLEARANCE,
   FACE_CUT_BLEND,
+  PAD_INNER,
+  PAD_OUTER,
   type Burrow,
 } from '../../config/burrows';
 
@@ -101,7 +103,9 @@ export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => 
     x,
     z,
     distance,
-    base: valleyFloorAt(x, z),
+    // Уровень площадки берём в середине холма, а не у двери: на него
+    // равняется и рельеф, и низ фасада, поэтому он должен быть один
+    base: valleyFloorAt(burrow.x, burrow.z),
     halfWidth: Math.sqrt(Math.max(0, burrow.radius ** 2 - distance ** 2)),
     height: faceHeightAt(burrow, distance, 0),
   };
@@ -128,12 +132,24 @@ export function moundContribution(burrow: Burrow, face: BurrowFace, x: number, z
   return mound * t * t * (3 - 2 * t);
 }
 
+/**
+ * Насколько сильно рельеф под норой подтянут к уровню площадки.
+ * 1 — ровная площадка, 0 — обычная земля долины.
+ */
+export function padWeight(burrow: Burrow, x: number, z: number): number {
+  const distance = Math.hypot(x - burrow.x, z - burrow.z) / burrow.radius;
+  if (distance <= PAD_INNER) return 1;
+  if (distance >= PAD_OUTER) return 0;
+  const t = (distance - PAD_INNER) / (PAD_OUTER - PAD_INNER);
+  return 1 - t * t * (3 - 2 * t);
+}
+
 export interface SilhouettePoint {
   /** Боковое смещение от двери. */
   s: number;
-  /** Низ фасада: земля под ним, в системе порога. */
+  /** Низ фасада, в системе площадки. */
   bottom: number;
-  /** Верх фасада: та же земля плюс купол. */
+  /** Верх фасада: купол над площадкой. */
   top: number;
 }
 
@@ -141,30 +157,24 @@ export interface SilhouettePoint {
  * Силуэт среза. По нему строится контур фасада, и он же гарантирует,
  * что фасад накрывает рельеф.
  *
- * Низ идёт не по прямой, а по земле: долина волнистая, и на одиннадцати
- * метрах ширины плоское основание успевает и повиснуть в воздухе,
- * и уйти в грунт. Это поймала проверка — на глаз такое видно только
- * с определённой точки.
+ * Низ ровный, потому что земля под норой тоже выровнена (padWeight).
+ * Пока она была волнистой, низ приходилось вести по ней, а фасад всё
+ * равно расходился с рельефом перед собой — выравнивать оказалось
+ * и проще, и надёжнее.
  */
 export function faceSilhouette(
   burrow: Burrow,
   face: BurrowFace,
   steps: number,
-  valleyFloorAt: (x: number, z: number) => number,
   sink: number,
 ): SilhouettePoint[] {
   const points: SilhouettePoint[] = [];
-  const left = Math.cos(face.yaw);
-  const leftZ = -Math.sin(face.yaw);
-
   for (let i = 0; i <= steps; i++) {
     const s = -face.halfWidth + (i / steps) * face.halfWidth * 2;
-    const floor = valleyFloorAt(face.x + left * s, face.z + leftZ * s) - face.base;
     points.push({
       s,
-      // Заглубляем низ: иначе на стыке с землёй остаётся щель
-      bottom: floor - sink,
-      top: floor + faceHeightAt(burrow, face.distance, s),
+      bottom: -sink,
+      top: faceHeightAt(burrow, face.distance, s),
     });
   }
   return points;

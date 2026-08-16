@@ -109,7 +109,12 @@ function buildRibbon(): THREE.BufferGeometry {
     for (let j = 0; j < RIVER_SEGMENTS_ACROSS; j++) {
       const a = i * stride + j;
       const b = a + stride;
-      indices.push(a, b, a + 1, b, b + 1, a + 1);
+      // Порядок вершин задаёт сторону грани. Соседний индекс идёт
+      // поперёк русла (+Z), следующий ряд — вдоль (+X), и обход
+      // a -> a+1 -> b даёт нормаль вверх: ẑ × x̂ = +ŷ. При обратном
+      // порядке нормали смотрят вниз, и вода видна только снизу —
+      // сверху её грани отсекает FrontSide
+      indices.push(a, a + 1, b, b, a + 1, b + 1);
     }
   }
 

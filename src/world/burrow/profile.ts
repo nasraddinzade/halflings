@@ -3,10 +3,9 @@ import {
   DOOR_FRAME_RADIUS,
   DOOR_FRAME_TUBE,
   FACE_CLEARANCE,
-  NICHE_BLEND,
-  NICHE_HALF_WIDTH,
-  PAD_INNER,
-  PAD_OUTER,
+  FACE_CUT_BLEND,
+  PAD_FADE,
+  PAD_MARGIN,
   type Burrow,
 } from '../../config/burrows';
 
@@ -14,19 +13,19 @@ import {
  * Геометрия норы, посчитанная из параметров.
  *
  * Здесь только математика: и рельеф, и меши строятся из одних и тех же
- * функций, поэтому фасад не может разойтись с холмом. Раньше они жили
- * порознь — рельеф гнул купол, дверь стояла плоской плитой, и совпадение
- * достигалось подбором констант. Совпадения не получалось: сбоку дверь
- * тонула в склоне, а по краям оставались щели.
+ * функций, поэтому фасад не может разойтись с холмом.
  *
- * Идея, которая всё чинит: холм срезан вертикальной плоскостью, и весь
- * срез закрыт одним куском геометрии с дырой под дверь. Тогда
+ * Устройство: холм срезан вертикальной плоскостью, срез закрыт куском
+ * геометрии с дырой под дверь. Отсюда две гарантии — дверь не может быть
+ * перекрыта землёй (она дыра в фасаде, а не предмет перед ним), и фасад
+ * не может не сойтись с холмом (силуэт считается той же функцией).
  *
- *   — дверь не может быть перекрыта: она дыра в фасаде, а не предмет
- *     перед ним, и всё, что перед плоскостью среза, из рельефа убрано;
- *   — фасад не может не сойтись с холмом: его силуэт считается той же
- *     функцией купола, что и рельеф, только с шагом мельче;
- *   — по бокам нет обрыва: у края среза высота купола ровно ноль.
+ * Профиль купола — половина эллипсоида, а не косинус. Косинусный купол
+ * подходит к земле полого: чтобы вместить дверь, его приходится делать
+ * широким, и срез такого блина даёт стену в одиннадцать метров, которая
+ * сбоку читается фанерным щитом. У эллипсоида бока крутые, радиус можно
+ * взять почти равным высоте, и срез выходит аркой чуть шире двери —
+ * как у настоящих нор.
  */
 
 /** Верх наличника над порогом. */
@@ -40,42 +39,39 @@ export interface BurrowFace {
   z: number;
   /** Насколько плоскость среза отстоит от середины холма. */
   distance: number;
-  /** Высота земли у порога. */
+  /** Уровень площадки, на которой стоит нора. */
   base: number;
-  /** Полуширина среза: там купол сходит на нет. */
+  /** Полуширина среза. */
   halfWidth: number;
-  /** Высота купола посередине среза. */
+  /** Высота арки посередине среза. */
   height: number;
 }
 
-/** Купол норы над окрестной землёй в точке. */
+/** Купол норы над площадкой: половина эллипсоида. */
 export function moundHeight(burrow: Burrow, x: number, z: number): number {
   const distance = Math.hypot(x - burrow.x, z - burrow.z);
   if (distance >= burrow.radius) return 0;
-  return burrow.height * 0.5 * (1 + Math.cos((Math.PI * distance) / burrow.radius));
+  return burrow.height * Math.sqrt(1 - (distance / burrow.radius) ** 2);
 }
 
-/** Высота купола на срезе, на боковом смещении s от двери. */
+/** Высота арки на срезе, на боковом смещении s от двери. */
 export function faceHeightAt(burrow: Burrow, distance: number, s: number): number {
   const r = Math.hypot(s, distance);
   if (r >= burrow.radius) return 0;
-  return burrow.height * 0.5 * (1 + Math.cos((Math.PI * r) / burrow.radius));
+  return burrow.height * Math.sqrt(1 - (r / burrow.radius) ** 2);
 }
 
 /**
  * Насколько глубоко в холм уходит плоскость среза.
  *
- * Не константа и не доля радиуса: считается так, чтобы над дверью
- * осталось ровно FACE_CLEARANCE земли. При доле радиуса запас зависел
- * от размеров холма, и на маленьких норах дверь вылезала макушкой.
+ * Считается так, чтобы над наличником осталось ровно FACE_CLEARANCE
+ * земли, а не задаётся долей радиуса: при доле запас плавал бы вместе
+ * с размером холма.
  */
 export function faceDistance(burrow: Burrow): number {
   const wanted = DOOR_TOP + FACE_CLEARANCE;
-  // Обращаем профиль купола: h = H/2 * (1 + cos(pi r / R))
-  const ratio = (2 * wanted) / burrow.height - 1;
-  if (ratio <= -1) return burrow.radius * 0.95;
-  if (ratio >= 1) return 0;
-  return (burrow.radius * Math.acos(ratio)) / Math.PI;
+  if (wanted >= burrow.height) return 0;
+  return burrow.radius * Math.sqrt(1 - (wanted / burrow.height) ** 2);
 }
 
 /**
@@ -96,16 +92,14 @@ export function facePoint(burrow: Burrow): { x: number; z: number } {
 export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => number): BurrowFace {
   const yaw = Math.atan2(-burrow.x, -burrow.z);
   const distance = faceDistance(burrow);
-  const x = burrow.x + Math.sin(yaw) * distance;
-  const z = burrow.z + Math.cos(yaw) * distance;
 
   return {
     yaw,
-    x,
-    z,
+    x: burrow.x + Math.sin(yaw) * distance,
+    z: burrow.z + Math.cos(yaw) * distance,
     distance,
-    // Уровень площадки берём в середине холма, а не у двери: на него
-    // равняется и рельеф, и низ фасада, поэтому он должен быть один
+    // Уровень площадки берём в середине холма: на него равняется
+    // и рельеф, и низ фасада, поэтому он должен быть один
     base: valleyFloorAt(burrow.x, burrow.z),
     halfWidth: Math.sqrt(Math.max(0, burrow.radius ** 2 - distance ** 2)),
     height: faceHeightAt(burrow, distance, 0),
@@ -113,40 +107,52 @@ export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => 
 }
 
 /**
- * Вклад норы в высоту земли: купол минус ниша под дверью.
- *
- * Ниша — узкий проём перед дверной плоскостью, а не срез всего купола.
- * Срез давал одиннадцать метров вертикальной стенки, и сбоку холм
- * выглядел щитом. Бока ниши на метровой сетке всё равно рваные, но их
- * закрывает раструб, поэтому короткой растушёвки достаточно.
+ * Насколько рельеф под норой подтянут к уровню площадки.
+ * Без выравнивания волны долины лезут перед фасадом и топят низ двери.
  */
+export function padWeight(burrow: Burrow, x: number, z: number): number {
+  const distance = Math.hypot(x - burrow.x, z - burrow.z);
+  const inner = burrow.radius + PAD_MARGIN;
+  if (distance <= inner) return 1;
+  if (distance >= inner + PAD_FADE) return 0;
+  const t = (distance - inner) / PAD_FADE;
+  return 1 - t * t * (3 - 2 * t);
+}
+
+/** Купол позади плоскости среза; перед ней его нет. */
 export function moundContribution(burrow: Burrow, face: BurrowFace, x: number, z: number): number {
   const mound = moundHeight(burrow, x, z);
   if (mound <= 0) return 0;
 
-  const dx = x - face.x;
-  const dz = z - face.z;
-  const forward = dx * Math.sin(face.yaw) + dz * Math.cos(face.yaw);
-  if (forward <= 0) return mound;
+  const forward = (x - face.x) * Math.sin(face.yaw) + (z - face.z) * Math.cos(face.yaw);
+  if (forward <= -FACE_CUT_BLEND) return mound;
+  if (forward >= 0) return 0;
 
-  const lateral = Math.abs(dx * Math.cos(face.yaw) - dz * Math.sin(face.yaw));
-  const inside = 1 - smoothstep(NICHE_HALF_WIDTH, NICHE_HALF_WIDTH + NICHE_BLEND, lateral);
-  return mound * (1 - inside);
+  const t = -forward / FACE_CUT_BLEND;
+  return mound * t * t * (3 - 2 * t);
 }
 
-function smoothstep(edge0: number, edge1: number, value: number): number {
-  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
+export interface SilhouettePoint {
+  s: number;
+  bottom: number;
+  top: number;
 }
 
 /**
- * Насколько сильно рельеф под норой подтянут к уровню площадки.
- * 1 — ровная площадка, 0 — обычная земля долины.
+ * Силуэт среза: по нему строится контур фасада, и он же гарантирует,
+ * что фасад накрывает рельеф. Низ ровный, потому что земля под норой
+ * выровнена площадкой.
  */
-export function padWeight(burrow: Burrow, x: number, z: number): number {
-  const distance = Math.hypot(x - burrow.x, z - burrow.z) / burrow.radius;
-  if (distance <= PAD_INNER) return 1;
-  if (distance >= PAD_OUTER) return 0;
-  const t = (distance - PAD_INNER) / (PAD_OUTER - PAD_INNER);
-  return 1 - t * t * (3 - 2 * t);
+export function faceSilhouette(
+  burrow: Burrow,
+  face: BurrowFace,
+  steps: number,
+  sink: number,
+): SilhouettePoint[] {
+  const points: SilhouettePoint[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const s = -face.halfWidth + (i / steps) * face.halfWidth * 2;
+    points.push({ s, bottom: -sink, top: faceHeightAt(burrow, face.distance, s) });
+  }
+  return points;
 }

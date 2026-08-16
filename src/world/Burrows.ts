@@ -28,16 +28,16 @@ export class Burrows {
     face.name = 'burrow_faces';
     this.group.add(face);
     applyStyle(face, {
-      color: PALETTE.earth,
+      color: PALETTE.plaster,
       vertexColors: true,
       outline: false,
       castShadow: false,
       receiveShadow: true,
     });
 
-    for (const [color, geometry] of built.woodwork) {
+    for (const [color, geometry] of built.parts) {
       const mesh = new THREE.Mesh(geometry);
-      mesh.name = `burrow_woodwork_${color.toString(16)}`;
+      mesh.name = `burrow_part_${color.toString(16)}`;
       this.group.add(mesh);
       applyStyle(mesh, { color, outline: true, castShadow: false, receiveShadow: true });
     }

@@ -42,7 +42,17 @@ import type { Ground } from '../world/Ground';
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
 
-  private yaw = 0;
+  /**
+   * Facing the village, not away from it.
+   *
+   * At zero the camera sits south of the character and looks north-to-
+   * south, which puts the whole settlement behind the player's shoulders
+   * on the loading frame: measured against the six burrows, zero of them
+   * fall inside the 42.8-degree half-field, the nearest being 74 degrees
+   * off axis. Turned round, three are in frame and the middle one sits
+   * six degrees off centre.
+   */
+  private yaw = Math.PI;
   private pitch = 0.18;
 
   /** Where the wheel has put the boom, and where it has eased to. */

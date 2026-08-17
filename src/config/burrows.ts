@@ -63,6 +63,12 @@ export const PATH_STONES = 4;
  */
 export const PAD_MARGIN = 3.6;
 export const PAD_FADE = 2.6;
+/**
+ * Softens the closeness weighting where pads overlap. Small enough that a
+ * mound owns the ground under itself, large enough that the term does not
+ * blow up at a mound's own centre.
+ */
+export const PAD_BIAS = 0.8;
 
 /**
  * Fifteen dwellings in a closed ring around the green, four of them on

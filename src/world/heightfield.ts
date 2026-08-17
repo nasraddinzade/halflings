@@ -27,7 +27,7 @@ import {
   TERRAIN_SEED,
   VALLEY_RADIUS,
 } from '../config/constants';
-import { BURROWS } from '../config/burrows';
+import { BURROWS, PAD_BIAS } from '../config/burrows';
 import { faceOf, padWeight, type BurrowFace } from './burrow/profile';
 
 function clamp01(value: number): number {
@@ -120,25 +120,45 @@ const FACES: ReadonlyArray<BurrowFace> = BURROWS.map((burrow) => faceOf(burrow, 
  * separate mesh together with the facade (burrow/mesh.ts). All the
  * terrain has left to do is give it a level base — otherwise the valley's
  * waves creep in front of the door and drown its lower edge.
+ *
+ * With fifteen dwellings the pads overlap: fifteen of the hundred and
+ * five pairs reach into each other, and their levels differ by up to
+ * 0.92 m. Taking the strongest pad and ignoring the rest put a cliff on
+ * every seam — 127 points inside the village stood steeper than 40
+ * degrees, one of them at 69 — and it left burrow-2's rim floating 0.92 m
+ * off its own base. Blending fixes both, but a flat average does not:
+ * a pad is flat at weight 1 over a disc wider than its own mound, so
+ * neighbours tie and no mound owns the ground beneath it. Weighting by
+ * closeness as well leaves nothing steeper than 31 degrees and every rim
+ * within 6 cm of where its mound expects it.
  */
 function burrowGround(x: number, z: number, floor: number): number {
-  let weight = 0;
-  let level = floor;
+  let strongest = 0;
+  let sum = 0;
+  let total = 0;
 
   for (let i = 0; i < BURROWS.length; i++) {
     const burrow = BURROWS[i];
     const face = FACES[i];
     if (burrow === undefined || face === undefined) continue;
 
-    // Burrows stand apart, so the nearest pad alone is enough
     const w = padWeight(burrow, x, z);
-    if (w > weight) {
-      weight = w;
-      level = face.base;
-    }
+    if (w <= 0) continue;
+    if (w > strongest) strongest = w;
+
+    // Weighted by closeness, not by the pad weight alone. A pad is flat
+    // at 1 over a disc wider than its own mound, so where two of them
+    // overlap the weights tie and neither owns the ground. Dividing by
+    // distance breaks the tie in favour of whichever mound is actually
+    // standing there.
+    const reach = Math.max(0, Math.hypot(x - burrow.x, z - burrow.z) - burrow.radius);
+    const closeness = w / (PAD_BIAS + reach * reach);
+    sum += closeness * face.base;
+    total += closeness;
   }
 
-  return lerp(floor, level, weight);
+  if (total <= 0) return floor;
+  return lerp(floor, sum / total, strongest);
 }
 
 /** Valley terrain without the burrows and without the channel. */

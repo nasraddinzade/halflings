@@ -14,9 +14,10 @@ import {
   CAMERA_LAND_RECOVER,
   CAMERA_MAX_PITCH,
   CAMERA_MIN_PITCH,
+  CAMERA_COLLISION_MIN,
   CAMERA_NEAR,
   CAMERA_RECOVER,
-  CAMERA_SHOULDER,
+  CAMERA_SHOULDER_NDC,
   CAMERA_TARGET_HEIGHT,
   CAMERA_ZOOM_EASE,
   CAMERA_ZOOM_STEP,
@@ -142,12 +143,23 @@ export class CameraRig {
       Math.cos(this.yaw) * horizontal,
     );
 
-    // Do not let the camera slide inside a hill
+    // Do not let the camera slide inside a hill. The ray reaches past the
+    // boom on purpose: stopping it exactly at the boom makes `room` drop
+    // by the whole padding the instant a surface crosses the far end, and
+    // the snap-in branch below applies that step with no easing at all —
+    // a pop that comes from the ray's length, not from the world
     this.direction.copy(this.offset).normalize();
-    const blocked = ground.raycastDistance(this.smoothTarget, this.direction, this.smoothDistance);
+    const blocked = ground.raycastDistance(
+      this.smoothTarget,
+      this.direction,
+      this.smoothDistance + CAMERA_COLLISION_PADDING,
+    );
     const room = blocked === null
       ? this.smoothDistance
-      : Math.max(blocked - CAMERA_COLLISION_PADDING, CAMERA_NEAR * 2);
+      : Math.min(
+        this.smoothDistance,
+        Math.max(blocked - CAMERA_COLLISION_PADDING, CAMERA_COLLISION_MIN),
+      );
 
     // Asymmetric on purpose. Coming in there is nothing to negotiate — the
     // hillside is already between camera and character — but easing back
@@ -163,10 +175,19 @@ export class CameraRig {
       .addScaledVector(this.direction, this.appliedDistance);
 
     // Aim a little to the side of the character rather than straight at
-    // him. Right = forward x up, and forward here is -direction
+    // him. Right = forward x up, and forward here is -direction.
+    //
+    // The offset is perpendicular to the boom, so in metres it would be a
+    // fixed angle at exactly one boom length. Converting from a screen
+    // fraction through the current distance, field of view and aspect
+    // keeps the character in the same place in frame whatever the zoom,
+    // whatever the hills do, and whatever shape the window is.
+    const halfWidth = Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)
+      * this.camera.aspect;
+    const shoulder = CAMERA_SHOULDER_NDC * this.appliedDistance * halfWidth;
     this.aimPoint.copy(this.smoothTarget);
-    this.aimPoint.x += Math.cos(this.yaw) * CAMERA_SHOULDER;
-    this.aimPoint.z += -Math.sin(this.yaw) * CAMERA_SHOULDER;
+    this.aimPoint.x += Math.cos(this.yaw) * shoulder;
+    this.aimPoint.z += -Math.sin(this.yaw) * shoulder;
     this.camera.lookAt(this.aimPoint);
 
     const wantedFov = CAMERA_FOV + CAMERA_FOV_RUN * THREE.MathUtils.clamp(runFraction, 0, 1);

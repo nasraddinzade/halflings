@@ -8,6 +8,11 @@ export interface MoveIntent {
   z: number;
 }
 
+/** Firefox reports wheel deltas in lines; three of them make one detent. */
+const LINE_HEIGHT = 33.3;
+/** What one detent of a mouse wheel is worth, in Chrome's pixels. */
+const PIXELS_PER_NOTCH = 100;
+
 const MOVE_KEYS = new Set([
   'KeyW', 'KeyA', 'KeyS', 'KeyD',
   'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight',
@@ -81,9 +86,13 @@ export class Input {
     return { x: this.mouseDeltaX, y: this.mouseDeltaY };
   }
 
-  /** Wheel notches this frame. Positive pushes the camera away. */
+  /**
+   * Wheel notches this frame. Positive pushes the camera away.
+   * Capped: a burst that lands across a stalled frame must not teleport
+   * the boom from one clamp to the other.
+   */
   getWheelNotches(): number {
-    return this.wheelNotches;
+    return Math.max(-1, Math.min(1, this.wheelNotches));
   }
 
   /** Called at the end of a frame: mouse movement accumulates per frame. */
@@ -104,10 +113,17 @@ export class Input {
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
-    if (event.repeat) return;
     if (MOVE_KEYS.has(event.code)) event.preventDefault();
+    // Autorepeat has to reach the set, not be dropped before it.
+    // handleLockChange clears everything on Esc, and a key still held
+    // across that never sends another non-repeat keydown — an early
+    // return here would leave it dead until physically released.
     this.pressed.add(event.code);
-    if (event.code === 'Space') this.jumpQueued = true;
+    // Shift does not autorepeat, so it cannot heal itself the same way
+    if (event.getModifierState('Shift')) this.pressed.add('ShiftLeft');
+    // The repeat guard only ever existed to stop a held space bar
+    // queueing a jump every few milliseconds
+    if (event.code === 'Space' && !event.repeat) this.jumpQueued = true;
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
@@ -135,10 +151,18 @@ export class Input {
 
   private readonly handleWheel = (event: WheelEvent): void => {
     event.preventDefault();
-    // deltaMode differs by browser and by device — pixels on a trackpad,
-    // lines on a wheel. Only the sign is portable, so take just that and
-    // let the camera decide how far a notch is
-    this.wheelNotches += Math.sign(event.deltaY);
+    // deltaMode differs by device, and so does the event RATE. A detented
+    // wheel sends one event per notch; a trackpad sends a burst of small
+    // ones every frame plus momentum. Counting events would make the
+    // whole 4.8 m of boom travel a single flick on a laptop, so normalise
+    // the magnitude to pixels — a detent is about 100 of them — instead
+    // of taking only the sign.
+    const pixels = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+      ? event.deltaY * LINE_HEIGHT
+      : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+        ? event.deltaY * window.innerHeight
+        : event.deltaY;
+    this.wheelNotches += pixels / PIXELS_PER_NOTCH;
   };
 
   private readonly handleLockChange = (): void => {

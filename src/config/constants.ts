@@ -81,9 +81,15 @@ export const CAMERA_ZOOM_EASE = 14;
 /**
  * The camera aims a little to one side of the character, so he sits off
  * centre and the view opens up ahead of him instead of being blocked by
- * his own back. Metres, sideways from the aim point.
+ * his own back.
+ *
+ * A fraction of half the screen width, not metres. Metres would be a
+ * fixed angle at exactly one boom length: the same 30 cm reads as 5% off
+ * centre at full zoom-out and 34% when a hill shoves the camera in, so
+ * the character would slide across the frame every time either changed.
+ * Framing should be a property of the shot.
  */
-export const CAMERA_SHOULDER = 0.3;
+export const CAMERA_SHOULDER_NDC = 0.11;
 /**
  * Extra degrees of field of view at a full run. Speed reads as widening,
  * but past about five degrees it stops reading as speed and starts
@@ -100,6 +106,13 @@ export const CAMERA_LAND_RECOVER = 7;
  * back out. Recovering as fast as it pulls in makes the picture pop.
  */
 export const CAMERA_RECOVER = 5;
+/**
+ * How close a hill may push the boom. Not CAMERA_NEAR: the near plane is
+ * 5 cm, but the shoulder offset walks the character out of frame below
+ * about 32 cm and his own head reaches the lens before that. A little
+ * clipping into a steep bank is the better of the two failures.
+ */
+export const CAMERA_COLLISION_MIN = 0.6;
 
 // --- valley -----------------------------------------------------------------
 

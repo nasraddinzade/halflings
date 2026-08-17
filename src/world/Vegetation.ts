@@ -14,11 +14,19 @@ import {
   TREE_COUNT,
   TREE_DOOR_CLEARANCE,
   TREE_MAX_SLOPE,
+  TREE_CROWN_BASE,
+  TREE_TRUNK_HEIGHT,
   TREE_TRUNK_RADIUS,
-  WIND_BUSH_SWAY,
+  WIND_BUSH_AMPLITUDE,
+  WIND_BUSH_FLUTTER,
+  WIND_BUSH_RATE,
   WIND_ENABLED,
-  WIND_GRASS_SWAY,
-  WIND_TREE_SWAY,
+  WIND_GRASS_AMPLITUDE,
+  WIND_GRASS_FLUTTER,
+  WIND_GRASS_RATE,
+  WIND_TREE_AMPLITUDE,
+  WIND_TREE_FLUTTER,
+  WIND_TREE_RATE,
 } from '../config/constants';
 import { BURROWS } from '../config/burrows';
 import { facePoint } from './burrow/profile';
@@ -67,12 +75,25 @@ export class Vegetation {
 
     this.addTrees(scene, ground, random);
 
-    this.addChunks(scene, grass, grassByChunk, PALETTE.grass, PALETTE.grassDry,
-      windProfile('grass', grass, WIND_GRASS_SWAY));
+    // A blade bends along its whole length, so the pivot is the tip
+    this.addChunks(scene, grass, grassByChunk, PALETTE.grass, PALETTE.grassDry, {
+      key: 'grass',
+      pivot: topOf(grass),
+      amplitude: WIND_GRASS_AMPLITUDE,
+      flutter: WIND_GRASS_FLUTTER,
+      rate: WIND_GRASS_RATE,
+    });
     // Bushes are darker and greener than the grass. In olive-grey they
     // read as boulders, the flattened ones especially
-    this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.85), PALETTE.door,
-      windProfile('bush', bush, WIND_BUSH_SWAY));
+    this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.85), PALETTE.door, {
+      key: 'bush',
+      // Low pivot: a bush is a dense ball sitting on the ground, and only
+      // its top gives. Pivot it at the crown and it squashes instead
+      pivot: topOf(bush) * 0.45,
+      amplitude: WIND_BUSH_AMPLITUDE,
+      flutter: WIND_BUSH_FLUTTER,
+      rate: WIND_BUSH_RATE,
+    });
   }
 
   get drawCallCount(): number {
@@ -158,7 +179,17 @@ function addTreesTo(
 ): void {
   const doors = BURROWS.map((burrow) => facePoint(burrow));
   const geometry = treeGeometry();
-  const profile = windProfile('tree', geometry, WIND_TREE_SWAY);
+  const profile: WindProfile = {
+    key: 'tree',
+    // The crown, not the treetop. Everything above this height moves as
+    // one piece, so the trunk bends and the two balls ride along without
+    // deforming. Pivoting at the treetop instead made the crowns stretch
+    // and shrink — a low-poly ball has no business changing shape
+    pivot: TREE_CROWN_BASE,
+    amplitude: WIND_TREE_AMPLITUDE,
+    flutter: WIND_TREE_FLUTTER,
+    rate: WIND_TREE_RATE,
+  };
 
   let material: THREE.Material = toonVertexColored();
   // The shadow pass draws with its own shader, which knows nothing about
@@ -236,13 +267,12 @@ function addTreesTo(
 }
 
 /**
- * The wind weights its bend by height, so the height has to be measured
- * off the geometry rather than assumed: change a cone or an icosahedron
- * here and the sway follows on its own.
+ * Height of the tallest vertex. Measured off the geometry rather than
+ * assumed, so reshaping a cone or an icosahedron carries the wind with it.
  */
-function windProfile(key: string, geometry: THREE.BufferGeometry, sway: number): WindProfile {
+function topOf(geometry: THREE.BufferGeometry): number {
   geometry.computeBoundingBox();
-  return { key, height: geometry.boundingBox?.max.y ?? 1, sway };
+  return geometry.boundingBox?.max.y ?? 1;
 }
 
 /**
@@ -274,12 +304,16 @@ function treeGeometry(): THREE.BufferGeometry {
   // demands that either everyone has an index or no one does. We settle
   // on "no one" — going the other way via mergeVertices would weld the
   // faceted crowns smooth
-  const trunk = new THREE.CylinderGeometry(0.17, 0.26, 2.3, 6).toNonIndexed();
-  trunk.translate(0, 1.15, 0);
+  const trunk = new THREE.CylinderGeometry(0.17, 0.26, TREE_TRUNK_HEIGHT, 6).toNonIndexed();
+  trunk.translate(0, TREE_TRUNK_HEIGHT / 2, 0);
 
-  const lower = new THREE.IcosahedronGeometry(1.5, 0);
-  lower.scale(1, 1.1, 1);
-  lower.translate(0, 3.1, 0);
+  // Placed by its underside rather than its centre: TREE_CROWN_BASE is
+  // also the height the wind pivots about, and the two must not drift
+  const lowerRadius = 1.5;
+  const lowerSquash = 1.1;
+  const lower = new THREE.IcosahedronGeometry(lowerRadius, 0);
+  lower.scale(1, lowerSquash, 1);
+  lower.translate(0, TREE_CROWN_BASE + lowerRadius * lowerSquash, 0);
 
   const upper = new THREE.IcosahedronGeometry(1.05, 0);
   upper.translate(0.22, 4.35, -0.12);

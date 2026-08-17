@@ -3,10 +3,11 @@ import * as THREE from 'three';
 import {
   WIND_BIAS,
   WIND_DIRECTION,
-  WIND_FLUTTER,
   WIND_FLUTTER_SPEED,
   WIND_GUST_LENGTH,
   WIND_GUST_SPEED,
+  WIND_PHASE_SPREAD,
+  WIND_STIFFNESS_SPREAD,
 } from '../config/constants';
 
 /**
@@ -37,10 +38,26 @@ export interface WindProfile {
    * numbers into the source, so they must not share a cache entry.
    */
   key: string;
-  /** Height of the tallest vertex in local space; the bend is weighted by it. */
-  height: number;
-  /** Peak sideways travel at that height, as a share of it. */
-  sway: number;
+  /**
+   * Local-space height at which the bend reaches full strength.
+   *
+   * This is the shape parameter that matters most, and getting it wrong
+   * is what made the first pass look like rubber. Below the pivot the
+   * plant bends; above it every vertex moves by the same amount, so that
+   * part travels rigidly. For a blade of grass the pivot is the tip —
+   * the whole blade should curve. For a tree it is the base of the
+   * crown: the trunk bends and the crown balls are carried along
+   * undeformed. Put the pivot at the top of a tree instead and the
+   * crown's underside lags behind its top, which on a faceted ball
+   * reads as the thing inflating and deflating.
+   */
+  pivot: number;
+  /** Sideways travel at full bend, in metres. */
+  amplitude: number;
+  /** Share of the motion that is fast per-plant jitter, not gust. */
+  flutter: number;
+  /** Multiplier on the clock. Heavy things swing slowly. */
+  rate: number;
 }
 
 /** The one clock. Everything that moves with the wind reads it. */
@@ -59,11 +76,12 @@ export function advanceWind(delta: number): void {
  * while it is still visible. The radius has to grow by this much.
  */
 export function maxSway(profile: WindProfile): number {
-  const amplitude = profile.height * profile.sway;
-  // along: bias + both gust terms at their peak + flutter; across: flutter
-  const along = WIND_BIAS + 1 + WIND_FLUTTER;
-  const across = SIDE_SHARE;
-  return amplitude * Math.hypot(along, across);
+  // along: bias + both gust terms at their peak + flutter; across: flutter.
+  // Both taken at the stiffest a plant is allowed to be.
+  const along = WIND_BIAS + 1 + profile.flutter;
+  const across = profile.flutter * SIDE_SHARE;
+  const stiffest = 1 + WIND_STIFFNESS_SPREAD;
+  return profile.amplitude * stiffest * Math.hypot(along, across);
 }
 
 /** How much of the sway goes across the wind rather than along it. */
@@ -119,33 +137,50 @@ function shader(profile: WindProfile): { common: string; vertex: string } {
   const dirX = n(Math.cos(WIND_DIRECTION));
   const dirZ = n(Math.sin(WIND_DIRECTION));
   const frequency = n((Math.PI * 2) / WIND_GUST_LENGTH);
-  const amplitude = n(profile.height * profile.sway);
 
   const common = `
 uniform float uWindTime;
 
+// One pseudo-random number per plant, from where it is rooted. Two plants
+// never share a spot, so this is stable and needs no extra attribute.
+float windHash( vec2 at ) {
+  return fract( sin( dot( at, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
+}
+
 // Sideways offset, in world axes, for a plant rooted at \`at\` (world xz),
-// taken at height weight \`w\`.
+// taken at bend weight \`w\`.
 vec2 windOffset( vec2 at, float w ) {
   vec2 dir = vec2( ${dirX}, ${dirZ} );
   vec2 side = vec2( -dir.y, dir.x );
 
+  // Each plant gets its own phase and its own stiffness. The gust below
+  // is a smooth function of position, so without this every plant the
+  // same distance along the wind moves exactly alike and the field
+  // twitches as one body. The phase offset stays small on purpose:
+  // scatter it fully and the travelling gust stops being readable.
+  float h = windHash( at );
+  float stiffness = 1.0 + ( h - 0.5 ) * ${n(WIND_STIFFNESS_SPREAD * 2)};
+  float phase = h * 6.28318;
+
+  float t = uWindTime * ${n(profile.rate)};
+
   // The gust is a wave rolling across the valley: its phase depends on how
   // far along the wind the plant stands, so a crest visibly crosses the
-  // field. Drop the position term and the whole meadow breathes in unison,
-  // which reads as a pulse, not as weather.
-  float travel = dot( at, dir ) * ${frequency} - uWindTime * ${n(WIND_GUST_SPEED)};
+  // field. Drop the position term and the whole meadow breathes at once.
+  float travel = dot( at, dir ) * ${frequency} - t * ${n(WIND_GUST_SPEED)}
+    + phase * ${n(WIND_PHASE_SPREAD)};
   // Two frequencies at an incommensurate ratio: one sine alone has an
   // obvious period once you have watched it for a few seconds.
   float gust = sin( travel ) * 0.62 + sin( travel * 2.3 + 1.7 ) * 0.38;
 
-  // Much faster, and keyed to the plant's own position rather than to the
-  // gust. Without it neighbours move as one sheet of cloth.
-  float flutter = sin( uWindTime * ${n(WIND_FLUTTER_SPEED)} + at.x * 3.1 + at.y * 2.7 );
+  // Much faster, and keyed to the plant itself rather than to the gust.
+  // Grass has plenty of it, a tree has none: a three-metre crown that
+  // jitters looks like a bush glued to a stick.
+  float flutter = sin( t * ${n(WIND_FLUTTER_SPEED)} + phase * 6.0 );
 
-  float along = ( ${n(WIND_BIAS)} + gust + flutter * ${n(WIND_FLUTTER)} ) * w;
-  float across = flutter * w * ${n(SIDE_SHARE)};
-  return ( dir * along + side * across ) * ${amplitude};
+  float along = ( ${n(WIND_BIAS)} + gust + flutter * ${n(profile.flutter)} ) * w * stiffness;
+  float across = flutter * w * stiffness * ${n(profile.flutter * SIDE_SHARE)};
+  return ( dir * along + side * across ) * ${n(profile.amplitude)};
 }`;
 
   const vertex = `
@@ -161,9 +196,13 @@ vec2 windOffset( vec2 at, float w ) {
   #endif
 
   // Squared, so the bend is a cantilever: nothing at the root, most of it
-  // at the tip. A uniform offset would slide the whole tuft sideways and
-  // tear it out of the ground it grows from.
-  float windW = clamp( transformed.y / ${n(profile.height)}, 0.0, 1.0 );
+  // near the pivot. A uniform offset would slide the whole plant sideways
+  // and tear it out of the ground it grows from.
+  //
+  // The clamp is what keeps anything above the pivot rigid. That is the
+  // difference between a tree crown that is carried by its trunk and one
+  // that stretches and squashes every time the wind changes its mind.
+  float windW = clamp( transformed.y / ${n(profile.pivot)}, 0.0, 1.0 );
   windW *= windW;
 
   vec2 windWorld = windOffset( windAt.xz, windW );

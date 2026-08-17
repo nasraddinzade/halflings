@@ -7,14 +7,14 @@ import {
   SMOKE_OPACITY,
   SMOKE_PUFFS,
   SMOKE_RISE,
+  SMOKE_GUST_RATE,
+  SMOKE_GUST_SHARE,
+  SMOKE_LEAN,
   SMOKE_START_RADIUS,
-  WIND_BIAS,
-  WIND_DIRECTION,
-  WIND_GUST_LENGTH,
-  WIND_GUST_SPEED,
+  WIND_ENABLED,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
-import { windTime } from '../render/wind';
+import { gustGLSL, windTime } from '../render/wind';
 
 /**
  * Smoke from the burrow chimneys.
@@ -114,15 +114,19 @@ export class Smoke {
 
 function vertex(): string {
   const n = (value: number): string => value.toFixed(5);
-  const dirX = n(Math.cos(WIND_DIRECTION));
-  const dirZ = n(Math.sin(WIND_DIRECTION));
-  const gustFrequency = n((Math.PI * 2) / WIND_GUST_LENGTH);
+  // With the wind switched off the plume goes straight up rather than
+  // leaning on a gust that is not blowing
+  const lean = WIND_ENABLED
+    ? `${n(SMOKE_LEAN)} + windGust( mouth.xz, birth * ${n(SMOKE_GUST_RATE)}, 0.0 ) * ${n(SMOKE_GUST_SHARE)}`
+    : '0.0';
 
   return `
 #include <common>
 #include <fog_pars_vertex>
 
 uniform float uWindTime;
+
+${gustGLSL()}
 
 attribute float aPhase;
 attribute float aSeed;
@@ -138,12 +142,13 @@ void main() {
   // translation, so its fourth column is that point in world space.
   vec3 mouth = instanceMatrix[ 3 ].xyz;
 
-  vec2 dir = vec2( ${dirX}, ${dirZ} );
-  // The same gust the grass reads, sampled at the chimney rather than at
-  // the puff — a plume leans as one thing, it does not ripple along itself
-  float travel = dot( mouth.xz, dir ) * ${gustFrequency} - uWindTime * ${n(WIND_GUST_SPEED)};
-  float gust = sin( travel ) * 0.62 + sin( travel * 2.3 + 1.7 ) * 0.38;
-  float lean = ${n(WIND_BIAS)} + gust;
+  vec2 dir = windDirection();
+  // The wind this puff left the chimney in, frozen. Read at the present
+  // instant instead, every puff shares one value and the whole plume
+  // swings like a wiper; frozen at birth, the column carries the history
+  // of the gust up itself, which is what a plume actually is.
+  float birth = uWindTime - vLife * ${n(SMOKE_LIFETIME)};
+  float lean = ${lean};
 
   // Rising slows a little as the puff cools and spreads, but only a
   // little: sqrt() threw the first puff a third of the way up the column
@@ -200,6 +205,11 @@ void main() {
 
   gl_FragColor = vec4( color, alpha );
 
+  // three's own order is tonemapping then colorspace then fog. Tone
+  // mapping is off today, so this chunk expands to nothing — but leaving
+  // it out would make the smoke one of the only surfaces in the frame not
+  // mapped on the day it is switched on
+  #include <tonemapping_fragment>
   #include <colorspace_fragment>
   #include <fog_fragment>
 }`;

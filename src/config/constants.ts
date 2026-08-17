@@ -256,7 +256,7 @@ export const SMOKE_ENABLED = true;
 /**
  * Puffs per chimney. Few and large on purpose: toon shading has no soft
  * edges, so a cloud of small particles reads as a swarm of dumplings.
- * Six chimneys at this count is one draw call and 840 triangles.
+ * Six chimneys at this count is one draw call and 720 triangles.
  */
 export const SMOKE_PUFFS = 6;
 /** Seconds from the chimney mouth to nothing. */
@@ -270,20 +270,43 @@ export const SMOKE_LIFETIME = 7;
  * enough that consecutive puffs overlap and it reads as one thing.
  */
 export const SMOKE_RISE = 3;
-export const SMOKE_DRIFT = 2.2;
+export const SMOKE_DRIFT = 2.7;
+/**
+ * How the plume reads the wind.
+ *
+ * The gust turns over about once a second. That is right for grass and
+ * meaningless for a column that takes seven seconds to rise: read at full
+ * rate, with one value shared by every puff, the whole plume swung like a
+ * wiper twice a second and spent about two fifths of each cycle drifting
+ * upwind. Grass survives the same curve only because its amplitude is two
+ * centimetres against the smoke's couple of metres.
+ *
+ * So the smoke reads the same wave on its own timescale, and each puff
+ * freezes the value it left the pipe in. What travels up the column is
+ * then the history of the wind rather than a single number, which is also
+ * what a real plume is.
+ */
+export const SMOKE_GUST_RATE = 0.18;
+export const SMOKE_GUST_SHARE = 0.45;
+/** Baseline lean, kept above the gust share so smoke never blows upwind. */
+export const SMOKE_LEAN = 0.55;
 /**
  * Puff radius at birth and at the end of its life. The end radius has to
- * beat the spacing — SMOKE_RISE over SMOKE_PUFFS is a third of a metre —
- * or the plume comes apart at the top, which is where it is widest and
- * most visible.
+ * beat the spacing — SMOKE_RISE over SMOKE_PUFFS is half a metre — or the
+ * plume comes apart at the top, which is where it is widest and most
+ * visible.
  */
 export const SMOKE_START_RADIUS = 0.28;
 export const SMOKE_END_RADIUS = 1.15;
 /**
- * Peak opacity. Kept moderate because overlapping puffs accumulate it:
- * where two of them cross, the alpha compounds and the seam comes out
- * denser than either puff, which is what makes a column of them read as
- * a stack of rings rather than as one plume.
+ * Opacity scale. Not the peak a puff reaches: the fade in and the fade
+ * out overlap, so the most any single puff manages is about 0.33, a
+ * little way above the chimney.
+ *
+ * Kept moderate because overlapping puffs accumulate it: where two cross,
+ * the alpha compounds and the seam comes out denser than either of them,
+ * which is what makes a column read as a stack of rings rather than as
+ * one plume.
  */
 export const SMOKE_OPACITY = 0.42;
 

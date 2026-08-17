@@ -167,6 +167,11 @@ void main() {
   color = mix( color, uSunDisc, 1.0 - smoothstep( ${discInner}, ${discOuter}, ang ) );
 
   gl_FragColor = vec4( color, 1.0 );
+
+  // Ahead of the colour space conversion, the order three uses itself.
+  // A no-op while tone mapping is off, and one less surface to remember
+  // on the day it is turned on
+  #include <tonemapping_fragment>
   #include <colorspace_fragment>
 
   // Interleaved gradient noise at one 8-bit level peak to peak, after the

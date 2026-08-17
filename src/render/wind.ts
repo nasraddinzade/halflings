@@ -68,8 +68,46 @@ export interface WindProfile {
  */
 export const windTime = { value: 0 };
 
+/**
+ * Advanced once per frame from the game loop, unconditionally. Do not
+ * gate this on WIND_ENABLED: the chimney smoke reads the same clock for
+ * its own animation and would freeze in mid-air.
+ */
 export function advanceWind(delta: number): void {
   windTime.value += delta;
+}
+
+/**
+ * The gust wave, as GLSL. Anything that leans with the wind has to go
+ * through this exact function.
+ *
+ * Sharing the clock is only half of what makes the scene agree with
+ * itself — the curve has to be shared too. The smoke used to carry its
+ * own hand-copied copy of these two sines, which agreed with the grass by
+ * coincidence and would have stopped agreeing, silently and with no
+ * compile error, the first time either was retuned.
+ *
+ * `t` is deliberately a parameter rather than the clock: grass reads the
+ * gust at the present instant, smoke reads it at the moment each puff
+ * left the chimney and on a slower scale, and both are the same wave.
+ */
+export function gustGLSL(): string {
+  const n = (value: number): string => value.toFixed(5);
+  return `
+vec2 windDirection() {
+  return vec2( ${n(Math.cos(WIND_DIRECTION))}, ${n(Math.sin(WIND_DIRECTION))} );
+}
+
+// A wave rolling across the valley: the phase depends on how far along
+// the wind you stand, so a crest visibly crosses the field. Drop the
+// position term and everything breathes at once. Two frequencies at an
+// incommensurate ratio, because one sine alone has an obvious period once
+// you have watched it for a few seconds.
+float windGust( vec2 at, float t, float phase ) {
+  float travel = dot( at, windDirection() ) * ${n((Math.PI * 2) / WIND_GUST_LENGTH)}
+    - t * ${n(WIND_GUST_SPEED)} + phase;
+  return sin( travel ) * 0.62 + sin( travel * 2.3 + 1.7 ) * 0.38;
+}`;
 }
 
 /**
@@ -139,12 +177,10 @@ function patch(material: THREE.Material, profile: WindProfile): void {
 function shader(profile: WindProfile): { common: string; vertex: string } {
   const n = (value: number): string => value.toFixed(5);
 
-  const dirX = n(Math.cos(WIND_DIRECTION));
-  const dirZ = n(Math.sin(WIND_DIRECTION));
-  const frequency = n((Math.PI * 2) / WIND_GUST_LENGTH);
-
   const common = `
 uniform float uWindTime;
+
+${gustGLSL()}
 
 // One pseudo-random number per plant, from where it is rooted. Two plants
 // never share a spot, so this is stable and needs no extra attribute.
@@ -155,7 +191,7 @@ float windHash( vec2 at ) {
 // Sideways offset, in world axes, for a plant rooted at \`at\` (world xz),
 // taken at bend weight \`w\`.
 vec2 windOffset( vec2 at, float w ) {
-  vec2 dir = vec2( ${dirX}, ${dirZ} );
+  vec2 dir = windDirection();
   vec2 side = vec2( -dir.y, dir.x );
 
   // Each plant gets its own phase and its own stiffness. The gust below
@@ -169,14 +205,7 @@ vec2 windOffset( vec2 at, float w ) {
 
   float t = uWindTime * ${n(profile.rate)};
 
-  // The gust is a wave rolling across the valley: its phase depends on how
-  // far along the wind the plant stands, so a crest visibly crosses the
-  // field. Drop the position term and the whole meadow breathes at once.
-  float travel = dot( at, dir ) * ${frequency} - t * ${n(WIND_GUST_SPEED)}
-    + phase * ${n(WIND_PHASE_SPREAD)};
-  // Two frequencies at an incommensurate ratio: one sine alone has an
-  // obvious period once you have watched it for a few seconds.
-  float gust = sin( travel ) * 0.62 + sin( travel * 2.3 + 1.7 ) * 0.38;
+  float gust = windGust( at, t, phase * ${n(WIND_PHASE_SPREAD)} );
 
   // Much faster, and keyed to the plant itself rather than to the gust.
   // Grass has plenty of it, a tree has none: a three-metre crown that

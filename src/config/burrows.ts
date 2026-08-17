@@ -65,10 +65,30 @@ export const PAD_MARGIN = 3.6;
 export const PAD_FADE = 2.6;
 
 /**
- * Burrows in a ring around the village square. The south is left to the
- * river, so there are none there. The doors face the center of the
- * valley — the angle is derived from the coordinates, no point
- * duplicating it in the data.
+ * Fifteen dwellings in a closed ring around the green, four of them on
+ * the far bank. The doors face the centre of the valley — the angle is
+ * derived from the coordinates, so there is no point duplicating it here.
+ *
+ * The ring used to be six on a horseshoe with the whole south side open.
+ * Fifteen at that radius overlapped, and spread over the same horseshoe
+ * they overlapped worse, so the ring closes and crosses the water. That
+ * is what the surveyed English village does: the street carries on over
+ * the ford and a few households live on the other side.
+ *
+ * The positions come from a solver rather than from taste, and every one
+ * of them is measured. A dwelling steps back along its own radial until
+ * its whole mound plus a metre of threshold is on dry land — which is
+ * what put four of them across the river. Then the whole ring relaxes
+ * until nothing overlaps anything: no mound within 3.2 m of another, none
+ * within 1.8 m of the mill, its yard, the pond, the pound, the well or
+ * the green's oak, and none within a metre of a lane. A seat too near a
+ * lane slides ALONG the ring rather than outward, because a lane leaves a
+ * village between two tofts and sliding is what opens that gap.
+ *
+ * Result: spacing 9.9 to 16.1 m, mean 11.7, so the frontage is 57%
+ * occupied — the surveyed band for a real village is 50 to 67%, and the
+ * old six-dwelling ring managed 24%. Worst ground slope under a mound is
+ * 8.8 degrees. See docs/VILLAGE.md.
  */
 /**
  * A mound is close to a hemisphere: the radius roughly equals the height.
@@ -76,12 +96,23 @@ export const PAD_FADE = 2.6;
  * rather than a wall.
  */
 export const BURROWS: readonly Burrow[] = [
-  { id: 'burrow-1', x: -25, z: 4, radius: 3.4, height: 3.2 },
-  { id: 'burrow-2', x: -19, z: 21, radius: 3.1, height: 3 },
-  { id: 'burrow-3', x: -3, z: 27, radius: 3.7, height: 3.4 },
-  { id: 'burrow-4', x: 15, z: 24, radius: 3.1, height: 3 },
-  { id: 'burrow-5', x: 27, z: 10, radius: 3.4, height: 3.2 },
-  { id: 'burrow-6', x: 24, z: -7, radius: 3, height: 2.9 },
+  { id: 'burrow-1', x: 10.6, z: 24.8, radius: 3.33, height: 3.13 },
+  { id: 'burrow-2', x: 19.1, z: 19.1, radius: 3.71, height: 3.49 },
+  { id: 'burrow-3', x: 24.9, z: 10.3, radius: 3.14, height: 2.95 },
+  { id: 'burrow-4', x: 27, z: 0, radius: 3.52, height: 3.31 },
+  { id: 'burrow-5', x: 24, z: -9.9, radius: 2.95, height: 2.77 },
+  // Across the water. The ford and the footbridge exist for these four
+  { id: 'burrow-6', x: 25.5, z: -25.5, radius: 3.33, height: 3.13 },
+  { id: 'burrow-7', x: 11.9, z: -28.6, radius: 3.71, height: 3.49 },
+  { id: 'burrow-8', x: 1.5, z: -30, radius: 3.14, height: 2.95 },
+  { id: 'burrow-9', x: -13.8, z: -33.3, radius: 3.52, height: 3.31 },
+  // Back on the north bank, round to the head of the green
+  { id: 'burrow-10', x: -16.6, z: -17.4, radius: 2.95, height: 2.77 },
+  { id: 'burrow-11', x: -22.7, z: -7.7, radius: 3.33, height: 3.13 },
+  { id: 'burrow-12', x: -27, z: 1.6, radius: 3.71, height: 3.49 },
+  { id: 'burrow-13', x: -24.5, z: 11.3, radius: 3.14, height: 2.95 },
+  { id: 'burrow-14', x: -18.8, z: 19.4, radius: 3.52, height: 3.31 },
+  { id: 'burrow-15', x: -10.5, z: 24.9, radius: 2.95, height: 2.77 },
 ];
 
 /** Which way the door faces: always toward the center of the valley. */

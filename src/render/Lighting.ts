@@ -14,6 +14,12 @@ import { PALETTE } from '../config/palette';
 export class Lighting {
   private readonly sun: THREE.DirectionalLight;
   private readonly sunOffset = new THREE.Vector3(18, 26, 12);
+  /**
+   * Unit vector towards the sun. The sky dome puts its disc here, so the
+   * two read the same offset — a disc that disagreed with the shadows
+   * would be worse than no disc at all.
+   */
+  readonly sunDirection = this.sunOffset.clone().normalize();
 
   constructor(scene: THREE.Scene) {
     scene.add(new THREE.HemisphereLight(PALETTE.skyBounce, PALETTE.groundBounce, 0.9));

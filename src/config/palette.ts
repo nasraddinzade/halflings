@@ -10,6 +10,17 @@ export const PALETTE = {
   sky: 0x9dc0d4,
   /** Keep the fog close to the sky so distance dissolves, not muddies. */
   fog: 0xa8c6d6,
+  /**
+   * The sky dome's lowest band. It is the fog colour on purpose, not a
+   * shade near it: distant hills dissolve into the fog and then meet the
+   * sky right above themselves, so any difference between the two draws
+   * a line along the horizon exactly where nothing should be drawn.
+   */
+  skyHorizon: 0xa8c6d6,
+  /** Straight up. The band the gradient climbs to. */
+  skyZenith: 0x5f95c1,
+  /** The sun's own disc, brighter than the light it casts. */
+  sunDisc: 0xfff8e4,
   sunlight: 0xfff1d4,
   /** Fill light from above: the sky. */
   skyBounce: 0xa8c4d6,

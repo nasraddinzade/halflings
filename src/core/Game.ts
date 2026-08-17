@@ -11,6 +11,7 @@ import {
   SPAWN_Z,
   GRASS_ENABLED,
   RIVER_ENABLED,
+  SKY_ENABLED,
   VILLAGERS_ENABLED,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
@@ -28,6 +29,7 @@ import { WorkSites } from '../world/WorkSites';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Renderer } from '../render/Renderer';
+import { Sky } from '../render/Sky';
 import { advanceWind } from '../render/wind';
 import { Ground } from '../world/Ground';
 import { Obstacles } from '../world/Obstacles';
@@ -59,6 +61,8 @@ export class Game {
   private readonly river: River | null = RIVER_ENABLED ? new River() : null;
   private readonly burrows = new Burrows();
   private readonly workSites = new WorkSites();
+  /** Built after the lighting: it takes the sun direction from it. */
+  private readonly sky: Sky | null = null;
   private controller!: PlayerController;
   private locomotion!: LocomotionState;
 
@@ -73,14 +77,21 @@ export class Game {
   private rafId = 0;
 
   constructor(canvas: HTMLCanvasElement, private readonly hint: HTMLElement) {
-    this.scene.background = new THREE.Color(PALETTE.sky);
-    // Fog nearly matches the sky: distance dissolves rather than greys out
+    // No scene.background: the dome covers the view, and with the sky
+    // switched off the renderer's clear colour is the same flat fill it
+    // used to be. Fog matches the dome's lowest band exactly, so distance
+    // dissolves into the horizon instead of stopping short of it
     this.scene.fog = new THREE.Fog(PALETTE.fog, FOG_NEAR, FOG_FAR);
 
     this.renderer = new Renderer(canvas);
     this.renderer.setResizeHandler((width, height) => this.cameraRig.setAspect(width, height));
 
     this.lighting = new Lighting(this.scene);
+
+    if (SKY_ENABLED) {
+      this.sky = new Sky(this.lighting.sunDirection);
+      this.scene.add(this.sky.mesh);
+    }
 
     this.terrain = new Terrain();
     this.scene.add(this.terrain.mesh);
@@ -160,6 +171,7 @@ export class Game {
     this.timer.dispose();
     this.debug?.dispose();
     this.input.dispose();
+    this.sky?.dispose();
     this.river?.dispose();
     this.burrows.dispose();
     this.workSites.dispose();
@@ -197,6 +209,9 @@ export class Game {
     this.player.mixer.update(delta);
     this.village?.update(delta, this.cameraRig.camera.position);
 
+    // After the camera moved, before the render: the dome is centred on
+    // the camera, and a frame's lag would show as the sky sliding
+    this.sky?.update(this.cameraRig.camera.position);
     this.river?.update(delta);
     // One clock for everything that sways. It is a single uniform, so the
     // whole valley bends for the price of one number per frame

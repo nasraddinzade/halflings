@@ -181,6 +181,33 @@ export const OUTLINE_DARKEN = 0.45;
 export const FOG_NEAR = 70;
 export const FOG_FAR = 260;
 
+// --- sky --------------------------------------------------------------------
+
+export const SKY_ENABLED = true;
+/**
+ * Steps in the sky gradient. Same idea as the lighting ramp: a smooth
+ * gradient would be a different art direction, not a softer version of
+ * this one.
+ */
+export const SKY_BANDS = 5;
+/**
+ * Shapes how the bands are spread over the height of the sky. Above one
+ * they crowd towards the zenith, leaving a wide flat band at the horizon.
+ *
+ * That width is the whole point. The valley rim rises about 15 degrees
+ * above the eye, so anything narrower puts a hard step across the hills.
+ * At 1.6 the lowest band reaches 21 degrees and the hills sit inside it.
+ */
+export const SKY_CURVE = 1.6;
+/** Angular radius of the sun's disc and of the ring around it, degrees. */
+export const SUN_DISC_ANGLE = 2.6;
+export const SUN_HALO_ANGLE = 7;
+/**
+ * Dome radius. It rides with the camera, so this is just a number
+ * comfortably inside CAMERA_FAR — nothing can ever reach it.
+ */
+export const SKY_RADIUS = 400;
+
 /** Grid of the pack textures: 8x4 cells (docs/ASSETS.md, section 6).
  *  A cell = a material zone, that is how the pack artist set it up. */
 export const SOURCE_COLUMNS = 8;

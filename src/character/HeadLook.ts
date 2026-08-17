@@ -38,6 +38,17 @@ import {
  * world space, the same rotation in parent coordinates is P⁻¹ R P.
  * Blending is a slerp from identity to that, which is why the head eases
  * into a look instead of snapping to it.
+ *
+ * The layer keeps its own copy of the clip's pose and ASSIGNS the result
+ * rather than accumulating onto the bone. It has to, because the mixer
+ * cannot be relied on to put the clip pose back each frame:
+ * PropertyMixer.apply() calls binding.setValue only when the blended
+ * value differs from the previous frame's, and several clips in this pack
+ * hold the head perfectly still — Walking_A and Fishing_Idle have two
+ * identical keys, so the mixer writes the head bone on zero frames out of
+ * three hundred, and even Digging writes on only 224. Premultiplying onto
+ * a bone nothing resets is an integrator: the head winds up to the edge
+ * of its cone and stays there for the rest of the villager's walk.
  */
 export class HeadLook {
   private readonly head: THREE.Bone;
@@ -67,6 +78,14 @@ export class HeadLook {
    * out of the bind pose, so nothing here assumes the bone's axes.
    */
   private readonly restForward = new THREE.Vector3();
+
+  /**
+   * The clip's own pose for the head, and the value this layer last wrote.
+   * A new base is adopted only when the bone differs from what we left
+   * there — which is exactly the test for "the mixer wrote this frame".
+   */
+  private readonly base = new THREE.Quaternion();
+  private readonly lastWritten = new THREE.Quaternion();
 
   private readonly headWorld = new THREE.Vector3();
   private readonly headQuaternion = new THREE.Quaternion();
@@ -100,6 +119,9 @@ export class HeadLook {
     const relative = root.getWorldQuaternion(new THREE.Quaternion()).invert()
       .multiply(head.getWorldQuaternion(new THREE.Quaternion()));
     this.restForward.set(0, 0, 1).applyQuaternion(relative.invert()).normalize();
+
+    this.base.copy(head.quaternion);
+    this.lastWritten.copy(head.quaternion);
   }
 
   /** True once the head has fully returned to the clip's own pose. */
@@ -117,6 +139,14 @@ export class HeadLook {
    * relative to the world.
    */
   apply(target: THREE.Vector3 | null, bodyYaw: number, delta: number): void {
+    // Adopt a new clip pose only if the bone is not still holding what we
+    // put there. On a clip that keeps the head still the mixer never
+    // writes, and taking the bone at face value would mean measuring our
+    // own output and adding to it — the head would wind up and stay wound
+    if (!this.head.quaternion.equals(this.lastWritten)) {
+      this.base.copy(this.head.quaternion);
+    }
+
     const strength = target === null ? 0 : this.aim(target, bodyYaw);
 
     // Frame-rate independent easing, the same shape the camera and the
@@ -125,6 +155,11 @@ export class HeadLook {
     this.weight += (strength - this.weight) * (1 - Math.exp(-NOTICE_EASE * delta));
     if (this.idle) {
       this.weight = 0;
+      // Put the clip's own pose back before letting go. The caller stops
+      // calling us once we are idle, and on a clip that never writes the
+      // head there is nothing else left to undo the last look
+      this.head.quaternion.copy(this.base);
+      this.lastWritten.copy(this.base);
       return;
     }
     if (!this.hasAim) return;
@@ -138,7 +173,13 @@ export class HeadLook {
       Math.cos(bodyYaw + this.aimYaw) * Math.cos(this.aimPitch),
     );
 
-    this.head.getWorldQuaternion(this.headQuaternion);
+    this.parent.getWorldQuaternion(this.parentWorld);
+    this.parentInverse.copy(this.parentWorld).invert();
+
+    // The head's world orientation AT THE CLIP POSE, composed rather than
+    // read off matrixWorld: matrixWorld still carries last frame's look,
+    // and measuring from that is the same mistake as accumulating
+    this.headQuaternion.copy(this.parentWorld).multiply(this.base);
     this.facing.copy(this.restForward).applyQuaternion(this.headQuaternion).normalize();
     // Facing and target dead opposite leaves the axis of rotation
     // undefined, and setFromUnitVectors then picks one arbitrarily —
@@ -147,13 +188,14 @@ export class HeadLook {
     if (this.facing.dot(this.wanted) < -0.999) return;
     this.turn.setFromUnitVectors(this.facing, this.wanted);
 
-    this.parent.getWorldQuaternion(this.parentWorld);
-    this.parentInverse.copy(this.parentWorld).invert();
-
     // P⁻¹ R P — the same rotation, read in the parent's frame
     this.delta.copy(this.parentInverse).multiply(this.turn).multiply(this.parentWorld);
     this.blended.copy(HeadLook.IDENTITY).slerp(this.delta, this.weight);
-    this.head.quaternion.premultiply(this.blended);
+
+    // Assignment from the stored clip pose, never accumulation onto the
+    // bone: the result must be the same whether or not the mixer wrote
+    this.head.quaternion.copy(this.base).premultiply(this.blended);
+    this.lastWritten.copy(this.head.quaternion);
   }
 
   private aim(target: THREE.Vector3, bodyYaw: number): number {

@@ -88,6 +88,15 @@ export class Village {
   }
 
   /**
+   * How many have their eyes on the player. Worth a panel row: the whole
+   * point of the attention rules is that this number stays small, and it
+   * is not something you can eyeball reliably from behind the character.
+   */
+  get watchers(): number {
+    return this.brains.filter((brain) => brain.watching).length;
+  }
+
+  /**
    * Distance-based LOD. What costs in a villager is not so much the
    * triangles as the two draw calls (mesh plus outline) and recomputing
    * twenty-three bones every frame. So distant ones lose the outline

@@ -411,6 +411,22 @@ export const NOTICE_YAW_FADE = (100 * Math.PI) / 180;
 export const NOTICE_PITCH_LIMIT = (22 * Math.PI) / 180;
 /** How briskly the head eases in and out of a look. */
 export const NOTICE_EASE = 3.5;
+
+/**
+ * Who bothers, and for how long.
+ *
+ * Everyone in range turning to watch reads as a guard of honour, not as a
+ * village. Attention is per villager and it comes and goes: a glance,
+ * then back to what they were doing, then maybe another later.
+ */
+export const NOTICE_INCURIOUS_SHARE = 0.3;
+/** Seconds of watching, and seconds of not, drawn per villager per turn. */
+export const NOTICE_GLANCE_MIN = 2.5;
+export const NOTICE_GLANCE_MAX = 5.5;
+export const NOTICE_AWAY_MIN = 3;
+export const NOTICE_AWAY_MAX = 7;
+/** Someone with their hands full looks up rather less often. */
+export const NOTICE_WORK_FACTOR = 0.35;
 /** Roughly where a halfling's eyes are: what the villagers aim at. */
 export const NOTICE_EYE_HEIGHT = 0.95;
 

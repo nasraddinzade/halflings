@@ -14,6 +14,8 @@ export interface DebugSnapshot {
   working: number | null;
   /** How many villagers passed LOD culling and made it into the frame. */
   visibleVillagers: number | null;
+  /** How many are looking at the player right now. */
+  watching: number | null;
 }
 
 interface Row {
@@ -23,7 +25,7 @@ interface Row {
 
 const ROWS = [
   'fps', 'draw calls', 'triangles', 'clip',
-  'speed', 'grounded', 'working', 'on screen', 'position',
+  'speed', 'grounded', 'working', 'on screen', 'watching', 'position',
 ] as const;
 
 /**
@@ -94,6 +96,7 @@ export class DebugPanel {
     this.set('grounded', snapshot.grounded ? 'yes' : 'no');
     this.set('working', snapshot.working === null ? '—' : String(snapshot.working));
     this.set('on screen', snapshot.visibleVillagers === null ? '—' : String(snapshot.visibleVillagers));
+    this.set('watching', snapshot.watching === null ? '—' : String(snapshot.watching));
     const p = snapshot.position;
     this.set('position', `${p.x.toFixed(1)} ${p.y.toFixed(1)} ${p.z.toFixed(1)}`);
   }

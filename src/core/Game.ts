@@ -232,6 +232,7 @@ export class Game {
         grounded: this.controller.isGrounded,
         working: this.village?.working ?? null,
         visibleVillagers: this.village?.visible ?? null,
+        watching: this.village?.watchers ?? null,
         position: this.controller.position,
       });
     }

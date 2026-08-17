@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 
 import {
+  NOTICE_AWAY_MAX,
+  NOTICE_AWAY_MIN,
+  NOTICE_GLANCE_MAX,
+  NOTICE_GLANCE_MIN,
+  NOTICE_INCURIOUS_SHARE,
+  NOTICE_WORK_FACTOR,
   VILLAGER_ARRIVE_RADIUS,
   VILLAGER_CLIP_FADE,
   VILLAGER_FIRST_IDLE_MAX,
@@ -46,6 +52,28 @@ export class VillagerBrain {
   /** What the state was before a greeting interrupted it. */
   private interrupted: VillagerState = 'idle';
 
+  /**
+   * Attention runs on its own generator, seeded from the same name.
+   *
+   * It has to: how often this villager looks up depends on where the
+   * player walks, so drawing it from the main stream would make their
+   * idle and work durations depend on the player too — and a village
+   * whose whole schedule shifts because you walked past is not the
+   * deterministic one decision #2 asks for.
+   */
+  private readonly attentionRandom: () => number;
+  /** 0 for those who never look up at all. */
+  private readonly curiosity: number;
+  /**
+   * The attention cycle's own state, which keeps running whether or not
+   * anyone is nearby. Separating it from `watchingNow` is what stops the
+   * whole village rolling the dice on the same frame every time the
+   * player walks back into range.
+   */
+  private attentive = false;
+  private attentionLeft: number;
+  private watchingNow = false;
+
   private readonly position = new THREE.Vector3();
   private readonly direction = new THREE.Vector2();
 
@@ -57,6 +85,17 @@ export class VillagerBrain {
     private readonly workClipName: string = ROLE_WORK_CLIP[villager.config.role],
   ) {
     this.random = makeRandom(hashSeed(villager.config.id));
+    this.attentionRandom = makeRandom(hashSeed(`${villager.config.id}:attention`));
+    // The incurious end of the village never looks up at all. The rest
+    // vary, but none of them is wholly reliable about it
+    const roll = this.attentionRandom();
+    this.curiosity = roll < NOTICE_INCURIOUS_SHARE
+      ? 0
+      : 0.5 + ((roll - NOTICE_INCURIOUS_SHARE) / (1 - NOTICE_INCURIOUS_SHARE)) * 0.5;
+    // Start each villager at a different point in the cycle. Without this
+    // every one of them reaches their first decision on frame one and a
+    // third of the village looks up in the same instant
+    this.attentionLeft = this.attentionRandom() * NOTICE_AWAY_MAX;
 
     this.workPoint = new THREE.Vector2(work.x, work.z);
     // While working a villager faces their prop, not the way they came in
@@ -117,6 +156,11 @@ export class VillagerBrain {
     return this.state === 'idle' || this.state === 'work';
   }
 
+  /** Whether this one currently has their eyes on the player. */
+  get watching(): boolean {
+    return this.watchingNow;
+  }
+
   /**
    * Stop, straighten up and wave. Village hands this out to one villager
    * at a time; the brain does not decide it for itself, because deciding
@@ -167,12 +211,55 @@ export class VillagerBrain {
 
     this.villager.mixer.update(delta);
 
+    this.updateAttention(player !== null, delta);
+    const target = this.watchingNow ? player : null;
+
     // After the mixer, always. It rewrites every bone from the clip, so a
     // head turn applied before it would be thrown away the same frame
-    if (player !== null || !this.headLook.idle) {
+    if (target !== null || !this.headLook.idle) {
       this.villager.root.updateMatrixWorld(true);
-      this.headLook.apply(player, this.yaw, delta);
+      this.headLook.apply(target, this.yaw, delta);
     }
+  }
+
+  /**
+   * Decides whether this villager is currently bothering to look.
+   *
+   * A flip-flop rather than a per-frame probability: once the decision is
+   * made it holds for a few seconds, so the head settles instead of
+   * twitching on and off. The greeter is exempt — someone waving at you
+   * is, by definition, looking at you.
+   */
+  private updateAttention(playerNear: boolean, delta: number): void {
+    if (this.state === 'greet') {
+      this.watchingNow = true;
+      return;
+    }
+
+    if (this.curiosity === 0) {
+      this.watchingNow = false;
+      return;
+    }
+
+    // The cycle turns whether or not anyone is here to be looked at, so
+    // the village stays out of step with itself
+    this.attentionLeft -= delta;
+    if (this.attentionLeft <= 0) {
+      if (this.attentive) {
+        this.attentive = false;
+        this.attentionLeft = between(this.attentionRandom, NOTICE_AWAY_MIN, NOTICE_AWAY_MAX);
+      } else {
+        // Hands full means a lower chance of looking up, not a longer
+        // wait: a gardener glances as often as anyone, just mostly not
+        const chance = this.curiosity * (this.state === 'work' ? NOTICE_WORK_FACTOR : 1);
+        this.attentive = this.attentionRandom() < chance;
+        this.attentionLeft = this.attentive
+          ? between(this.attentionRandom, NOTICE_GLANCE_MIN, NOTICE_GLANCE_MAX)
+          : between(this.attentionRandom, NOTICE_AWAY_MIN, NOTICE_AWAY_MAX);
+      }
+    }
+
+    this.watchingNow = this.attentive && playerNear;
   }
 
   /** We walk to work, then back to our own spot, and so on. */

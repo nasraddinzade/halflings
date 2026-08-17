@@ -26,6 +26,7 @@ import { Village } from '../world/Village';
 import { Vegetation } from '../world/Vegetation';
 import { River } from '../world/River';
 import { Burrows } from '../world/Burrows';
+import { Hedges } from '../world/Hedges';
 import { Smoke } from '../world/Smoke';
 import { WorkSites } from '../world/WorkSites';
 import { CameraRig } from '../render/CameraRig';
@@ -62,6 +63,7 @@ export class Game {
   private vegetation: Vegetation | null = null;
   private readonly river: River | null = RIVER_ENABLED ? new River() : null;
   private readonly burrows = new Burrows();
+  private readonly hedges = new Hedges();
   private readonly workSites = new WorkSites();
   /** Built after the lighting: it takes the sun direction from it. */
   private readonly sky: Sky | null = null;
@@ -108,6 +110,10 @@ export class Game {
       this.smoke = new Smoke(this.burrows.chimneys);
       this.scene.add(this.smoke.mesh);
     }
+    this.scene.add(this.hedges.mesh);
+    // Into the grid, not the static list: four hundred circles is the
+    // same order as the tree trunks, and the grid is what that list is for
+    this.obstacles.addToGrid(this.hedges.blockers);
     this.scene.add(this.workSites.group);
     this.obstacles.addToGrid(this.workSites.blockers);
 
@@ -180,6 +186,7 @@ export class Game {
     this.debug?.dispose();
     this.input.dispose();
     this.sky?.dispose();
+    this.hedges.dispose();
     this.smoke?.dispose();
     this.river?.dispose();
     this.burrows.dispose();

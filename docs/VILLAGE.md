@@ -145,6 +145,43 @@ Collision: ~540 circles of radius 0.5 at 0.7 m spacing, straight into `Obstacles
 
 Five-bar gate: 1.97 × 0.71 m, 8 boxes, hung ajar at 35°. Step stile: posts 0.78 apart, rail 0.68, steps 0.19/0.39, 6 boxes.
 
+#### As built
+
+The table above was written for six dwellings and did not survive fifteen.
+What shipped, measured in the running game:
+
+| | planned | built |
+|---|---|---|
+| runs | 5 kinds | 17 |
+| length | 380 m | 426 m |
+| triangles | ~6,100 | 8,040 |
+| blocking circles | ~540 | 415 |
+| croft rear | r = 32 | **r = 42**, `TREE_CLEARING_RADIUS` 34 → 46 |
+| toft sides | bisectors, r 20 → 32 | **gap midlines**, r 22.6 → 42 |
+| gates | placed by hand | **derived from lane crossings** |
+
+Three things the plan got wrong, each found by measurement:
+
+- **The rear arc could not stay at r = 32.** With fifteen dwellings on a
+  ring at r ≈ 27, a croft only 5 m deep is a flowerbed. It moved to 42 and
+  the clearing radius moved with it — which *removes* trees rather than
+  adding any, so it is free.
+- **The bisector is not the midline.** With unequal mound radii the two
+  differ, and the angular bisector came within 0.88 m of a mound — half of
+  that is inside the hedge itself. Boundaries run down the middle of the
+  gap instead, and clear every mound by 0.86 m.
+- **Hand-placed gates go stale.** Three lanes were walled off the moment
+  the boundaries went in, the cart road into the green among them. A gate
+  is where a way crosses a hedge, so it is now derived from the two: five
+  breaks, widest 3.0 m, and no lane blocked. Where the break landed at a
+  run's *end* the boundary is trimmed instead — that means the way runs
+  out of it rather than across it, as the mill lane does between two
+  tofts, and gating it left an 8.8 m hole with a stub floating past it.
+
+Each ring of the section is bedded into the ground under itself rather
+than under the centre line. Sampling the centre left 125 of 1,708 feet
+floating by up to 0.20 m: daylight under a hedge on every slope.
+
 ### 2.5 Hedgerow trees — the cheapest change in the document
 
 Move ~34 of the existing 1,100 scattered trees onto the boundary polylines at 12–16 m spacing. Same geometry, same triangles, one extra `InstancedMesh`. A 5.4 m tree in the green's west hedge at 8.5 m gives a 1:1.6 enclosure ratio; the 1.13 m hedge alone gives 1:7.5 and encloses nothing. **The trees are what make the green a room.**

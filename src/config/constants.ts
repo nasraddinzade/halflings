@@ -221,6 +221,25 @@ export const PATH_BLEND = 1.6;
  * rises, not how wide the strip is.
  */
 export const BANK_WIDTH = 1.2;
+
+/**
+ * Hedge section. A bank rather than a wall: a wide foot beds it into
+ * ground that is never flat, which is also what stops a seam showing
+ * where it crosses a slope.
+ *
+ * The crest is set against the eye, not against the survey. A halfling's
+ * view sits 1.32 m above his feet, so at 0.95 plus a tenth of wander the
+ * hedge clears the bottom of the frame by about a quarter of a metre.
+ * Any taller and every lane in the village would be a green corridor.
+ */
+export const HEDGE_FOOT = 1;
+export const HEDGE_CREST = 0.95;
+/** Where the bank's shoulder sits, as a share of the crest. */
+export const HEDGE_SHOULDER = 0.19;
+/** How far the crest wanders, so no two metres of it are alike. */
+export const HEDGE_ROUGHNESS = 0.1;
+/** How far the foot is sunk, so no seam shows where it meets the turf. */
+export const HEDGE_BEDDING = 0.06;
 /** Frequency of the patches where green fades into dry grass. */
 export const GROUND_PATCH_FREQUENCY = 0.035;
 
@@ -457,8 +476,17 @@ export const VEGETATION_SEED = 7734;
 
 /** Trees. Their silhouette is what makes the valley a valley, not a field. */
 export const TREE_COUNT = 1100;
-/** No trees this close to the centre: village and open square are there. */
-export const TREE_CLEARING_RADIUS = 34;
+/**
+ * No trees this close to the centre.
+ *
+ * Raised from 34 when the village grew to fifteen dwellings. At 34 the
+ * back of a croft was five to nine metres from its own door, against a
+ * surveyed depth many times that, and the rear boundary would have run
+ * through the wood. Forty-six gives the crofts fourteen metres and still
+ * leaves a belt of trees between them and the rim — and since it removes
+ * trees rather than adding them, it costs nothing.
+ */
+export const TREE_CLEARING_RADIUS = 46;
 /** Trees do not grow on anything steeper than this. */
 export const TREE_MAX_SLOPE = (30 * Math.PI) / 180;
 /** Trunk radius for collisions, before the instance scale. */

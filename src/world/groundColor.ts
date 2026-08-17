@@ -5,16 +5,11 @@ import {
   GROUND_DIRT_SLOPE,
   GROUND_PATCH_FREQUENCY,
   GROUND_ROCK_SLOPE,
-  PATH_BLEND,
-  PATH_WIDTH,
   RIVER_DEPTH,
-  SPAWN_X,
-  SPAWN_Z,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
-import { BURROWS } from '../config/burrows';
-import { facePoint } from './burrow/profile';
 import { WORK_POINTS, propPosition } from '../config/work';
+import { LANES, LANE_BLEND, LANE_HALF_WIDTH, doorSpurs } from '../config/lanes';
 import { hashSeed, makeRandom } from '../core/random';
 import { heightAt, riverCarve } from './heightfield';
 
@@ -30,26 +25,37 @@ import { heightAt, riverCarve } from './heightfield';
  * draw call and not a single byte of texture. Computed once at startup.
  */
 
-/** A path segment: from the square to a door or to a work site. */
+/** One worn stretch of ground, with the width of the way that wore it. */
 interface Segment {
   ax: number;
   az: number;
   bx: number;
   bz: number;
+  halfWidth: number;
 }
 
+/**
+ * Flattens the lane network into segments once, carrying each way's own
+ * width along with it.
+ *
+ * The routes themselves are data in config/lanes.ts, so moving a lane is
+ * one edit in one file — the same discipline work.ts already has.
+ */
 function buildPaths(): Segment[] {
   const segments: Segment[] = [];
 
-  // From the square to every door
-  for (const burrow of BURROWS) {
-    const door = facePoint(burrow);
-    segments.push({ ax: SPAWN_X, az: SPAWN_Z, bx: door.x, bz: door.z });
+  for (const lane of [...LANES, ...doorSpurs()]) {
+    const halfWidth = LANE_HALF_WIDTH[lane.kind];
+    for (let i = 1; i < lane.points.length; i++) {
+      const a = lane.points[i - 1];
+      const b = lane.points[i];
+      if (a === undefined || b === undefined) continue;
+      segments.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], halfWidth });
+    }
   }
 
-  // And to the middle of each cluster of work sites: one path to the
-  // vegetable patches, not five — otherwise a star would fan out from
-  // the square
+  // One short path to the middle of each cluster of work sites: one to the
+  // vegetable patches, not five, or a star fans out again
   const byRole = new Map<string, { x: number; z: number; count: number }>();
   for (const point of WORK_POINTS) {
     const spot = propPosition(point);
@@ -60,10 +66,36 @@ function buildPaths(): Segment[] {
     byRole.set(point.role, acc);
   }
   for (const acc of byRole.values()) {
-    segments.push({ ax: SPAWN_X, az: SPAWN_Z, bx: acc.x / acc.count, bz: acc.z / acc.count });
+    const cx = acc.x / acc.count;
+    const cz = acc.z / acc.count;
+    // Joined to the nearest point on the network, not to the spawn point:
+    // work sites belong to the lanes that pass them, not to the middle
+    const near = nearestOnNetwork(cx, cz, segments);
+    segments.push({ ax: near.x, az: near.z, bx: cx, bz: cz, halfWidth: LANE_HALF_WIDTH.croft });
   }
 
   return segments;
+}
+
+/** Closest point anywhere on the network so far. */
+function nearestOnNetwork(x: number, z: number, segments: readonly Segment[]): { x: number; z: number } {
+  let best = Infinity;
+  let point = { x, z };
+  for (const segment of segments) {
+    const dx = segment.bx - segment.ax;
+    const dz = segment.bz - segment.az;
+    const length = dx * dx + dz * dz;
+    const t = length === 0 ? 0
+      : Math.max(0, Math.min(1, ((x - segment.ax) * dx + (z - segment.az) * dz) / length));
+    const px = segment.ax + dx * t;
+    const pz = segment.az + dz * t;
+    const d = Math.hypot(x - px, z - pz);
+    if (d < best) {
+      best = d;
+      point = { x: px, z: pz };
+    }
+  }
+  return point;
 }
 
 /** Distance from a point to a segment in the plane. */
@@ -136,14 +168,20 @@ export function paintGround(geometry: THREE.BufferGeometry): void {
       current.lerp(earth, 1 - smoothstep(0, BANK_WIDTH, Math.abs(carve - RIVER_DEPTH)));
     }
 
-    // Paths. We take the nearest segment: overlapping paths must not
-    // add up into one blotch around the square
-    let nearest = Infinity;
+    // Ways. Each carries its own width, and we take the strongest wear
+    // rather than adding them up: where routes meet they must not compound
+    // into a blotch. A cart lane wears a band nearly three times what a
+    // footpath does, and that difference is most of what says which way
+    // you are standing on.
+    let wear = 0;
     for (const segment of paths) {
       const d = distanceToSegment(x, z, segment);
-      if (d < nearest) nearest = d;
+      const edge = segment.halfWidth + segment.halfWidth * LANE_BLEND;
+      if (d >= edge) continue;
+      const w = 1 - smoothstep(segment.halfWidth, edge, d);
+      if (w > wear) wear = w;
     }
-    current.lerp(earth, (1 - smoothstep(PATH_WIDTH, PATH_WIDTH + PATH_BLEND, nearest)) * 0.8);
+    current.lerp(earth, wear * 0.8);
 
     data[i * 3] = current.r;
     data[i * 3 + 1] = current.g;

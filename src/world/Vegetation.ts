@@ -4,8 +4,17 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import {
   BUSH_COUNT,
   BUSH_RADIUS,
+  CART_AVENUE_FROM,
+  CART_AVENUE_OFFSET,
+  CART_AVENUE_TO,
   GRASS_COUNT,
   GRASS_HEIGHT,
+  GREEN_PLANTING,
+  HEDGEROW_GATE_CLEARANCE,
+  HEDGEROW_SEED,
+  HEDGEROW_SPACING,
+  HEDGEROW_WORK_CLEARANCE,
+  PLAYER_RADIUS,
   VALLEY_RADIUS,
   VEGETATION_CHUNKS,
   VEGETATION_MAX_SLOPE,
@@ -15,6 +24,7 @@ import {
   TREE_DOOR_CLEARANCE,
   TREE_MAX_SLOPE,
   TREE_CROWN_BASE,
+  TREE_CROWN_RADIUS,
   TREE_TRUNK_HEIGHT,
   TREE_TRUNK_RADIUS,
   WIND_BUSH_AMPLITUDE,
@@ -29,6 +39,9 @@ import {
   WIND_TREE_RATE,
 } from '../config/constants';
 import { BURROWS } from '../config/burrows';
+import { allHedges } from '../config/hedges';
+import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from '../config/lanes';
+import { WORK_POINTS, propPosition } from '../config/work';
 import { facePoint } from './burrow/profile';
 import { PALETTE, darken } from '../config/palette';
 import { makeRandom } from '../core/random';
@@ -109,7 +122,9 @@ export class Vegetation {
   }
 
   private addTrees(scene: THREE.Scene, ground: Ground, random: () => number): void {
-    addTreesTo(scene, ground, random, this.treeTrunks, this.chunks, this.materials);
+    const kit = treeKit(this.materials);
+    addTreesTo(scene, ground, random, this.treeTrunks, this.chunks, kit);
+    addHedgerowTrees(scene, ground, this.treeTrunks, this.chunks, kit);
   }
 
   private addChunks(
@@ -169,16 +184,19 @@ export class Vegetation {
  * material. Otherwise every chunk would need two InstancedMeshes just to
  * get two colours.
  */
-function addTreesTo(
-  scene: THREE.Scene,
-  ground: Ground,
-  random: () => number,
-  trunks: Circle[],
-  chunks: THREE.InstancedMesh[],
-  materials: THREE.Material[],
-): void {
-  const doors = BURROWS.map((burrow) => facePoint(burrow));
-  const geometry = treeGeometry();
+interface TreeKit {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  depth: THREE.MeshDepthMaterial | null;
+  profile: WindProfile;
+}
+
+/**
+ * Geometry, material and wind profile, built once and shared by both
+ * tree passes. Two materials would mean two shader programs compiled for
+ * the same tree, and two wind curves to keep in step by hand.
+ */
+function treeKit(materials: THREE.Material[]): TreeKit {
   const profile: WindProfile = {
     key: 'tree',
     // The crown, not the treetop. Everything above this height moves as
@@ -201,6 +219,20 @@ function addTreesTo(
     depth = windDepthMaterial(profile);
     materials.push(material, depth);
   }
+
+  return { geometry: treeGeometry(), material, depth, profile };
+}
+
+function addTreesTo(
+  scene: THREE.Scene,
+  ground: Ground,
+  random: () => number,
+  trunks: Circle[],
+  chunks: THREE.InstancedMesh[],
+  kit: TreeKit,
+): void {
+  const doors = BURROWS.map((burrow) => facePoint(burrow));
+  const { geometry, material, depth, profile } = kit;
 
   const chunkSize = (VALLEY_RADIUS * 2) / VEGETATION_CHUNKS;
   const byChunk = new Map<number, Placement[]>();
@@ -267,6 +299,197 @@ function addTreesTo(
 }
 
 /**
+ * Trees standing in the boundaries.
+ *
+ * The cheapest thing in the plan and the one that does the most. A hedge
+ * on its own is 1.1 m against a green 17 m across — a line on the floor,
+ * not a wall. Put a five-metre tree in it every dozen metres and the
+ * green has a ceiling edge: the same enclosure a room gets from its
+ * cornice. Same geometry, same material, one extra draw call.
+ *
+ * They are not scattered and then filtered onto the lines — they are
+ * walked along the lines, which is how a hedgerow standard grows. What
+ * is filtered is where a tree must NOT stand: in a gateway, in a lane,
+ * against a door, in the water.
+ */
+function addHedgerowTrees(
+  scene: THREE.Scene,
+  ground: Ground,
+  trunks: Circle[],
+  chunks: THREE.InstancedMesh[],
+  kit: TreeKit,
+): void {
+  // Its own stream, not the one the scattered trees are drawing from.
+  // Sharing it would move every tree in the village whenever anything
+  // upstream took one more number — and these stand in fixed places that
+  // the plan in docs/ has to be able to show
+  const random = makeRandom(HEDGEROW_SEED);
+  const doors = BURROWS.map((burrow) => facePoint(burrow));
+  const ways = [...LANES, ...doorSpurs()];
+  const workSpots = WORK_POINTS.flatMap((point) => [
+    { x: point.x, z: point.z },
+    propPosition(point),
+  ]);
+  const placements: Placement[] = [];
+  const standing: Array<{ x: number; z: number; crown: number }> = [];
+
+  for (const line of hedgerowLines()) {
+    // Half a step in, not a random fraction of one. On a fifteen-metre
+    // run with two gateways in it there are only a couple of places a
+    // tree can stand at all, and a random phase missed them
+    let target = line.spacing * 0.5;
+    let travelled = 0;
+
+    for (let i = 1; i < line.points.length; i++) {
+      const a = line.points[i - 1];
+      const b = line.points[i];
+      if (a === undefined || b === undefined) continue;
+      const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (length < 1e-4) continue;
+
+      while (target <= travelled + length) {
+        // Where this one stands, kept before the walker moves on: the
+        // gate test has to be about this tree, not the next one
+        const at = target;
+        const t = (at - travelled) / length;
+        const x = a[0] + (b[0] - a[0]) * t;
+        const z = a[1] + (b[1] - a[1]) * t;
+        target += line.spacing * (0.8 + random() * 0.5);
+
+        // A tree in a gateway is a gate that does not open. Beside one is
+        // another matter: a gate under a tree is the ordinary arrangement
+        const clear = HEDGEROW_GATE_CLEARANCE;
+        if (line.gates.some(([from, to]) => at >= from - clear && at <= to + clear)) continue;
+        if (BURROWS.some((m) => Math.hypot(x - m.x, z - m.z) < m.radius + 1.5)) continue;
+        if (doors.some((d) => Math.hypot(x - d.x, z - d.z) < TREE_DOOR_CLEARANCE)) continue;
+        // A work point is a place someone stands; the bench or bed is a
+        // couple of metres in front of them. Both need keeping clear —
+        // the trunk missed the nearest work point by 1.7 m, but the bed
+        // it belongs to reaches a metre out from its own centre
+        if (workSpots.some((w) => Math.hypot(x - w.x, z - w.z) < HEDGEROW_WORK_CLEARANCE)) continue;
+        if (riverCarve(x, z) > 0.05) continue;
+
+        const scale = 0.95 + random() * 0.5;
+
+        // Crowding is about crowns, not about the planting interval.
+        // Measured against the interval, one tree a metre inside a corner
+        // banned the next four metres of the hedge that turns there — and
+        // that hedge was the far side of the green, the side you look at
+        const crown = TREE_CROWN_RADIUS * scale;
+        if (standing.some((s) => Math.hypot(x - s.x, z - s.z) < (crown + s.crown) * 0.8)) continue;
+        // Wide enough for a body to pass, measured against the trunk it
+        // is actually going to grow, not the average one
+        const room = TREE_TRUNK_RADIUS * scale + PLAYER_RADIUS + 0.2;
+        if (ways.some((way) => distanceToWay(x, z, way) < LANE_HALF_WIDTH[way.kind] + room)) continue;
+
+        const sample = ground.sample(x, z);
+        if (sample === null || sample.slope > TREE_MAX_SLOPE) continue;
+
+        standing.push({ x, z, crown });
+        placements.push({
+          position: new THREE.Vector3(x, sample.height, z),
+          rotation: new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(0, 1, 0),
+            random() * Math.PI * 2,
+          ),
+          scale: new THREE.Vector3(scale, scale * (0.9 + random() * 0.35), scale),
+          tint: random(),
+        });
+        trunks.push({ x, z, radius: TREE_TRUNK_RADIUS * scale });
+      }
+      travelled += length;
+    }
+  }
+
+  if (placements.length === 0) return;
+
+  // One mesh, not one per chunk. They all stand inside the village, so a
+  // per-chunk split would buy nothing: the camera is never far enough
+  // from the middle for any of it to leave the frustum
+  const mesh = new THREE.InstancedMesh(kit.geometry, kit.material, placements.length);
+  mesh.name = 'hedgerow_trees';
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  if (kit.depth !== null) mesh.customDepthMaterial = kit.depth;
+
+  const matrix = new THREE.Matrix4();
+  placements.forEach((placement, index) => {
+    matrix.compose(placement.position, placement.rotation, placement.scale);
+    mesh.setMatrixAt(index, matrix);
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.computeBoundingSphere();
+  inflateForWind(mesh, kit.profile);
+
+  scene.add(mesh);
+  chunks.push(mesh);
+}
+
+/**
+ * The lines a hedgerow tree may grow along, where they are broken, and
+ * how thickly they are planted.
+ *
+ * The spacing is not one number. Out in the crofts a standard every
+ * dozen metres is a hedgerow; around the green the same interval put two
+ * trees on forty-six metres of boundary and enclosed nothing, which is
+ * the one place the whole exercise exists to fix. A green is planted
+ * closer than a field because it was planted deliberately.
+ */
+function hedgerowLines(): Array<{
+  points: ReadonlyArray<readonly [number, number]>;
+  gates: ReadonlyArray<readonly [number, number]>;
+  spacing: number;
+}> {
+  const lines = allHedges().map((run) => ({
+    points: run.points,
+    gates: run.gates ?? [],
+    spacing: run.id.startsWith('green-') ? HEDGEROW_SPACING * GREEN_PLANTING : HEDGEROW_SPACING,
+  }));
+
+  // Both verges of the cart lane where it crosses the open middle. There
+  // is no hedge to stand in there and nothing else to give the road an
+  // edge, which is exactly where an avenue does its work
+  const cart = LANES.find((lane) => lane.id === 'cart');
+  if (cart !== undefined) {
+    for (const side of [-1, 1]) {
+      const verge: Array<readonly [number, number]> = [];
+      for (let i = 1; i < cart.points.length; i++) {
+        const a = cart.points[i - 1];
+        const b = cart.points[i];
+        if (a === undefined || b === undefined) continue;
+        if (a[1] > CART_AVENUE_FROM || a[1] < CART_AVENUE_TO) continue;
+        const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (length < 1e-4) continue;
+        const nx = (-(b[1] - a[1]) / length) * side * CART_AVENUE_OFFSET;
+        const nz = ((b[0] - a[0]) / length) * side * CART_AVENUE_OFFSET;
+        verge.push([a[0] + nx, a[1] + nz], [b[0] + nx, b[1] + nz]);
+      }
+      // An avenue is planted to a rhythm, or it is not an avenue
+      if (verge.length > 1) {
+        lines.push({ points: verge, gates: [], spacing: HEDGEROW_SPACING * GREEN_PLANTING });
+      }
+    }
+  }
+
+  return lines;
+}
+
+function distanceToWay(x: number, z: number, way: Lane): number {
+  let best = Infinity;
+  for (let i = 1; i < way.points.length; i++) {
+    const a = way.points[i - 1];
+    const b = way.points[i];
+    if (a === undefined || b === undefined) continue;
+    const dx = b[0] - a[0];
+    const dz = b[1] - a[1];
+    const len2 = dx * dx + dz * dz;
+    const t = len2 < 1e-8 ? 0 : Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / len2));
+    best = Math.min(best, Math.hypot(x - (a[0] + dx * t), z - (a[1] + dz * t)));
+  }
+  return best;
+}
+
+/**
  * Height of the tallest vertex. Measured off the geometry rather than
  * assumed, so reshaping a cone or an icosahedron carries the wind with it.
  */
@@ -309,7 +532,7 @@ function treeGeometry(): THREE.BufferGeometry {
 
   // Placed by its underside rather than its centre: TREE_CROWN_BASE is
   // also the height the wind pivots about, and the two must not drift
-  const lowerRadius = 1.5;
+  const lowerRadius = TREE_CROWN_RADIUS;
   const lowerSquash = 1.1;
   const lower = new THREE.IcosahedronGeometry(lowerRadius, 0);
   lower.scale(1, lowerSquash, 1);

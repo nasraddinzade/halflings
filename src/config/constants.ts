@@ -240,6 +240,45 @@ export const HEDGE_SHOULDER = 0.19;
 export const HEDGE_ROUGHNESS = 0.1;
 /** How far the foot is sunk, so no seam shows where it meets the turf. */
 export const HEDGE_BEDDING = 0.06;
+
+/**
+ * Spacing of the trees left to grow up out of the boundaries.
+ *
+ * Twelve metres is a hedgerow, four is a wood and thirty is a line of
+ * lonely trees. The interval is jittered either side of this, because
+ * standards were left where they happened to seed.
+ */
+export const HEDGEROW_SPACING = 13;
+/**
+ * How much closer the green and the avenue are planted, as a share of
+ * the field interval. Both were planted on purpose; a field hedgerow
+ * grew where birds dropped seed.
+ */
+export const GREEN_PLANTING = 0.5;
+/** Their own seed: they must not move when the scattered wood changes. */
+export const HEDGEROW_SEED = 20863;
+/**
+ * How far a tree keeps off a gateway. At two metres a side, the green's
+ * north hedge — fifteen metres with two gates in it — had no room left
+ * for a single tree, and that is the side the player looks at.
+ */
+export const HEDGEROW_GATE_CLEARANCE = 1;
+/**
+ * And off the benches and beds. Measured from the widest prop — the
+ * vegetable bed is two metres across, so a metre out from its centre,
+ * plus room for the villager and the trunk. At 2.5 it cleared the whole
+ * west side of the green, where the gardens stand against the hedge.
+ */
+export const HEDGEROW_WORK_CLEARANCE = 1.6;
+/**
+ * The stretch of the cart lane with trees down both verges. It crosses
+ * the open middle of the valley, where there is no boundary to stand in
+ * and nothing else gives the road an edge.
+ */
+export const CART_AVENUE_FROM = 2;
+export const CART_AVENUE_TO = -12;
+/** How far off the centre of the road they stand. */
+export const CART_AVENUE_OFFSET = 2.9;
 /** Frequency of the patches where green fades into dry grass. */
 export const GROUND_PATCH_FREQUENCY = 0.035;
 
@@ -498,6 +537,12 @@ export const TREE_TRUNK_HEIGHT = 2.3;
  * the trunk bends, above it the crowns travel as one rigid piece.
  */
 export const TREE_CROWN_BASE = 1.45;
+/**
+ * How far the crown reaches sideways. The geometry is built from this and
+ * the planting reads it back, so the two cannot drift: a tree that grew
+ * wider without the spacing knowing would grow into its neighbour.
+ */
+export const TREE_CROWN_RADIUS = 1.5;
 /** There must be no trees around a burrow door. */
 export const TREE_DOOR_CLEARANCE = 6;
 

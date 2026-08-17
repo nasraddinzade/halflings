@@ -188,6 +188,34 @@ Move ~34 of the existing 1,100 scattered trees onto the boundary polylines at 12
 
 Placement: 2 on the green's W hedge, 2 on the N, 2 per close, 6 on the toft sides, 8 flanking the cart lane between z = −12 and +2, 12 on the croft rear arc. Placed explicitly, inside `TREE_CLEARING_RADIUS` — so the constant stays at 34.
 
+#### As built
+
+**36 trees, 2,304 triangles, one extra `InstancedMesh`.** Not moved off the
+scattered 1,100 — walked along the boundaries, which is how a hedgerow
+standard grows. 6 around the green, 4 down the cart lane, 26 in the croft
+boundaries. Own seed (`HEDGEROW_SEED`), so they hold still when anything
+upstream draws one more random number, and the plan in `docs/` can show
+exactly where they stand.
+
+Two numbers were wrong on the first pass, both caught by counting:
+
+- **One interval does not fit both.** Thirteen metres is a hedgerow in a
+  field and nothing at all around a green: it put two trees on forty-six
+  metres of boundary. The green and the avenue are planted at half that,
+  because they were planted on purpose and a field hedgerow was not.
+- **Crowding is about crowns, not about the interval.** Measured against
+  the interval, one tree a metre inside the green's north-west corner
+  banned the next four metres of the hedge that turns there — the far
+  side of the green, which is the side you look at. Two trees now conflict
+  only when their crowns would interpenetrate, from a `TREE_CROWN_RADIUS`
+  the geometry is built from and the planting reads back. Closest pair
+  2.69 m, crowns just touching.
+
+Filters: gateways (1 m either side — a gate under a tree is ordinary, a
+tree *in* one is a gate that does not open), lanes by that tree's own
+trunk plus a body, doors, mounds, water, slope, and the benches and beds
+the villagers work at. Nearest lane edge clears by 1.36 m.
+
 ### 2.6 The inn — head of the green
 
 **Centre (5.5, 23.4), long axis along x, front facing −z down the green.**

@@ -7,20 +7,34 @@
 
 export const PALETTE = {
   // --- atmosphere ---
-  sky: 0x9dc0d4,
-  /** Keep the fog close to the sky so distance dissolves, not muddies. */
-  fog: 0xa8c6d6,
+  /** Clear colour. Only seen with SKY_ENABLED off; kept honest anyway. */
+  sky: 0xb9d3da,
+  /** Distance dissolves into the sky's lowest stop, and into nothing else. */
+  fog: 0xb9d3da,
   /**
-   * The sky dome's lowest band. It is the fog colour on purpose, not a
-   * shade near it: distant hills dissolve into the fog and then meet the
-   * sky right above themselves, so any difference between the two draws
-   * a line along the horizon exactly where nothing should be drawn.
+   * The sky dome's lowest stop, held perfectly flat from straight down to
+   * the first stop angle. It is the fog colour on purpose, not a shade
+   * near it: distant hills dissolve into the fog and then meet the sky
+   * right above themselves, so any difference between the two draws a
+   * line along the horizon exactly where nothing should be drawn.
+   *
+   * This is the most important line in the file. Change fog, change this.
    */
-  skyHorizon: 0xa8c6d6,
-  /** Straight up. The band the gradient climbs to. */
-  skyZenith: 0x5f95c1,
+  skyHorizon: 0xb9d3da,
+  /**
+   * The ramp above it. Hue, saturation and lightness all move in one
+   * direction across the four stops — H 193 -> 197 -> 206 -> 215,
+   * S 31 -> 47 -> 61 -> 66, L 79 -> 74 -> 68 -> 62. A ramp that sags on
+   * any of the three in the middle is what makes a sky read as one colour
+   * getting dimmer rather than as air.
+   */
+  skyLow: 0x9fcbdc,
+  skyMid: 0x7cb4df,
+  skyZenith: 0x6095de,
   /** The sun's own disc, brighter than the light it casts. */
   sunDisc: 0xfff8e4,
+  /** The air around the sun. Added to the sky, never mixed into it. */
+  sunGlow: 0xffd9a3,
   sunlight: 0xfff1d4,
   /** Fill light from above: the sky. */
   skyBounce: 0xa8c4d6,

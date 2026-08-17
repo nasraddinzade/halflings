@@ -185,23 +185,50 @@ export const FOG_FAR = 260;
 
 export const SKY_ENABLED = true;
 /**
- * Steps in the sky gradient. Same idea as the lighting ramp: a smooth
- * gradient would be a different art direction, not a softer version of
- * this one.
- */
-export const SKY_BANDS = 5;
-/**
- * Shapes how the bands are spread over the height of the sky. Above one
- * they crowd towards the zenith, leaving a wide flat band at the horizon.
+ * The four authored stops of the sky ramp, in degrees above the horizon.
  *
- * That width is the whole point. The valley rim rises about 15 degrees
- * above the eye, so anything narrower puts a hard step across the hills.
- * At 1.6 the lowest band reaches 21 degrees and the hills sit inside it.
+ * An earlier version quantised the sky into hard bands, reasoning that a
+ * toon world wants a toon sky. That was a category error. Toon shading
+ * quantises a lighting integral at a surface with a normal; a sky has
+ * neither, so the same operator there is just posterisation. Worse, a
+ * band edge is a contour of constant elevation on a dome, and a cone of
+ * constant elevation projects to a hyperbola — so the "horizontal" bands
+ * bowed into concentric arcs centred on the zenith the moment the camera
+ * tilted up. A hard edge may trace a shape. It may never trace a contour
+ * of the gradient. The sun's disc is the only hard edge left in the sky.
+ *
+ * Everything below the first stop is one flat plate of PALETTE.skyHorizon.
+ * That is not laziness: the valley rim reaches 13 degrees above the eye,
+ * and a fogged ridge has to meet a sky of exactly the fog colour. Holding
+ * the first stop flat makes that true at every elevation a ridge can
+ * occupy rather than at one tuned angle.
+ *
+ * The upper three are placed where the camera actually looks. The default
+ * rig pitch points slightly down, so authoring the interesting colour
+ * above 45 degrees would hide all of it until the player looks straight
+ * up. The zenith stop stays above the sun's 50 degrees on purpose: warm
+ * glow added over the most saturated blue drifts towards violet.
  */
-export const SKY_CURVE = 1.6;
-/** Angular radius of the sun's disc and of the ring around it, degrees. */
-export const SUN_DISC_ANGLE = 2.6;
-export const SUN_HALO_ANGLE = 7;
+export const SKY_STOP_DEGREES: readonly [number, number, number, number] = [13, 22, 38, 63];
+/**
+ * How far the sun's side of the sky lifts its ramp. The haze reaches
+ * higher towards the sun and the cool stops arrive later, so turning
+ * round changes the picture — without it the dome was a function of
+ * height alone and looked identical in every direction.
+ */
+export const SKY_SUN_LIFT = 0.55;
+/** Angular radius of the sun's disc, and the width of its soft rim. */
+export const SUN_DISC_ANGLE = 2;
+export const SUN_DISC_FEATHER = 0.32;
+/**
+ * The aureole: two exponential lobes, added to the sky rather than mixed
+ * into it. Mixing warm into blue crosses the neutral axis and lays down a
+ * grey annulus, which is exactly the bullseye the first version drew.
+ * A sum of two falling exponentials cannot produce a ring at all.
+ */
+export const SUN_GLOW_GAIN = 0.55;
+export const SUN_GLOW_INNER = 0.055;
+export const SUN_GLOW_OUTER = 0.26;
 /**
  * Dome radius. It rides with the camera, so this is just a number
  * comfortably inside CAMERA_FAR — nothing can ever reach it.

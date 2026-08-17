@@ -92,14 +92,14 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
 
   const merged = mergeGeometries(mounds, false);
   for (const geometry of mounds) geometry.dispose();
-  if (merged === null) throw new Error('[burrow] не удалось склеить холмы');
+  if (merged === null) throw new Error('[burrow] could not merge the mound geometry');
   merged.computeBoundingSphere();
 
   const parts = new Map<number, THREE.BufferGeometry>();
   for (const [color, geometries] of byColor) {
     const merged = mergeGeometries(geometries, false);
     for (const geometry of geometries) geometry.dispose();
-    if (merged === null) throw new Error('[burrow] не удалось склеить детали');
+    if (merged === null) throw new Error('[burrow] could not merge the part geometry');
     merged.computeBoundingSphere();
     parts.set(color, merged);
   }
@@ -147,14 +147,14 @@ function pathStones(random: () => number): THREE.BufferGeometry[] {
 function checkFits(burrow: Burrow, face: BurrowFace): void {
   if (face.height < DOOR_TOP) {
     console.error(
-      `[burrow] ${burrow.id}: арка высотой ${face.height.toFixed(2)} м, ` +
-      `а наличник ${DOOR_TOP.toFixed(2)} м — поднимите height`,
+      `[burrow] ${burrow.id}: arch is ${face.height.toFixed(2)} m tall, ` +
+      `the door frame needs ${DOOR_TOP.toFixed(2)} m — raise height`,
     );
   }
   if (face.halfWidth < DOOR_FRAME_RADIUS + 0.45) {
     console.error(
-      `[burrow] ${burrow.id}: срез шириной ${(face.halfWidth * 2).toFixed(2)} м — ` +
-      'дверь не обрамить, увеличьте radius',
+      `[burrow] ${burrow.id}: cut is ${(face.halfWidth * 2).toFixed(2)} m wide — ` +
+      'no room around the door frame, increase radius',
     );
   }
 }

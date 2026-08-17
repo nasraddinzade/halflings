@@ -70,11 +70,22 @@ export const LEGS: Readonly<Record<string, PartSource>> = {
 
 export const ROLES: readonly VillagerRole[] = ['gardener', 'miller', 'fisher', 'idler'];
 
-/** Villager names double as seeds: the same villager always looks alike. */
+/**
+ * Villager names double as seeds: the same villager always looks alike.
+ *
+ * Changing this list is not cosmetic. configFromSeed() hashes the name, so
+ * a rename reshuffles that villager's parts, palette and role — and a name
+ * is the only thing tying a villager to their appearance between sessions.
+ *
+ * The register is an English parish register rather than fantasy: nothing
+ * from Tolkien's legendarium is allowed anywhere in this repository, and
+ * the hobbit given names are a wide net — Perry, Ned, Odo and Myrtle are
+ * all his, down to one-line mentions in the Shire family trees.
+ */
 export const VILLAGER_NAMES: readonly string[] = [
-  'Одо', 'Мирта', 'Бран', 'Лилла', 'Тобо', 'Гретта', 'Нед', 'Пиппа',
-  'Хэл', 'Дора', 'Сэм', 'Роза', 'Марло', 'Тилли', 'Бэрри', 'Мод',
-  'Уилл', 'Нора', 'Джем', 'Флора',
-  'Кэл', 'Бесс', 'Орин', 'Мэйв', 'Тод',
-  'Ива', 'Гиб', 'Лоя', 'Фен', 'Руфь',
+  'Anselm', 'Joan', 'Perkin', 'Rohese', 'Ivo', 'Tabitha',
+  'Osbert', 'Meg', 'Gervase', 'Custance', 'Reuben', 'Avelina',
+  'Kenelm', 'Grace', 'Lambert', 'Emmot', 'Simeon', 'Kezia',
+  'Wilfrid', 'Petronilla', 'Alban', 'Maud', 'Ranulf', 'Tamsin',
+  'Ephraim', 'Mariot', 'Kester', 'Juliana', 'Amias', 'Hawise',
 ];

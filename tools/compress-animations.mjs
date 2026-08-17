@@ -35,7 +35,7 @@ function readGlbJson(file) {
     offset += 8 + length;
     offset += (4 - (offset % 4)) % 4;
   }
-  throw new Error(`нет JSON-чанка: ${file}`);
+  throw new Error(`no JSON chunk: ${file}`);
 }
 
 /** The things that must survive compression unchanged. */
@@ -68,7 +68,7 @@ for (const name of files) {
   const sourceJson = readGlbJson(file);
 
   if (isCompressed(sourceJson)) {
-    console.log(`  ${name.padEnd(24)} уже сжат, пропускаю`);
+    console.log(`  ${name.padEnd(24)} already compressed, skipping`);
     skipped++;
     continue;
   }
@@ -92,7 +92,7 @@ for (const name of files) {
   if (!ok) {
     failures++;
     fs.rmSync(temporary);
-    console.error(`  ОШИБКА ${name}: сжатие изменило клипы или кости, файл не тронут`);
+    console.error(`  ERROR ${name}: compression changed clips or bones, file left untouched`);
     continue;
   }
 
@@ -103,17 +103,17 @@ for (const name of files) {
   before += sourceSize;
   after += nextSize;
   console.log(
-    `  ${name.padEnd(24)} ${(sourceSize / 1024).toFixed(0).padStart(5)} КБ -> ` +
-    `${(nextSize / 1024).toFixed(0).padStart(4)} КБ  (-${(100 - (nextSize / sourceSize) * 100).toFixed(0)}%)  ` +
-    `клипов ${actual.clips.length}, костей ${actual.bones.length}  сверка ок`,
+    `  ${name.padEnd(24)} ${(sourceSize / 1024).toFixed(0).padStart(5)} KB -> ` +
+    `${(nextSize / 1024).toFixed(0).padStart(4)} KB  (-${(100 - (nextSize / sourceSize) * 100).toFixed(0)}%)  ` +
+    `clips ${actual.clips.length}, bones ${actual.bones.length}  check ok`,
   );
 }
 
 if (before > 0) {
   console.log(
-    `\n  итого ${(before / 1024 / 1024).toFixed(2)} МБ -> ${(after / 1024 / 1024).toFixed(2)} МБ ` +
+    `\n  total ${(before / 1024 / 1024).toFixed(2)} MB -> ${(after / 1024 / 1024).toFixed(2)} MB ` +
     `(-${(100 - (after / before) * 100).toFixed(0)}%)`,
   );
 }
-if (skipped === files.length) console.log('\n  всё уже сжато');
-if (failures) { console.error(`\n  провалено файлов: ${failures}`); process.exit(1); }
+if (skipped === files.length) console.log('\n  everything is already compressed');
+if (failures) { console.error(`\n  failed files: ${failures}`); process.exit(1); }

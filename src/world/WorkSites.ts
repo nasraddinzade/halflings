@@ -58,7 +58,7 @@ export class WorkSites {
     for (const [color, geometries] of byColor) {
       const merged = mergeGeometries(geometries, false);
       for (const geometry of geometries) geometry.dispose();
-      if (merged === null) throw new Error('[worksites] не удалось склеить геометрию');
+      if (merged === null) throw new Error('[worksites] could not merge the prop geometry');
 
       merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged);

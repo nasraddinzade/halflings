@@ -35,7 +35,7 @@ const TYPE_COUNT = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT
 
 function readGlb(file) {
   const buf = fs.readFileSync(file);
-  if (buf.readUInt32LE(0) !== 0x46546c67) throw new Error(`не GLB: ${file}`);
+  if (buf.readUInt32LE(0) !== 0x46546c67) throw new Error(`not a GLB: ${file}`);
   const total = buf.readUInt32LE(8);
   let offset = 12, json = null, bin = null;
   while (offset < total) {
@@ -47,7 +47,7 @@ function readGlb(file) {
     offset += 8 + length;
     offset += (4 - (offset % 4)) % 4;
   }
-  if (!json) throw new Error(`нет JSON-чанка: ${file}`);
+  if (!json) throw new Error(`no JSON chunk: ${file}`);
   return { json, bin, size: buf.length };
 }
 
@@ -104,7 +104,7 @@ function strip(srcFile) {
   for (const anim of j.animations || []) {
     for (const ch of anim.channels) {
       if (ch.target.node !== undefined && dropped.has(ch.target.node)) {
-        throw new Error(`канал клипа "${anim.name}" адресует меш-узел ${ch.target.node}`);
+        throw new Error(`channel of clip "${anim.name}" targets mesh node ${ch.target.node}`);
       }
     }
   }
@@ -223,18 +223,18 @@ for (const [srcName, outName] of Object.entries(FILES)) {
   const ok = JSON.stringify(a) === JSON.stringify(b);
   if (!ok) {
     failures++;
-    console.error(`  ОШИБКА ${outName}: расхождение после пересборки`);
-    if (JSON.stringify(a.clips) !== JSON.stringify(b.clips)) console.error('    клипы разошлись');
-    if (JSON.stringify(a.bones) !== JSON.stringify(b.bones)) console.error(`    кости: ${a.bones.length} -> ${b.bones.length}`);
+    console.error(`  ERROR ${outName}: mismatch after rebuild`);
+    if (JSON.stringify(a.clips) !== JSON.stringify(b.clips)) console.error('    clips diverged');
+    if (JSON.stringify(a.bones) !== JSON.stringify(b.bones)) console.error(`    bones: ${a.bones.length} -> ${b.bones.length}`);
   }
   before += src.size;
   after += size;
   const pct = (100 - (size / src.size) * 100).toFixed(0);
   console.log(`  ${srcName.padEnd(32)} -> assets/animations/${outName.padEnd(22)} ` +
-    `${(src.size / 1024).toFixed(0).padStart(5)} КБ -> ${(size / 1024).toFixed(0).padStart(4)} КБ  (-${pct}%)  ` +
-    `клипов ${a.clips.length}, костей ${b.bones.length}  ${ok ? 'сверка ок' : 'СВЕРКА НЕ ПРОШЛА'}`);
+    `${(src.size / 1024).toFixed(0).padStart(5)} KB -> ${(size / 1024).toFixed(0).padStart(4)} KB  (-${pct}%)  ` +
+    `clips ${a.clips.length}, bones ${b.bones.length}  ${ok ? 'check ok' : 'CHECK FAILED'}`);
 }
 
-console.log(`\n  итого ${(before / 1024 / 1024).toFixed(2)} МБ -> ${(after / 1024 / 1024).toFixed(2)} МБ ` +
+console.log(`\n  total ${(before / 1024 / 1024).toFixed(2)} MB -> ${(after / 1024 / 1024).toFixed(2)} MB ` +
   `(-${(100 - (after / before) * 100).toFixed(0)}%)`);
-if (failures) { console.error(`\n  провалено файлов: ${failures}`); process.exit(1); }
+if (failures) { console.error(`\n  failed files: ${failures}`); process.exit(1); }

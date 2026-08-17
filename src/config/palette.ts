@@ -109,7 +109,7 @@ export function nearestTone(color: number): Tone {
   const b1 = color & 0xff;
 
   let best = CHARACTER_TONES[0];
-  if (best === undefined) throw new Error('[palette] CHARACTER_TONES пуст');
+  if (best === undefined) throw new Error('[palette] CHARACTER_TONES is empty');
   let bestDistance = Infinity;
 
   for (const tone of CHARACTER_TONES) {

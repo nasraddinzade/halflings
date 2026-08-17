@@ -170,12 +170,12 @@ export class Village {
 function assignWork(role: VillagerRole, nextByRole: Map<VillagerRole, number>): WorkPoint {
   const forRole = WORK_POINTS.filter((point) => point.role === role);
   const pool = forRole.length > 0 ? forRole : WORK_POINTS.filter((p) => p.role === 'idler');
-  if (pool.length === 0) throw new Error('[village] в config/work.ts нет ни одной точки');
+  if (pool.length === 0) throw new Error('[village] config/work.ts has no work points at all');
 
   const index = nextByRole.get(role) ?? 0;
   nextByRole.set(role, index + 1);
 
   const point = pool[index % pool.length];
-  if (point === undefined) throw new Error('[village] не удалось выбрать точку работы');
+  if (point === undefined) throw new Error('[village] could not pick a work point from the pool');
   return point;
 }

@@ -125,7 +125,7 @@ export class ZoneAtlas {
    */
   remap(file: PartFile, variant: number, u: number, v: number): readonly [number, number] {
     const fileIndex = this.fileOrder.indexOf(file);
-    if (fileIndex === -1) throw new Error(`[atlas] файл "${file}" не участвовал в сборке атласа`);
+    if (fileIndex === -1) throw new Error(`[atlas] file "${file}" was not part of the atlas build`);
 
     const column = clampIndex(Math.floor(u * SOURCE_COLUMNS), SOURCE_COLUMNS);
     const row = clampIndex(Math.floor(v * SOURCE_ROWS), SOURCE_ROWS);
@@ -150,7 +150,7 @@ function sampleCells(image: AtlasImage): number[] {
   canvas.height = image.height;
 
   const context = canvas.getContext('2d', { willReadFrequently: true });
-  if (context === null) throw new Error('[atlas] не удалось получить контекст 2d');
+  if (context === null) throw new Error('[atlas] could not get a 2d canvas context');
   context.drawImage(image, 0, 0);
 
   const colors: number[] = [];

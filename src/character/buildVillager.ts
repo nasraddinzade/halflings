@@ -70,11 +70,11 @@ export class PartLibrary {
       if (name === 'Rogue') library.template = gltf.scene;
 
       const image = findTextureImage(gltf.scene);
-      if (image === null) throw new Error(`[villagers] в ${name}.glb нет текстуры`);
+      if (image === null) throw new Error(`[villagers] no texture in ${name}.glb`);
       sources.push({ file: name, image });
     }
 
-    if (library.template === null) throw new Error('[villagers] не загрузился шаблон скелета');
+    if (library.template === null) throw new Error('[villagers] skeleton template did not load');
     library.zoneAtlas = ZoneAtlas.build(sources);
     return library;
   }
@@ -82,18 +82,18 @@ export class PartLibrary {
   require(name: string): THREE.SkinnedMesh {
     const mesh = this.meshes.get(name);
     if (mesh === undefined) {
-      throw new Error(`[villagers] нет меша "${name}"`);
+      throw new Error(`[villagers] no mesh "${name}"`);
     }
     return mesh;
   }
 
   get skeletonTemplate(): THREE.Object3D {
-    if (this.template === null) throw new Error('[villagers] шаблон скелета не готов');
+    if (this.template === null) throw new Error('[villagers] skeleton template is not ready');
     return this.template;
   }
 
   get atlas(): ZoneAtlas {
-    if (this.zoneAtlas === null) throw new Error('[villagers] атлас не собран');
+    if (this.zoneAtlas === null) throw new Error('[villagers] atlas is not built');
     return this.zoneAtlas;
   }
 }
@@ -213,10 +213,10 @@ function addTool(
   if (parts.length === 0) return;
 
   const boneIndex = armature.boneNames.indexOf(HAND_SLOT_BONE);
-  if (boneIndex === -1) throw new Error(`[villagers] в скелете нет кости ${HAND_SLOT_BONE}`);
+  if (boneIndex === -1) throw new Error(`[villagers] skeleton has no bone ${HAND_SLOT_BONE}`);
 
   const boneInverse = armature.skeleton.boneInverses[boneIndex];
-  if (boneInverse === undefined) throw new Error('[villagers] нет обратной матрицы кости');
+  if (boneInverse === undefined) throw new Error('[villagers] no inverse matrix for the bone');
   // The item goes wherever the bone was pointing at bind time
   const bindMatrix = boneInverse.clone().invert();
 
@@ -236,6 +236,6 @@ function requirePart(
   group: string,
 ): PartSource {
   const source = catalogue[key];
-  if (source === undefined) throw new Error(`[villagers] нет части ${group}="${key}"`);
+  if (source === undefined) throw new Error(`[villagers] no part ${group}="${key}"`);
   return source;
 }

@@ -117,7 +117,7 @@ export class Input {
     const result: unknown = this.canvas.requestPointerLock();
     if (result instanceof Promise) {
       result.catch((error: unknown) => {
-        console.warn('[input] указатель не захвачен:', error);
+        console.warn('[input] pointer lock not acquired:', error);
       });
     }
   };

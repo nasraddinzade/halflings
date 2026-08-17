@@ -26,7 +26,7 @@ export class AnimationLibrary {
         // T-Pose is filtered out above, but other names can collide
         // too — silently overwriting a clip is worse than saying so
         if (library.clips.has(clip.name)) {
-          console.warn(`[animations] клип "${clip.name}" встречается дважды, взят первый`);
+          console.warn(`[animations] clip "${clip.name}" occurs twice, keeping the first`);
           continue;
         }
         library.clips.set(clip.name, clip);
@@ -40,7 +40,7 @@ export class AnimationLibrary {
     const clip = this.clips.get(name);
     if (clip === undefined) {
       throw new Error(
-        `[animations] нет клипа "${name}". Доступны: ${[...this.clips.keys()].join(', ')}`,
+        `[animations] no clip "${name}". available: ${[...this.clips.keys()].join(', ')}`,
       );
     }
     return clip;

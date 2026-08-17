@@ -237,7 +237,7 @@ function treeGeometry(): THREE.BufferGeometry {
     paint(lower, darken(PALETTE.grass, 0.82)),
     paint(upper, darken(PALETTE.grass, 0.95)),
   ], false);
-  if (merged === null) throw new Error('[vegetation] не удалось склеить дерево');
+  if (merged === null) throw new Error('[vegetation] could not merge the tree geometry');
   return merged;
 }
 

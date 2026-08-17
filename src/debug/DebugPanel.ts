@@ -23,8 +23,8 @@ interface Row {
 }
 
 const ROWS = [
-  'fps', 'draw calls', 'треугольников', 'клип',
-  'скорость', 'стамина', 'на земле', 'работают', 'в кадре', 'позиция',
+  'fps', 'draw calls', 'triangles', 'clip',
+  'speed', 'stamina', 'grounded', 'working', 'on screen', 'position',
 ] as const;
 
 /**
@@ -89,15 +89,15 @@ export class DebugPanel {
 
     this.set('fps', this.fps.toFixed(0));
     this.set('draw calls', String(snapshot.drawCalls));
-    this.set('треугольников', snapshot.triangles.toLocaleString('ru-RU'));
-    this.set('клип', snapshot.clip);
-    this.set('скорость', `${snapshot.speed.toFixed(2)} м/с`);
-    this.set('стамина', `${snapshot.stamina.toFixed(1)} / ${STAMINA_MAX}`);
-    this.set('на земле', snapshot.grounded ? 'да' : 'нет');
-    this.set('работают', snapshot.working === null ? '—' : String(snapshot.working));
-    this.set('в кадре', snapshot.visibleVillagers === null ? '—' : String(snapshot.visibleVillagers));
+    this.set('triangles', snapshot.triangles.toLocaleString('en-US'));
+    this.set('clip', snapshot.clip);
+    this.set('speed', `${snapshot.speed.toFixed(2)} m/s`);
+    this.set('stamina', `${snapshot.stamina.toFixed(1)} / ${STAMINA_MAX}`);
+    this.set('grounded', snapshot.grounded ? 'yes' : 'no');
+    this.set('working', snapshot.working === null ? '—' : String(snapshot.working));
+    this.set('on screen', snapshot.visibleVillagers === null ? '—' : String(snapshot.visibleVillagers));
     const p = snapshot.position;
-    this.set('позиция', `${p.x.toFixed(1)} ${p.y.toFixed(1)} ${p.z.toFixed(1)}`);
+    this.set('position', `${p.x.toFixed(1)} ${p.y.toFixed(1)} ${p.z.toFixed(1)}`);
   }
 
   dispose(): void {

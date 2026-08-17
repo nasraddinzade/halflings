@@ -79,7 +79,7 @@ export class ClipPlayer {
   require(name: string): THREE.AnimationAction {
     const action = this.actions.get(name);
     if (action === undefined) {
-      throw new Error(`[clips] нет клипа "${name}". Есть: ${[...this.actions.keys()].join(', ')}`);
+      throw new Error(`[clips] no clip "${name}". available: ${[...this.actions.keys()].join(', ')}`);
     }
     return action;
   }

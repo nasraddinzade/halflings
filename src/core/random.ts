@@ -26,7 +26,7 @@ export function makeRandom(seed: number): () => number {
 
 export function pick<T>(items: readonly T[], random: () => number): T {
   const item = items[Math.floor(random() * items.length)];
-  if (item === undefined) throw new Error('[random] пустой список для выбора');
+  if (item === undefined) throw new Error('[random] empty list to pick from');
   return item;
 }
 

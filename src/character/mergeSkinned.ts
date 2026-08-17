@@ -42,7 +42,7 @@ export function cloneArmature(template: THREE.Object3D): Armature {
     if (child instanceof THREE.Mesh) meshes.push(child);
   });
 
-  if (source === null) throw new Error('[merge] в шаблоне нет SkinnedMesh');
+  if (source === null) throw new Error('[merge] template has no SkinnedMesh');
   const skinned: THREE.SkinnedMesh = source;
 
   const armature: Armature = {
@@ -83,7 +83,7 @@ export function preparePart(
   }
   for (const name of REQUIRED_ATTRIBUTES) {
     if (geometry.getAttribute(name) === undefined) {
-      throw new Error(`[merge] у меша "${mesh.name}" нет атрибута ${name}`);
+      throw new Error(`[merge] mesh "${mesh.name}" has no ${name} attribute`);
     }
   }
 
@@ -101,7 +101,7 @@ function remapSkinIndices(
   const lookup = sourceBoneNames.map((name) => targetBoneNames.indexOf(name));
   const missing = sourceBoneNames.filter((_, i) => lookup[i] === -1);
   if (missing.length > 0) {
-    throw new Error(`[merge] в целевом скелете нет костей: ${missing.join(', ')}`);
+    throw new Error(`[merge] target skeleton has no bones: ${missing.join(', ')}`);
   }
 
   const skinIndex = geometry.getAttribute('skinIndex');
@@ -110,7 +110,7 @@ function remapSkinIndices(
       const source = skinIndex.getComponent(i, component);
       const target = lookup[source];
       if (target === undefined) {
-        throw new Error(`[merge] индекс кости ${source} вне диапазона`);
+        throw new Error(`[merge] bone index ${source} is out of range`);
       }
       skinIndex.setComponent(i, component, target);
     }
@@ -179,7 +179,7 @@ export function prepareAttachment(
 /** Combines the prepared pieces into a single geometry. */
 export function mergeParts(geometries: readonly THREE.BufferGeometry[]): THREE.BufferGeometry {
   const merged = mergeGeometries([...geometries], false);
-  if (merged === null) throw new Error('[merge] не удалось склеить геометрии');
+  if (merged === null) throw new Error('[merge] could not merge the geometries');
   merged.computeBoundingBox();
   merged.computeBoundingSphere();
   return merged;

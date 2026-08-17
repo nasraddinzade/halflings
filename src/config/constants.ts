@@ -118,8 +118,23 @@ export const CAMERA_COLLISION_MIN = 0.6;
 
 export const VALLEY_SIZE = 256;
 export const VALLEY_RADIUS = VALLEY_SIZE / 2;
-/** One quad per metre. 256×256 quads ≈ 131k triangles. */
-export const VALLEY_SEGMENTS = 256;
+/**
+ * Terrain resolution: 1.5 quads per metre, 295k triangles.
+ *
+ * The landscape features that make English farmland recognisable are all
+ * around a metre — a hedge bank, the floor of a hollow lane, the pitch of
+ * ridge and furrow — and at one quad per metre none of them survives
+ * sampling. At 1.5 a six-metre ridge-and-furrow wavelength gets nine
+ * samples instead of six, and a 2.6 m lane floor gets four instead of
+ * two and a half.
+ *
+ * Measured cost: the terrain is one draw call at any resolution, so the
+ * frame barely notices. What is paid is startup — 481 ms to displace,
+ * normal and build the BVH, against 258 ms at 256. Two quads per metre
+ * costs 886 ms and buys nothing further; anything finer than a lane floor
+ * belongs in geometry, not in the height field.
+ */
+export const VALLEY_SEGMENTS = 384;
 
 export const TERRAIN_SEED = 20260815;
 /**

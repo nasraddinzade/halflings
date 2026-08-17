@@ -15,8 +15,11 @@ import {
   RUN_SPEED,
   STEP_HEIGHT,
   TURN_RATE,
+  WADE_FULL_DEPTH,
+  WADE_SPEED,
   WALK_SPEED,
 } from '../config/constants';
+import { waterDepthAt } from '../world/heightfield';
 import type { Ground } from '../world/Ground';
 import type { Obstacles } from '../world/Obstacles';
 import type { MoveIntent } from '../core/Input';
@@ -53,6 +56,8 @@ export class PlayerController {
   private jumpedThisFrame = false;
   /** Touched down on this frame. The camera dips on it. */
   private landedThisFrame = false;
+  /** 0 on dry land, 1 in the deepest part of the channel. */
+  private wade = 0;
   // The camera sits on the +Z side by default, and the model faces +Z.
   // Without this the character stares into the lens at spawn until you
   // start walking.
@@ -83,6 +88,11 @@ export class PlayerController {
     return this.landedThisFrame;
   }
 
+  /** 0 on dry land, 1 in the deepest water. */
+  get wadeDepth(): number {
+    return this.wade;
+  }
+
   /** 0 at a walk, 1 at a full run. The camera widens a little on it. */
   get runFraction(): number {
     const span = RUN_SPEED - WALK_SPEED;
@@ -108,6 +118,13 @@ export class PlayerController {
     this.jumpedThisFrame = false;
     this.landedThisFrame = false;
 
+    // Measured from the analytic height field rather than from the water
+    // mesh: the ribbon is drawn a little wider than the channel so its
+    // edge tucks under the bank, and raycasting it would call that overlap
+    // water when it is buried in the ground
+    const depth = waterDepthAt(this.position.x, this.position.z, this.position.y);
+    this.wade = Math.min(1, depth / WADE_FULL_DEPTH);
+
     this.applyHorizontal(frame, delta);
     this.applyJump(frame, delta);
     this.integrate(delta);
@@ -128,7 +145,10 @@ export class PlayerController {
     );
 
     const moving = this.desired.lengthSq() > 1e-6;
-    const targetSpeed = moving ? (frame.wantsRun ? RUN_SPEED : WALK_SPEED) : 0;
+    // Water replaces the target speed rather than scaling it, so wading
+    // deep is the same slow whether or not Shift is held
+    const onFoot = frame.wantsRun ? RUN_SPEED : WALK_SPEED;
+    const targetSpeed = moving ? onFoot + (WADE_SPEED - onFoot) * this.wade : 0;
 
     this.desired.multiplyScalar(targetSpeed);
 

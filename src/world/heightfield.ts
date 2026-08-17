@@ -21,6 +21,7 @@ import {
   RIVER_FADE_END,
   RIVER_FADE_START,
   RIVER_OFFSET_Z,
+  RIVER_WATER_DEPTH,
   RIVER_WAVINESS,
   RIVER_WIDTH,
   TERRAIN_SEED,
@@ -166,4 +167,20 @@ export function groundHeight(x: number, z: number): number {
 /** Ground height at world point (x, z), with the channel cut in. */
 export function heightAt(x: number, z: number): number {
   return groundHeight(x, z) - riverCarve(x, z);
+}
+
+/**
+ * How deep the water is over a pair of feet at height `feetY`. Zero
+ * anywhere the river does not reach, and anywhere the feet are above the
+ * surface — jumping out of the channel counts as out.
+ *
+ * The water surface is groundHeight - RIVER_WATER_DEPTH, which is exactly
+ * how River.ts builds its ribbon; both read this so the two cannot drift.
+ * The deepest it gets is RIVER_DEPTH - RIVER_WATER_DEPTH, 0.45 m, which
+ * on a 1.1 m halfling is a little over the knee.
+ */
+export function waterDepthAt(x: number, z: number, feetY: number): number {
+  const carve = riverCarve(x, z);
+  if (carve <= RIVER_WATER_DEPTH) return 0;
+  return Math.max(0, groundHeight(x, z) - RIVER_WATER_DEPTH - feetY);
 }

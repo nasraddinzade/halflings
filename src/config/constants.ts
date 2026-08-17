@@ -162,6 +162,25 @@ export const RIVER_DEPTH = 0.75;
  * halfling, so the river can be forded instead of walked around.
  */
 export const RIVER_WATER_DEPTH = 0.3;
+/**
+ * Wading. The river is fordable by design, and it should cost something
+ * to ford — otherwise the only landmark in the valley is a blue stripe
+ * you walk over without noticing.
+ *
+ * Running is not blocked by a separate rule: the wade speed replaces the
+ * target speed outright, so Shift simply stops making a difference once
+ * you are in deep enough.
+ *
+ * The exact value is not free. The walk clip is fitted to speed by
+ * timeScale, which is clamped below at CLIP_TIME_SCALE_MIN so it cannot
+ * break up while accelerating from a stop. WALK_CLIP_SPEED * that clamp
+ * is 0.94 m/s, and anything slower makes the stride outrun the body and
+ * the feet skate. Just above it is 41% off a walk and 74% off a run —
+ * plenty to feel, with the footfalls still landing where they should.
+ */
+export const WADE_SPEED = 0.95;
+/** Depth at which the water is slowing you as much as it ever will. */
+export const WADE_FULL_DEPTH = 0.35;
 /** Banks: past this fraction of the radius the bed tapers away. */
 export const RIVER_FADE_START = 0.6;
 export const RIVER_FADE_END = 0.78;

@@ -237,6 +237,7 @@ export class Game {
         clip: this.locomotion.currentClip,
         speed: this.controller.speed,
         grounded: this.controller.isGrounded,
+        wading: this.controller.wadeDepth,
         working: this.village?.working ?? null,
         visibleVillagers: this.village?.visible ?? null,
         watching: this.village?.watchers ?? null,

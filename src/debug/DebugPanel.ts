@@ -10,6 +10,8 @@ export interface DebugSnapshot {
   clip: string;
   speed: number;
   grounded: boolean;
+  /** How deep the player is standing in the river, 0 to 1. */
+  wading: number;
   /** How many villagers are in the work state. null — there is no village. */
   working: number | null;
   /** How many villagers passed LOD culling and made it into the frame. */
@@ -25,7 +27,7 @@ interface Row {
 
 const ROWS = [
   'fps', 'draw calls', 'triangles', 'clip',
-  'speed', 'grounded', 'working', 'on screen', 'watching', 'position',
+  'speed', 'grounded', 'wading', 'working', 'on screen', 'watching', 'position',
 ] as const;
 
 /**
@@ -94,6 +96,7 @@ export class DebugPanel {
     this.set('clip', snapshot.clip);
     this.set('speed', `${snapshot.speed.toFixed(2)} m/s`);
     this.set('grounded', snapshot.grounded ? 'yes' : 'no');
+    this.set('wading', snapshot.wading === 0 ? '—' : snapshot.wading.toFixed(2));
     this.set('working', snapshot.working === null ? '—' : String(snapshot.working));
     this.set('on screen', snapshot.visibleVillagers === null ? '—' : String(snapshot.visibleVillagers));
     this.set('watching', snapshot.watching === null ? '—' : String(snapshot.watching));

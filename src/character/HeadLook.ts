@@ -47,6 +47,22 @@ export class HeadLook {
   private weight = 0;
 
   /**
+   * Where to look, as angles RELATIVE TO THE BODY, rebuilt into a world
+   * direction on every frame.
+   *
+   * Storing a world-space rotation instead is what made heads spin. Once
+   * the player left the cone the aim stopped being recomputed, and the
+   * held rotation was fixed in world axes while the villager kept turning
+   * — and a rotation that is constant in the world is not constant
+   * relative to a body that is rotating under it. A head that had eased
+   * out to 41 degrees off the shoulders was at 117 two frames later, and
+   * kept going.
+   */
+  private aimYaw = 0;
+  private aimPitch = 0;
+  private hasAim = false;
+
+  /**
    * The head's own local vector that points where the body faces. Read
    * out of the bind pose, so nothing here assumes the bone's axes.
    */
@@ -111,6 +127,25 @@ export class HeadLook {
       this.weight = 0;
       return;
     }
+    if (!this.hasAim) return;
+
+    // Rebuilt from the CURRENT body yaw every frame, including while the
+    // look is fading out. The aim is stored as body-relative angles for
+    // exactly this reason.
+    this.wanted.set(
+      Math.sin(bodyYaw + this.aimYaw) * Math.cos(this.aimPitch),
+      Math.sin(this.aimPitch),
+      Math.cos(bodyYaw + this.aimYaw) * Math.cos(this.aimPitch),
+    );
+
+    this.head.getWorldQuaternion(this.headQuaternion);
+    this.facing.copy(this.restForward).applyQuaternion(this.headQuaternion).normalize();
+    // Facing and target dead opposite leaves the axis of rotation
+    // undefined, and setFromUnitVectors then picks one arbitrarily —
+    // which flips frame to frame. The cone should make this unreachable;
+    // skipping a frame is the right answer if it ever is reached
+    if (this.facing.dot(this.wanted) < -0.999) return;
+    this.turn.setFromUnitVectors(this.facing, this.wanted);
 
     this.parent.getWorldQuaternion(this.parentWorld);
     this.parentInverse.copy(this.parentWorld).invert();
@@ -130,39 +165,23 @@ export class HeadLook {
     const flat = Math.hypot(dx, dz);
     if (flat < 1e-4) return 0;
 
-    const distance = Math.hypot(flat, dy);
-    // Beyond NOTICE_FAR nobody looks up; inside NOTICE_NEAR everybody does
-    const byDistance = 1 - smoothstep(NOTICE_NEAR, NOTICE_FAR, distance);
-    if (byDistance <= 0) return 0;
-
     // Where the player stands relative to the way this villager faces
     let yaw = Math.atan2(dx, dz) - bodyYaw;
     yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
 
+    // The aim is recorded whatever the strength turns out to be. A look
+    // that is fading still has to fade towards somewhere sensible, and
+    // the clamped direction is that somewhere — leaving the previous
+    // frame's aim in place instead is what let heads run away.
+    this.aimYaw = clamp(yaw, -NOTICE_YAW_LIMIT, NOTICE_YAW_LIMIT);
+    this.aimPitch = clamp(Math.atan2(dy, flat), -NOTICE_PITCH_LIMIT, NOTICE_PITCH_LIMIT);
+    this.hasAim = true;
+
+    // Beyond NOTICE_FAR nobody looks up; inside NOTICE_NEAR everybody does
+    const byDistance = 1 - smoothstep(NOTICE_NEAR, NOTICE_FAR, Math.hypot(flat, dy));
     // Past the cone the look fades out rather than staying pinned at the
     // limit: a head cranked hard sideways and held there reads as a stare
     const byCone = 1 - smoothstep(NOTICE_YAW_LIMIT, NOTICE_YAW_FADE, Math.abs(yaw));
-    if (byCone <= 0) return 0;
-
-    // The direction to aim, in world space, after the cone has had its
-    // say. Built from angles rather than from the raw vector so the clamp
-    // is expressed in the terms it was written in.
-    const aimYaw = bodyYaw + clamp(yaw, -NOTICE_YAW_LIMIT, NOTICE_YAW_LIMIT);
-    const aimPitch = clamp(Math.atan2(dy, flat), -NOTICE_PITCH_LIMIT, NOTICE_PITCH_LIMIT);
-    this.wanted.set(
-      Math.sin(aimYaw) * Math.cos(aimPitch),
-      Math.sin(aimPitch),
-      Math.cos(aimYaw) * Math.cos(aimPitch),
-    );
-
-    // Where the head points right now, clip and all. Measuring the turn
-    // from here rather than from the body's facing is the whole fix: the
-    // clip has already moved the head, and that movement must be taken
-    // off, not added to.
-    this.head.getWorldQuaternion(this.headQuaternion);
-    this.facing.copy(this.restForward).applyQuaternion(this.headQuaternion).normalize();
-    this.turn.setFromUnitVectors(this.facing, this.wanted);
-
     return byDistance * byCone;
   }
 }

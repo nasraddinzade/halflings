@@ -35,6 +35,13 @@ export const PALETTE = {
   sunDisc: 0xfff8e4,
   /** The air around the sun. Added to the sky, never mixed into it. */
   sunGlow: 0xffd9a3,
+  /**
+   * Chimney smoke, lit side and shaded side. Warm rather than grey: it
+   * sits against a cool sky, and a neutral grey there reads as dirt on
+   * the lens. Two tones only, like everything else in the frame.
+   */
+  smoke: 0xe6e0d4,
+  smokeShade: 0xc0bcb4,
   sunlight: 0xfff1d4,
   /** Fill light from above: the sky. */
   skyBounce: 0xa8c4d6,

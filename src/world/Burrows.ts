@@ -19,12 +19,15 @@ import type { Circle } from './Obstacles';
 export class Burrows {
   readonly group = new THREE.Group();
   readonly blockers: Circle[];
+  /** Where the smoke comes out. */
+  readonly chimneys: THREE.Vector3[];
 
   constructor() {
     this.group.name = 'burrows';
 
     const built = buildBurrows(valleyFloor);
     this.blockers = built.blockers;
+    this.chimneys = built.chimneys;
 
     const mounds = new THREE.Mesh(built.mounds);
     mounds.name = 'burrow_mounds';

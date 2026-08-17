@@ -35,12 +35,15 @@ export interface BurrowBuild {
   /** Joinery and path stone, grouped by color. */
   parts: Map<number, THREE.BufferGeometry>;
   blockers: Array<{ x: number; z: number; radius: number }>;
+  /** Mouth of each chimney. Smoke is emitted from exactly these points. */
+  chimneys: THREE.Vector3[];
 }
 
 export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): BurrowBuild {
   const mounds: THREE.BufferGeometry[] = [];
   const byColor = new Map<number, THREE.BufferGeometry[]>();
   const blockers: BurrowBuild['blockers'] = [];
+  const chimneys: THREE.Vector3[] = [];
 
   const add = (color: number, geometry: THREE.BufferGeometry): void => {
     const bucket = byColor.get(color);
@@ -79,10 +82,15 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
 
     for (const stone of pathStones(random)) add(PALETTE.rock, place(stone, FACE_OFFSET));
 
-    // Chimney on the crown of the mound
-    const pipe = new THREE.CylinderGeometry(0.13, 0.16, 0.6, 8);
-    pipe.translate(burrow.x, face.base + burrow.height - 0.15, burrow.z);
+    // Chimney on the crown of the mound. Its mouth is handed out so the
+    // smoke starts exactly where the pipe ends, rather than at a height
+    // guessed from the burrow data and drifting the day someone edits it
+    const pipeHeight = 0.6;
+    const pipeCentre = face.base + burrow.height - 0.15;
+    const pipe = new THREE.CylinderGeometry(0.13, 0.16, pipeHeight, 8);
+    pipe.translate(burrow.x, pipeCentre, burrow.z);
     add(PALETTE.rock, pipe);
+    chimneys.push(new THREE.Vector3(burrow.x, pipeCentre + pipeHeight / 2, burrow.z));
 
     // The mound is a mesh now, not terrain, so impassability is set by
     // a circle: otherwise you could walk straight through the burrow
@@ -104,7 +112,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
     parts.set(color, merged);
   }
 
-  return { mounds: merged, parts, blockers };
+  return { mounds: merged, parts, blockers, chimneys };
 }
 
 /** Thick wooden arch with spokes — the mark of a round door. */

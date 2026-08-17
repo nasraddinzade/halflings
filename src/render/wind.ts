@@ -60,11 +60,16 @@ export interface WindProfile {
   rate: number;
 }
 
-/** The one clock. Everything that moves with the wind reads it. */
-const uniforms = { uWindTime: { value: 0 } };
+/**
+ * The one clock. Everything that moves with the wind reads this exact
+ * object, so a gust that bends the grass leans the smoke at the same
+ * moment — which is the whole reason the module exists rather than the
+ * vegetation keeping a clock of its own.
+ */
+export const windTime = { value: 0 };
 
 export function advanceWind(delta: number): void {
-  uniforms.uWindTime.value += delta;
+  windTime.value += delta;
 }
 
 /**
@@ -117,7 +122,7 @@ function patch(material: THREE.Material, profile: WindProfile): void {
   const glsl = shader(profile);
 
   material.onBeforeCompile = (compiled) => {
-    compiled.uniforms['uWindTime'] = uniforms.uWindTime;
+    compiled.uniforms['uWindTime'] = windTime;
     compiled.vertexShader = compiled.vertexShader
       .replace('#include <common>', `#include <common>\n${glsl.common}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>\n${glsl.vertex}`);

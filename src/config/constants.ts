@@ -250,6 +250,43 @@ export const OUTLINE_DARKEN = 0.45;
 export const FOG_NEAR = 70;
 export const FOG_FAR = 260;
 
+// --- chimney smoke ------------------------------------------------------------
+
+export const SMOKE_ENABLED = true;
+/**
+ * Puffs per chimney. Few and large on purpose: toon shading has no soft
+ * edges, so a cloud of small particles reads as a swarm of dumplings.
+ * Six chimneys at this count is one draw call and 840 triangles.
+ */
+export const SMOKE_PUFFS = 6;
+/** Seconds from the chimney mouth to nothing. */
+export const SMOKE_LIFETIME = 7;
+/**
+ * How far a puff climbs and is carried in that time.
+ *
+ * The rise is the number that decides whether this reads as a plume at
+ * all. Spread the same few puffs over four metres and they arrive as a
+ * dotted line of specks with sky between them; keep the column short
+ * enough that consecutive puffs overlap and it reads as one thing.
+ */
+export const SMOKE_RISE = 3;
+export const SMOKE_DRIFT = 2.2;
+/**
+ * Puff radius at birth and at the end of its life. The end radius has to
+ * beat the spacing — SMOKE_RISE over SMOKE_PUFFS is a third of a metre —
+ * or the plume comes apart at the top, which is where it is widest and
+ * most visible.
+ */
+export const SMOKE_START_RADIUS = 0.28;
+export const SMOKE_END_RADIUS = 1.15;
+/**
+ * Peak opacity. Kept moderate because overlapping puffs accumulate it:
+ * where two of them cross, the alpha compounds and the seam comes out
+ * denser than either puff, which is what makes a column of them read as
+ * a stack of rings rather than as one plume.
+ */
+export const SMOKE_OPACITY = 0.42;
+
 // --- sky --------------------------------------------------------------------
 
 export const SKY_ENABLED = true;

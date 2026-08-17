@@ -12,6 +12,7 @@ import {
   GRASS_ENABLED,
   RIVER_ENABLED,
   SKY_ENABLED,
+  SMOKE_ENABLED,
   VILLAGERS_ENABLED,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
@@ -25,6 +26,7 @@ import { Village } from '../world/Village';
 import { Vegetation } from '../world/Vegetation';
 import { River } from '../world/River';
 import { Burrows } from '../world/Burrows';
+import { Smoke } from '../world/Smoke';
 import { WorkSites } from '../world/WorkSites';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
@@ -63,6 +65,8 @@ export class Game {
   private readonly workSites = new WorkSites();
   /** Built after the lighting: it takes the sun direction from it. */
   private readonly sky: Sky | null = null;
+  /** Built after the burrows: it takes the chimney mouths from them. */
+  private readonly smoke: Smoke | null = null;
   private controller!: PlayerController;
   private locomotion!: LocomotionState;
 
@@ -100,6 +104,10 @@ export class Game {
     if (this.river !== null) this.scene.add(this.river.mesh);
     this.scene.add(this.burrows.group);
     this.obstacles.addStatic(this.burrows.blockers);
+    if (SMOKE_ENABLED) {
+      this.smoke = new Smoke(this.burrows.chimneys);
+      this.scene.add(this.smoke.mesh);
+    }
     this.scene.add(this.workSites.group);
     this.obstacles.addToGrid(this.workSites.blockers);
 
@@ -172,6 +180,7 @@ export class Game {
     this.debug?.dispose();
     this.input.dispose();
     this.sky?.dispose();
+    this.smoke?.dispose();
     this.river?.dispose();
     this.burrows.dispose();
     this.workSites.dispose();

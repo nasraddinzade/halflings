@@ -7,6 +7,7 @@ import {
   GROUND_ROCK_SLOPE,
   PATH_BLEND,
   PATH_WIDTH,
+  RIVER_DEPTH,
   SPAWN_X,
   SPAWN_Z,
 } from '../config/constants';
@@ -126,10 +127,13 @@ export function paintGround(geometry: THREE.BufferGeometry): void {
     current.lerp(earth, smoothstep(GROUND_DIRT_SLOPE, GROUND_ROCK_SLOPE, slope) * 0.85);
     current.lerp(rock, smoothstep(GROUND_ROCK_SLOPE, GROUND_ROCK_SLOPE + 0.25, slope) * 0.7);
 
-    // Bank: grass doesn't grow at the water's edge
+    // Bank: grass doesn't grow at the water's edge. Keyed off how close
+    // the cut is to full depth, not off a distance — RIVER_DEPTH used to
+    // be written out here as a bare 0.75, which meant changing the river
+    // silently changed the paint
     const carve = riverCarve(x, z);
     if (carve > 0.01) {
-      current.lerp(earth, 1 - smoothstep(0, BANK_WIDTH, Math.abs(carve - 0.75)));
+      current.lerp(earth, 1 - smoothstep(0, BANK_WIDTH, Math.abs(carve - RIVER_DEPTH)));
     }
 
     // Paths. We take the nearest segment: overlapping paths must not

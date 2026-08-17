@@ -21,6 +21,7 @@ import {
 import { CLIP } from '../config/assets';
 import { ROLE_WORK_CLIP, workFacing, type WorkPoint } from '../config/work';
 import { between, hashSeed, makeRandom } from '../core/random';
+import { heightAt, waterDepthAt } from '../world/heightfield';
 import type { Ground } from '../world/Ground';
 import type { AnimationLibrary } from './AnimationLibrary';
 import { ClipPlayer } from './ClipPlayer';
@@ -105,9 +106,24 @@ export class VillagerBrain {
     // in the same point
     const angle = this.random() * Math.PI * 2;
     const distance = between(this.random, 2.5, 4.5);
+    // Fisher work points sit four metres from the river axis, so an
+    // unconstrained angle put five of the nine standing in the deepest
+    // water playing their idle. Turn the offset rather than redraw it:
+    // another draw here would shift every later number in this villager's
+    // stream and reshuffle the whole village's day
+    let chosen = angle;
+    for (let i = 0; i < 8; i++) {
+      const candidate = angle + (i * Math.PI) / 4;
+      const x = work.x + Math.cos(candidate) * distance;
+      const z = work.z + Math.sin(candidate) * distance;
+      if (waterDepthAt(x, z, heightAt(x, z)) === 0) {
+        chosen = candidate;
+        break;
+      }
+    }
     this.restPoint = new THREE.Vector2(
-      work.x + Math.cos(angle) * distance,
-      work.z + Math.sin(angle) * distance,
+      work.x + Math.cos(chosen) * distance,
+      work.z + Math.sin(chosen) * distance,
     );
     this.target = this.restPoint;
 

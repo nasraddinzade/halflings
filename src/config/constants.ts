@@ -199,7 +199,12 @@ export const GROUND_ROCK_SLOPE = (44 * Math.PI) / 180;
 /** Half-width of the beaten path and the length of its edge blend. */
 export const PATH_WIDTH = 1.1;
 export const PATH_BLEND = 1.6;
-/** Strip of bare bank along the water. */
+/**
+ * Bare bank along the water. Despite the name this is not a width in
+ * metres: groundColor compares it against how far the channel cut is
+ * from full depth, so it shapes how quickly grass returns as the bed
+ * rises, not how wide the strip is.
+ */
 export const BANK_WIDTH = 1.2;
 /** Frequency of the patches where green fades into dry grass. */
 export const GROUND_PATCH_FREQUENCY = 0.035;

@@ -121,9 +121,16 @@ export class PlayerController {
     // Measured from the analytic height field rather than from the water
     // mesh: the ribbon is drawn a little wider than the channel so its
     // edge tucks under the bank, and raycasting it would call that overlap
-    // water when it is buried in the ground
-    const depth = waterDepthAt(this.position.x, this.position.z, this.position.y);
-    this.wade = Math.min(1, depth / WADE_FULL_DEPTH);
+    // water when it is buried in the ground.
+    //
+    // Only while the feet are on the bed. A jump lifts them clear of the
+    // surface for about 0.2 s of its 0.48, and a wade that vanished along
+    // with them handed the full run speed straight back — holding space
+    // crossed the river in 4.05 s against 7.40 s of honest wading.
+    if (this.grounded) {
+      const depth = waterDepthAt(this.position.x, this.position.z, this.position.y);
+      this.wade = Math.min(1, depth / WADE_FULL_DEPTH);
+    }
 
     this.applyHorizontal(frame, delta);
     this.applyJump(frame, delta);

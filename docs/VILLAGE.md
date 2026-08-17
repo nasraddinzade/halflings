@@ -14,6 +14,23 @@
 
 I have read the constitution and the four source files, and I re-derived every number in both layouts against the actual height field with a standalone replica of `heightfield.ts` (kept at `C:\Temp\claude\D--hobbits\03ad97d4-339a-46b5-bcab-b2a7ea2dcfd4\scratchpad\probe.mjs` — reusable, it imports nothing).
 
+## Планы
+
+![Долина целиком](plan-valley.png)
+
+![Деревня крупно](plan-village.png)
+
+Отрисованы по настоящему полю высот: холмы затенены тем же солнцем, что
+светит в игре, серым показана полоса круче MAX_SLOPE — граница мира,
+синим русло. Бирюзовое — живые изгороди, кремовое — дороги, красное —
+постройки и рабочие точки, золотое — направления дверей и брод, белая
+точка в центре — точка появления игрока. Сетка через 20 метров на
+крупном плане и через 40 на общем.
+
+Рисование окупилось немедленно: оно поймало две ошибки размещения,
+которых текст не показывал, — угол мельницы в воде и переднюю дорогу,
+проложенную по кургану. Обе поправлены ниже по тексту, обе помечены.
+
 ---
 
 # THE VALLEY — ONE BLUEPRINT
@@ -94,7 +111,13 @@ export const PATH_WIDTHS = { footpath: 0.35, croftPath: 0.5, frontLane: 0.8, car
 `(5.2, 21.0) → (5.0, 17.0) → (0.4, 15.0) → (0.9, 11.0) → (1.4, 6.0) → (0.6, 1.0) → (−0.2, −5.0) → (0.2, −11.0) → (0.0, −17.5) → ford → (0.0, −26.5)`
 It passes **through** the green's east side and out the other side. It passes 0.9 m east of spawn: the player steps onto the road, not onto its centre.
 
-**Front lane**, arc r = 21, bearings 100° → 360° → 282°. Door radii are 22.8–26.3 m, so it runs 2–5 m in front of every door. Measured 0–17° (the 17° spots at bearings 40 and 295 are burrow-pad edges, comfortably under `MAX_SLOPE` 50°).
+**Front lane**, arc r = **20**, bearings 100° → 360° → 282°. Runs 2.8–6.3 m in front of the doors. Max slope 22.4° at the burrow-pad edges, comfortably under `MAX_SLOPE` 50°.
+
+> Corrected from r = 21 after the plan was drawn. At 21 the arc passes
+> **0.92 m** from burrow-1's mound — closer than half the lane's own width,
+> so the lane would have run over it. At 20 the clearance is 1.92 m. At 22
+> it would cut 0.08 m into the mound. The toft side hedges start from the
+> same radius and move with it.
 
 **Mill lane**, cart class. Measured 1.0–2.7° end to end:
 `(−8.0, 0.0) → (−12.0, −3.0) → (−16.0, −6.5) → (−20.0, −10.5) → (−23.0, −14.5) → (−24.5, −17.5)`
@@ -112,7 +135,7 @@ Camera check: at load, eye is feet + 1.32 m. It clears the hedge by 0.19 m. Abov
 |---|---|---|
 | Green enclosure | above | 46 m |
 | Croft rear arc | **r = 32**, bearings 262 → 360 → 110 (measured 0–12°; terminate before 115°, which is 24°) | 117 m |
-| Six toft side hedges | radial r 21 → 32 on the bisectors: **13.0°, 50.9°, 88.0°, 125.0°, 259.0°, 298.5°, 335.8°** | 77 m |
+| Six toft side hedges | radial r **20** → 32 on the bisectors: **13.0°, 50.9°, 88.0°, 125.0°, 259.0°, 298.5°, 335.8°** | 84 m |
 | West + east closes | x ∈ [−17, −10] and [+11, +17], z ∈ [3, 15], gates at (−10, 8) and (+11, 9) | 52 m |
 | Orchard enclosure | below | 88 m |
 
@@ -141,7 +164,14 @@ Frame is **box panels**, square, ~0.6 m; close studding only on the show gable f
 
 ### 2.7 The mill — no waterworks
 
-**Building centred (−27.4, −21.2)**, axis along x, 3 bays × 2.6 = **7.8 × 4.0 m**, pad level −1.15 (measured range 0.39 m).
+**Building centred (−27.4, −20.8)**, axis along x, 3 bays × 2.6 = **7.8 × 4.0 m**, pad level −1.15 (measured range 0.39 m).
+
+> Corrected after the plan was drawn. At the original −21.2 one sample of
+> 364 across the footprint stood in water: the south-east corner reached
+> z = −23.2 where the river's north edge is at −23.17, because the channel
+> runs diagonally and rises towards the east. Moving 0.4 m north makes the
+> whole footprint dry and still leaves the wheel only 1.8 m from the south
+> wall. Water in the pit is unchanged at 0.29 m.
 r = 34.3 — exactly on the tree-clearing edge, so it sits in the gap between clearing and wood, where a mill belongs. **39.3 m from the green centre = 25 s at walk.** Sightline from the green clear, subtends 6.7°.
 
 Three storeys at 1.60 (above the 1.6 m burrow ceiling — this is a working building), eaves +4.80, gable 45° over 4.0 m adding 2.00, **ridge +6.80 above the pad**.

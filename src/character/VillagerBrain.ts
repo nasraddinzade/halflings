@@ -18,9 +18,10 @@ import { between, hashSeed, makeRandom } from '../core/random';
 import type { Ground } from '../world/Ground';
 import type { AnimationLibrary } from './AnimationLibrary';
 import { ClipPlayer } from './ClipPlayer';
+import { HeadLook } from './HeadLook';
 import type { Villager } from './buildVillager';
 
-export type VillagerState = 'idle' | 'move' | 'work';
+export type VillagerState = 'idle' | 'move' | 'work' | 'greet';
 
 /**
  * Villager behaviour: a simple state machine idle → move → work → idle.
@@ -40,7 +41,10 @@ export class VillagerBrain {
   private readonly workYaw: number;
 
   private readonly clips: ClipPlayer;
+  private readonly headLook: HeadLook;
   private yaw: number;
+  /** What the state was before a greeting interrupted it. */
+  private interrupted: VillagerState = 'idle';
 
   private readonly position = new THREE.Vector3();
   private readonly direction = new THREE.Vector2();
@@ -76,6 +80,9 @@ export class VillagerBrain {
     for (const name of [CLIP.idle, CLIP.walk, this.workClipName]) {
       this.clips.add(name, animations.require(name));
     }
+    // Once, not looped: a wave that repeats stops being a greeting
+    this.clips.add(CLIP.wave, animations.require(CLIP.wave), { once: true });
+    this.headLook = new HeadLook(villager.mesh.skeleton, villager.root);
     // The phase offset spreads the village out: without it all breathe in time
     const idle = animations.require(CLIP.idle);
     this.clips.start(CLIP.idle, this.random() * idle.duration);
@@ -105,7 +112,29 @@ export class VillagerBrain {
     this.apply();
   }
 
-  update(delta: number): void {
+  /** Ready to be picked as the one villager who greets the player. */
+  get canGreet(): boolean {
+    return this.state === 'idle' || this.state === 'work';
+  }
+
+  /**
+   * Stop, straighten up and wave. Village hands this out to one villager
+   * at a time; the brain does not decide it for itself, because deciding
+   * it locally is how thirty of them end up waving at once.
+   */
+  startGreeting(): void {
+    if (!this.canGreet) return;
+    this.interrupted = this.state;
+    this.state = 'greet';
+    this.timeLeft = this.clips.require(CLIP.wave).getClip().duration;
+    this.crossFade(CLIP.wave);
+  }
+
+  /**
+   * `player` is where the villager should look, or null when nobody is
+   * near enough to be worth noticing.
+   */
+  update(delta: number, player: THREE.Vector3 | null): void {
     switch (this.state) {
       case 'idle':
         this.timeLeft -= delta;
@@ -121,9 +150,29 @@ export class VillagerBrain {
         this.apply();
         if (this.timeLeft <= 0) this.startIdling();
         break;
+      case 'greet':
+        this.timeLeft -= delta;
+        // Face the player squarely: a wave delivered over the shoulder
+        // is not a greeting
+        if (player !== null) {
+          this.turnTowards(
+            Math.atan2(player.x - this.position.x, player.z - this.position.z),
+            delta,
+          );
+          this.apply();
+        }
+        if (this.timeLeft <= 0) this.finishGreeting();
+        break;
     }
 
     this.villager.mixer.update(delta);
+
+    // After the mixer, always. It rewrites every bone from the clip, so a
+    // head turn applied before it would be thrown away the same frame
+    if (player !== null || !this.headLook.idle) {
+      this.villager.root.updateMatrixWorld(true);
+      this.headLook.apply(player, this.yaw, delta);
+    }
   }
 
   /** We walk to work, then back to our own spot, and so on. */
@@ -143,6 +192,16 @@ export class VillagerBrain {
     this.state = 'idle';
     this.timeLeft = between(this.random, VILLAGER_IDLE_MIN, VILLAGER_IDLE_MAX);
     this.crossFade(CLIP.idle);
+  }
+
+  /**
+   * Back to whatever was interrupted. Going back to work rather than
+   * always to idle is what keeps a greeting from resetting the villager's
+   * day: the gardener who waved mid-dig picks the spade back up.
+   */
+  private finishGreeting(): void {
+    if (this.interrupted === 'work') this.startWorking();
+    else this.startIdling();
   }
 
   private stepTowardsTarget(delta: number): void {

@@ -392,6 +392,36 @@ export const SHADOW_EXTENT = 14;
  */
 export const CHARACTERS_RECEIVE_SHADOW = false;
 
+// --- noticing the player ------------------------------------------------------
+
+/**
+ * A villager's head follows the player inside this range, and stops
+ * bothering past it. Two numbers rather than one so the look fades in
+ * instead of switching on at a line on the ground.
+ */
+export const NOTICE_NEAR = 9;
+export const NOTICE_FAR = 13;
+/**
+ * How far a head turns from its own shoulders before it gives up. Past
+ * the limit the look fades out rather than staying pinned at it — a head
+ * cranked as far as it goes and held there reads as a stare, not a glance.
+ */
+export const NOTICE_YAW_LIMIT = (70 * Math.PI) / 180;
+export const NOTICE_YAW_FADE = (100 * Math.PI) / 180;
+export const NOTICE_PITCH_LIMIT = (22 * Math.PI) / 180;
+/** How briskly the head eases in and out of a look. */
+export const NOTICE_EASE = 3.5;
+/** Roughly where a halfling's eyes are: what the villagers aim at. */
+export const NOTICE_EYE_HEIGHT = 0.95;
+
+/**
+ * Greeting. Exactly one villager waves at a time, village-wide, and then
+ * nobody does for a while. Without that token every halfling in the
+ * square waves as the player walks through and it becomes a stadium.
+ */
+export const GREET_RADIUS = 4.5;
+export const GREET_COOLDOWN = 7;
+
 // --- debug ------------------------------------------------------------------
 
 /**

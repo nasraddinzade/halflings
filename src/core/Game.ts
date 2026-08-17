@@ -207,7 +207,7 @@ export class Game {
 
     this.locomotion.update(this.controller.locomotion, delta);
     this.player.mixer.update(delta);
-    this.village?.update(delta, this.cameraRig.camera.position);
+    this.village?.update(delta, this.cameraRig.camera.position, this.controller.position);
 
     // After the camera moved, before the render: the dome is centred on
     // the camera, and a frame's lag would show as the sky sliding

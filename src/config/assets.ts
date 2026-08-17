@@ -5,6 +5,7 @@
 import playerModelUrl from '../../assets/characters/halfling_base.glb?url';
 import generalClipsUrl from '../../assets/animations/general.glb?url';
 import movementClipsUrl from '../../assets/animations/movement.glb?url';
+import simulationClipsUrl from '../../assets/animations/simulation.glb?url';
 import toolsClipsUrl from '../../assets/animations/tools.glb?url';
 import barbarianUrl from '../../assets/characters/parts/Barbarian.glb?url';
 import knightUrl from '../../assets/characters/parts/Knight.glb?url';
@@ -33,6 +34,8 @@ export const ANIMATION_URLS: readonly string[] = [
   movementClipsUrl,
   // Villager occupations: Digging, Sawing, Fishing_* (step 5)
   toolsClipsUrl,
+  // Waving, and the sit/lie triplets a bench will want later. 247 KB
+  simulationClipsUrl,
 ];
 
 /** Clip names — exactly as in docs/ASSETS.md. */
@@ -43,6 +46,8 @@ export const CLIP = {
   jumpStart: 'Jump_Start',
   jumpAir: 'Jump_Idle',
   jumpLand: 'Jump_Land',
+  /** A villager greeting the player. Plays once, then back to work. */
+  wave: 'Waving',
 } as const;
 
 export type ClipKey = keyof typeof CLIP;

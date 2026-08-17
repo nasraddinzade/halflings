@@ -1,9 +1,13 @@
 import * as THREE from 'three';
 
 import {
+  GREET_COOLDOWN,
+  GREET_RADIUS,
   LOD_ANIMATION_STRIDE,
   LOD_CULL,
   LOD_NEAR,
+  NOTICE_EYE_HEIGHT,
+  NOTICE_FAR,
   SEPARATION_STRENGTH,
   VILLAGER_COUNT,
   VILLAGER_RADIUS,
@@ -34,6 +38,16 @@ export class Village {
   private visibleCount = 0;
   /** Villager circles: the player controller reads them via Obstacles. */
   private readonly circles: Circle[] = [];
+  /**
+   * Whose turn it is to wave, and how long until anyone may again. The
+   * token lives here rather than in the brains because a villager cannot
+   * see the others, and thirty of them each deciding locally to greet the
+   * player produces a stadium wave.
+   */
+  private greeter: number | null = null;
+  private greetCooldown = 0;
+  /** Where villagers look: the player's eyes, not their feet. */
+  private readonly eyes = new THREE.Vector3();
 
   constructor(
     scene: THREE.Scene,
@@ -79,9 +93,15 @@ export class Village {
    * twenty-three bones every frame. So distant ones lose the outline
    * first, then animation rate, and the farthest are simply not drawn.
    */
-  update(delta: number, cameraPosition: THREE.Vector3): void {
+  update(delta: number, cameraPosition: THREE.Vector3, playerPosition: THREE.Vector3): void {
     this.frame++;
     this.visibleCount = 0;
+
+    // LOD asks "can it be seen", so it measures from the camera. Noticing
+    // asks "is someone standing next to me", which is the player — and the
+    // two are three metres apart
+    this.eyes.set(playerPosition.x, playerPosition.y + NOTICE_EYE_HEIGHT, playerPosition.z);
+    this.updateGreeter(delta, playerPosition);
 
     for (let i = 0; i < this.brains.length; i++) {
       const brain = this.brains[i];
@@ -104,12 +124,19 @@ export class Village {
       const near = distance <= LOD_NEAR;
       for (const outline of villager.outlines) outline.visible = near;
 
+      // Only villagers within earshot get a look target; the rest are
+      // handed null and their heads stay on whatever the clip says
+      const toPlayer = Math.hypot(brain.x - playerPosition.x, brain.z - playerPosition.z);
+      const target = toPlayer <= NOTICE_FAR ? this.eyes : null;
+
       const owed = (this.pending[i] ?? 0) + delta;
       // Up close we update every frame, further out once per
       // LOD_ANIMATION_STRIDE, handing over the accrued time in one go:
-      // the animation runs at the same speed, just recomputed less often
-      if (near || (this.frame + i) % LOD_ANIMATION_STRIDE === 0) {
-        brain.update(owed);
+      // the animation runs at the same speed, just recomputed less often.
+      // The greeter is always stepped: a wave played every third frame
+      // stutters, and it is the one animation the player is watching
+      if (near || i === this.greeter || (this.frame + i) % LOD_ANIMATION_STRIDE === 0) {
+        brain.update(owed, target);
         this.pending[i] = 0;
       } else {
         this.pending[i] = owed;
@@ -118,6 +145,42 @@ export class Village {
 
     this.separate();
     this.publishCircles();
+  }
+
+  /**
+   * Hands the greeting token to the nearest villager who is free to take
+   * it, then holds everyone off until the wave is done and the cooldown
+   * has run out.
+   */
+  private updateGreeter(delta: number, player: THREE.Vector3): void {
+    if (this.greeter !== null) {
+      // The brain owns when the wave ends, so watch its state rather than
+      // running a second timer here that could drift out of step with it
+      if (this.brains[this.greeter]?.currentState !== 'greet') {
+        this.greeter = null;
+        this.greetCooldown = GREET_COOLDOWN;
+      }
+      return;
+    }
+
+    this.greetCooldown = Math.max(0, this.greetCooldown - delta);
+    if (this.greetCooldown > 0) return;
+
+    let chosen = -1;
+    let closest = GREET_RADIUS;
+    for (let i = 0; i < this.brains.length; i++) {
+      const brain = this.brains[i];
+      if (brain === undefined || !brain.canGreet) continue;
+      const distance = Math.hypot(brain.x - player.x, brain.z - player.z);
+      if (distance < closest) {
+        closest = distance;
+        chosen = i;
+      }
+    }
+    if (chosen < 0) return;
+
+    this.brains[chosen]?.startGreeting();
+    this.greeter = chosen;
   }
 
   /**

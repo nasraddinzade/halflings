@@ -193,6 +193,7 @@ export class Game {
     // input -> camera -> controller -> animation -> light -> frame
     const mouse = this.input.getMouseDelta();
     this.cameraRig.rotate(mouse.x, mouse.y);
+    this.cameraRig.zoom(this.input.getWheelNotches());
 
     this.frame.intent = this.input.getMoveIntent();
     this.frame.wantsRun = this.input.isRunHeld;
@@ -200,10 +201,16 @@ export class Game {
     this.frame.cameraYaw = this.cameraRig.yawAngle;
 
     this.controller.update(this.frame, delta);
+    if (this.controller.justLanded) this.cameraRig.land();
 
     // The camera runs after the controller to follow the already updated
     // position: otherwise it lags exactly one frame and the picture jitters
-    this.cameraRig.update(this.controller.position, this.ground, delta);
+    this.cameraRig.update(
+      this.controller.position,
+      this.ground,
+      delta,
+      this.controller.runFraction,
+    );
 
     this.locomotion.update(this.controller.locomotion, delta);
     this.player.mixer.update(delta);

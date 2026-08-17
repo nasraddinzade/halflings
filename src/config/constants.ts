@@ -68,6 +68,38 @@ export const CAMERA_LAG = 12;
 export const MOUSE_SENSITIVITY = 0.0022;
 /** Gap between camera and slope, so we do not see through the ground. */
 export const CAMERA_COLLISION_PADDING = 0.25;
+/**
+ * How far the wheel may pull the boom in and out. The near end is not
+ * free: at CAMERA_NEAR of 5 cm a boom much shorter than this puts the
+ * lens inside the character's head and starts clipping through it.
+ */
+export const CAMERA_DISTANCE_MIN = 1.7;
+export const CAMERA_DISTANCE_MAX = 6.5;
+/** Metres per wheel notch, and how briskly the boom follows. */
+export const CAMERA_ZOOM_STEP = 0.45;
+export const CAMERA_ZOOM_EASE = 14;
+/**
+ * The camera aims a little to one side of the character, so he sits off
+ * centre and the view opens up ahead of him instead of being blocked by
+ * his own back. Metres, sideways from the aim point.
+ */
+export const CAMERA_SHOULDER = 0.3;
+/**
+ * Extra degrees of field of view at a full run. Speed reads as widening,
+ * but past about five degrees it stops reading as speed and starts
+ * reading as nausea.
+ */
+export const CAMERA_FOV_RUN = 4;
+export const CAMERA_FOV_EASE = 4;
+/** A short drop of the aim point on landing, so a jump has weight. */
+export const CAMERA_LAND_DIP = 0.12;
+export const CAMERA_LAND_RECOVER = 7;
+/**
+ * The boom snaps in when a hill gets between camera and character — there
+ * is no choice, the alternative is a face full of hillside — but it eases
+ * back out. Recovering as fast as it pulls in makes the picture pop.
+ */
+export const CAMERA_RECOVER = 5;
 
 // --- valley -----------------------------------------------------------------
 

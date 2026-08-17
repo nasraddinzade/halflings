@@ -51,6 +51,8 @@ export class PlayerController {
   private coyoteLeft = 0;
   private jumpBufferLeft = 0;
   private jumpedThisFrame = false;
+  /** Touched down on this frame. The camera dips on it. */
+  private landedThisFrame = false;
   // The camera sits on the +Z side by default, and the model faces +Z.
   // Without this the character stares into the lens at spawn until you
   // start walking.
@@ -77,6 +79,17 @@ export class PlayerController {
     return Math.hypot(this.velocity.x, this.velocity.z);
   }
 
+  get justLanded(): boolean {
+    return this.landedThisFrame;
+  }
+
+  /** 0 at a walk, 1 at a full run. The camera widens a little on it. */
+  get runFraction(): number {
+    const span = RUN_SPEED - WALK_SPEED;
+    if (span <= 0) return 0;
+    return Math.min(1, Math.max(0, (this.speed - WALK_SPEED) / span));
+  }
+
   get isGrounded(): boolean {
     return this.grounded;
   }
@@ -93,6 +106,7 @@ export class PlayerController {
 
   update(frame: ControllerFrame, delta: number): void {
     this.jumpedThisFrame = false;
+    this.landedThisFrame = false;
 
     this.applyHorizontal(frame, delta);
     this.applyJump(frame, delta);
@@ -171,6 +185,9 @@ export class PlayerController {
     if (this.position.y <= below.height) {
       this.position.y = below.height;
       this.velocity.y = 0;
+      // Only a real touchdown counts. Ground-snap below keeps `grounded`
+      // true over bumps, so it never fires there
+      this.landedThisFrame = !this.grounded;
       this.grounded = true;
       this.groundNormal.copy(below.normal);
       return;

@@ -3,13 +3,23 @@ import * as THREE from 'three';
 import {
   CAMERA_COLLISION_PADDING,
   CAMERA_DISTANCE,
+  CAMERA_DISTANCE_MAX,
+  CAMERA_DISTANCE_MIN,
   CAMERA_FAR,
   CAMERA_FOV,
+  CAMERA_FOV_EASE,
+  CAMERA_FOV_RUN,
   CAMERA_LAG,
+  CAMERA_LAND_DIP,
+  CAMERA_LAND_RECOVER,
   CAMERA_MAX_PITCH,
   CAMERA_MIN_PITCH,
   CAMERA_NEAR,
+  CAMERA_RECOVER,
+  CAMERA_SHOULDER,
   CAMERA_TARGET_HEIGHT,
+  CAMERA_ZOOM_EASE,
+  CAMERA_ZOOM_STEP,
   MOUSE_SENSITIVITY,
 } from '../config/constants';
 import type { Ground } from '../world/Ground';
@@ -21,6 +31,12 @@ import type { Ground } from '../world/Ground';
  * if the camera itself lags, mouse rotation makes the picture drift behind
  * the input and the controls feel sluggish. This way turning responds
  * instantly, while catching up with a running character stays soft.
+ *
+ * Everything the owner will ever film is composed here, so the rig owns
+ * the small things that decide whether footage looks shot or dumped out
+ * of an engine: a boom the wheel can move, the character off centre
+ * rather than plumb in the middle, a field of view that opens a little at
+ * a run, and a dip on landing.
  */
 export class CameraRig {
   readonly camera: THREE.PerspectiveCamera;
@@ -28,8 +44,17 @@ export class CameraRig {
   private yaw = 0;
   private pitch = 0.18;
 
+  /** Where the wheel has put the boom, and where it has eased to. */
+  private wantedDistance = CAMERA_DISTANCE;
+  private smoothDistance = CAMERA_DISTANCE;
+  /** The boom after the hills have had their say. */
+  private appliedDistance = CAMERA_DISTANCE;
+  /** Metres the aim point is currently dropped by, from a landing. */
+  private dip = 0;
+
   private readonly smoothTarget = new THREE.Vector3();
   private readonly desiredTarget = new THREE.Vector3();
+  private readonly aimPoint = new THREE.Vector3();
   private readonly offset = new THREE.Vector3();
   private readonly direction = new THREE.Vector3();
   private initialised = false;
@@ -62,10 +87,36 @@ export class CameraRig {
     );
   }
 
-  update(playerPosition: THREE.Vector3, ground: Ground, delta: number): void {
+  /** One wheel notch. Positive pushes the camera away. */
+  zoom(notches: number): void {
+    if (notches === 0) return;
+    this.wantedDistance = THREE.MathUtils.clamp(
+      this.wantedDistance + notches * CAMERA_ZOOM_STEP,
+      CAMERA_DISTANCE_MIN,
+      CAMERA_DISTANCE_MAX,
+    );
+  }
+
+  /** The character has just hit the ground: drop the aim point briefly. */
+  land(): void {
+    this.dip = CAMERA_LAND_DIP;
+  }
+
+  /**
+   * `runFraction` is 0 while walking and 1 at a full run — it widens the
+   * field of view a touch.
+   */
+  update(
+    playerPosition: THREE.Vector3,
+    ground: Ground,
+    delta: number,
+    runFraction = 0,
+  ): void {
+    this.dip *= Math.exp(-CAMERA_LAND_RECOVER * delta);
+
     this.desiredTarget.set(
       playerPosition.x,
-      playerPosition.y + CAMERA_TARGET_HEIGHT,
+      playerPosition.y + CAMERA_TARGET_HEIGHT - this.dip,
       playerPosition.z,
     );
 
@@ -80,22 +131,49 @@ export class CameraRig {
       this.smoothTarget.lerp(this.desiredTarget, alpha);
     }
 
+    this.smoothDistance += (this.wantedDistance - this.smoothDistance)
+      * (1 - Math.exp(-CAMERA_ZOOM_EASE * delta));
+
     // A point on the sphere around the target: up by pitch, around by yaw
-    const horizontal = Math.cos(this.pitch) * CAMERA_DISTANCE;
+    const horizontal = Math.cos(this.pitch) * this.smoothDistance;
     this.offset.set(
       Math.sin(this.yaw) * horizontal,
-      Math.sin(this.pitch) * CAMERA_DISTANCE,
+      Math.sin(this.pitch) * this.smoothDistance,
       Math.cos(this.yaw) * horizontal,
     );
 
     // Do not let the camera slide inside a hill
     this.direction.copy(this.offset).normalize();
-    const blocked = ground.raycastDistance(this.smoothTarget, this.direction, CAMERA_DISTANCE);
-    const distance = blocked === null
-      ? CAMERA_DISTANCE
+    const blocked = ground.raycastDistance(this.smoothTarget, this.direction, this.smoothDistance);
+    const room = blocked === null
+      ? this.smoothDistance
       : Math.max(blocked - CAMERA_COLLISION_PADDING, CAMERA_NEAR * 2);
 
-    this.camera.position.copy(this.smoothTarget).addScaledVector(this.direction, distance);
-    this.camera.lookAt(this.smoothTarget);
+    // Asymmetric on purpose. Coming in there is nothing to negotiate — the
+    // hillside is already between camera and character — but easing back
+    // out stops the picture popping every time a tree clears the boom
+    if (room < this.appliedDistance) {
+      this.appliedDistance = room;
+    } else {
+      this.appliedDistance += (room - this.appliedDistance)
+        * (1 - Math.exp(-CAMERA_RECOVER * delta));
+    }
+
+    this.camera.position.copy(this.smoothTarget)
+      .addScaledVector(this.direction, this.appliedDistance);
+
+    // Aim a little to the side of the character rather than straight at
+    // him. Right = forward x up, and forward here is -direction
+    this.aimPoint.copy(this.smoothTarget);
+    this.aimPoint.x += Math.cos(this.yaw) * CAMERA_SHOULDER;
+    this.aimPoint.z += -Math.sin(this.yaw) * CAMERA_SHOULDER;
+    this.camera.lookAt(this.aimPoint);
+
+    const wantedFov = CAMERA_FOV + CAMERA_FOV_RUN * THREE.MathUtils.clamp(runFraction, 0, 1);
+    if (Math.abs(this.camera.fov - wantedFov) > 1e-3) {
+      this.camera.fov += (wantedFov - this.camera.fov)
+        * (1 - Math.exp(-CAMERA_FOV_EASE * delta));
+      this.camera.updateProjectionMatrix();
+    }
   }
 }

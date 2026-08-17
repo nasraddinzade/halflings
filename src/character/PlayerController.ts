@@ -13,11 +13,6 @@ import {
   MODEL_YAW_OFFSET,
   PLAYER_RADIUS,
   RUN_SPEED,
-  STAMINA_DRAIN,
-  STAMINA_MAX,
-  STAMINA_REGEN,
-  STAMINA_REGEN_DELAY,
-  STAMINA_RUN_THRESHOLD,
   STEP_HEIGHT,
   TURN_RATE,
   WALK_SPEED,
@@ -50,8 +45,9 @@ export class PlayerController {
 
   private grounded = false;
   private groundNormal = new THREE.Vector3(0, 1, 0);
-  private stamina = STAMINA_MAX;
-  private staminaHold = 0;
+  /** Surface that refused the last step; only valid when blockedBySlope. */
+  private readonly blockedNormal = new THREE.Vector3(0, 1, 0);
+  private blockedBySlope = false;
   private coyoteLeft = 0;
   private jumpBufferLeft = 0;
   private jumpedThisFrame = false;
@@ -81,10 +77,6 @@ export class PlayerController {
     return Math.hypot(this.velocity.x, this.velocity.z);
   }
 
-  get staminaLeft(): number {
-    return this.stamina;
-  }
-
   get isGrounded(): boolean {
     return this.grounded;
   }
@@ -102,36 +94,11 @@ export class PlayerController {
   update(frame: ControllerFrame, delta: number): void {
     this.jumpedThisFrame = false;
 
-    this.updateStamina(frame, delta);
     this.applyHorizontal(frame, delta);
     this.applyJump(frame, delta);
     this.integrate(delta);
     this.faceMovement(delta);
     this.syncTransform();
-  }
-
-  private updateStamina(frame: ControllerFrame, delta: number): void {
-    const moving = frame.intent.x !== 0 || frame.intent.z !== 0;
-    const draining = frame.wantsRun && moving && this.canRun();
-
-    if (draining) {
-      this.stamina = Math.max(0, this.stamina - STAMINA_DRAIN * delta);
-      this.staminaHold = STAMINA_REGEN_DELAY;
-      return;
-    }
-
-    // A short pause before regen kicks in: otherwise it pays to
-    // machine-gun the shift key and run forever
-    if (this.staminaHold > 0) {
-      this.staminaHold -= delta;
-      return;
-    }
-    this.stamina = Math.min(STAMINA_MAX, this.stamina + STAMINA_REGEN * delta);
-  }
-
-  /** At zero, running is blocked until stamina regrows past the threshold. */
-  private canRun(): boolean {
-    return this.stamina > 0 && (this.stamina >= STAMINA_RUN_THRESHOLD || this.staminaHold > 0);
   }
 
   private applyHorizontal(frame: ControllerFrame, delta: number): void {
@@ -147,9 +114,7 @@ export class PlayerController {
     );
 
     const moving = this.desired.lengthSq() > 1e-6;
-    const targetSpeed = moving
-      ? (frame.wantsRun && this.canRun() ? RUN_SPEED : WALK_SPEED)
-      : 0;
+    const targetSpeed = moving ? (frame.wantsRun ? RUN_SPEED : WALK_SPEED) : 0;
 
     this.desired.multiplyScalar(targetSpeed);
 
@@ -189,23 +154,7 @@ export class PlayerController {
 
   private integrate(delta: number): void {
     // 1. Horizontal — with a check that we are not running into a slope
-    const nextX = this.position.x + this.velocity.x * delta;
-    const nextZ = this.position.z + this.velocity.z * delta;
-    const ahead = this.ground.sample(nextX, nextZ);
-
-    const blocked = ahead === null
-      || (ahead.slope > MAX_SLOPE && ahead.height > this.position.y + STEP_HEIGHT);
-
-    if (blocked) {
-      // Ran into the valley wall or a hill that is too steep: kill
-      // the horizontal speed, but don't get in the way of falling
-      this.velocity.x = 0;
-      this.velocity.z = 0;
-    } else {
-      this.position.x = nextX;
-      this.position.z = nextZ;
-      this.groundNormal.copy(ahead.normal);
-    }
+    if (!this.tryStep(this.velocity.x, this.velocity.z, delta)) this.slideAlongSlope(delta);
 
     // 2. Obstacles: the burrow door and villagers. Speed is not killed —
     //    along the circle the character should slide, not stick
@@ -238,6 +187,83 @@ export class PlayerController {
     }
 
     this.grounded = false;
+  }
+
+  /**
+   * Moves by (vx, vz) if the ground there can be stood on. Leaves the
+   * position alone and returns false if it cannot, recording what
+   * refused so the caller can slide along it.
+   */
+  private tryStep(vx: number, vz: number, delta: number): boolean {
+    const nextX = this.position.x + vx * delta;
+    const nextZ = this.position.z + vz * delta;
+    const ahead = this.ground.sample(nextX, nextZ);
+
+    if (ahead === null) {
+      // Off the edge of the terrain geometry entirely — there is no
+      // surface here to slide along
+      this.blockedBySlope = false;
+      return false;
+    }
+
+    if (ahead.slope > MAX_SLOPE && ahead.height > this.position.y + STEP_HEIGHT) {
+      this.blockedBySlope = true;
+      this.blockedNormal.copy(ahead.normal);
+      return false;
+    }
+
+    this.position.x = nextX;
+    this.position.z = nextZ;
+    this.groundNormal.copy(ahead.normal);
+    return true;
+  }
+
+  /**
+   * Ran into a hill too steep to climb. Do not stop dead: strip the part
+   * of the velocity that pushes into the slope and keep the part that
+   * runs along it.
+   *
+   * This is what makes decision #4 hold. The valley border is the rim
+   * itself, with no invisible walls — but a border that stops you the
+   * instant you graze it at an angle feels exactly like one. Obstacle
+   * circles already slide (see resolve() below); slopes were the odd
+   * one out.
+   */
+  private slideAlongSlope(delta: number): void {
+    const stop = (): void => {
+      this.velocity.x = 0;
+      this.velocity.z = 0;
+    };
+
+    if (!this.blockedBySlope) {
+      stop();
+      return;
+    }
+
+    // Horizontal part of the surface normal — the direction the hill
+    // pushes back in. On anything steep enough to block it is far from
+    // zero, but a degenerate face would divide by nothing
+    const length = Math.hypot(this.blockedNormal.x, this.blockedNormal.z);
+    if (length < 1e-4) {
+      stop();
+      return;
+    }
+
+    const ux = this.blockedNormal.x / length;
+    const uz = this.blockedNormal.z / length;
+    const into = this.velocity.x * ux + this.velocity.z * uz;
+    const slideX = this.velocity.x - ux * into;
+    const slideZ = this.velocity.z - uz * into;
+
+    // Head-on into the hill leaves nothing to slide with, and a corner
+    // can put a second wall across the new direction. Then stopping is
+    // the right answer after all
+    if (this.tryStep(slideX, slideZ, delta)) {
+      this.velocity.x = slideX;
+      this.velocity.z = slideZ;
+      return;
+    }
+    stop();
   }
 
   private faceMovement(delta: number): void {

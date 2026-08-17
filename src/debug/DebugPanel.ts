@@ -1,4 +1,4 @@
-import { DEBUG_REFRESH, STAMINA_MAX } from '../config/constants';
+import { DEBUG_REFRESH } from '../config/constants';
 
 /** Everything the panel shows for a frame. Assembled in Game. */
 export interface DebugSnapshot {
@@ -9,7 +9,6 @@ export interface DebugSnapshot {
   triangles: number;
   clip: string;
   speed: number;
-  stamina: number;
   grounded: boolean;
   /** How many villagers are in the work state. null — there is no village. */
   working: number | null;
@@ -24,7 +23,7 @@ interface Row {
 
 const ROWS = [
   'fps', 'draw calls', 'triangles', 'clip',
-  'speed', 'stamina', 'grounded', 'working', 'on screen', 'position',
+  'speed', 'grounded', 'working', 'on screen', 'position',
 ] as const;
 
 /**
@@ -92,7 +91,6 @@ export class DebugPanel {
     this.set('triangles', snapshot.triangles.toLocaleString('en-US'));
     this.set('clip', snapshot.clip);
     this.set('speed', `${snapshot.speed.toFixed(2)} m/s`);
-    this.set('stamina', `${snapshot.stamina.toFixed(1)} / ${STAMINA_MAX}`);
     this.set('grounded', snapshot.grounded ? 'yes' : 'no');
     this.set('working', snapshot.working === null ? '—' : String(snapshot.working));
     this.set('on screen', snapshot.visibleVillagers === null ? '—' : String(snapshot.visibleVillagers));

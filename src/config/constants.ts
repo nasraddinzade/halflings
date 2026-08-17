@@ -41,16 +41,6 @@ export const COYOTE_TIME = 0.12;
 /** A space press before landing is remembered for this many seconds. */
 export const JUMP_BUFFER = 0.14;
 
-// --- stamina ----------------------------------------------------------------
-
-export const STAMINA_MAX = 6;
-export const STAMINA_DRAIN = 1;
-export const STAMINA_REGEN = 0.9;
-/** Pause before regen starts once the run key is released. */
-export const STAMINA_REGEN_DELAY = 0.7;
-/** Below this you cannot run, so it does not stutter around zero. */
-export const STAMINA_RUN_THRESHOLD = 0.8;
-
 // --- ground contact ---------------------------------------------------------
 
 /** Anything steeper cannot be climbed. 50°. */
@@ -278,6 +268,38 @@ export const TREE_TRUNK_RADIUS = 0.34;
 /** There must be no trees around a burrow door. */
 export const TREE_DOOR_CLEARANCE = 6;
 
+// --- wind -------------------------------------------------------------------
+
+/** One switch: false and the vegetation materials are left untouched. */
+export const WIND_ENABLED = true;
+/** Where the wind blows to, radians in the xz plane. */
+export const WIND_DIRECTION = 0.62;
+/**
+ * Metres between gust crests. The gust is a wave rolling across the
+ * valley, so this is what decides whether you read one breath moving over
+ * the field or every plant twitching on its own. At 8 m it looked like
+ * static; the valley is 128 m across, so 26 m puts about five crests in
+ * view at once.
+ */
+export const WIND_GUST_LENGTH = 26;
+/** How fast the gust front travels, m/s. */
+export const WIND_GUST_SPEED = 6.5;
+/** Constant downwind lean, on top of the gust. Wind has a direction. */
+export const WIND_BIAS = 0.3;
+/** Fast per-plant motion, so a gust is not one sheet of cloth. */
+export const WIND_FLUTTER = 0.22;
+export const WIND_FLUTTER_SPEED = 2.7;
+
+/**
+ * Peak sideways travel at the top of a plant, as a share of its height.
+ * Toon shading has no motion blur and no soft edges, so anything past
+ * about a tenth reads as jelly rather than as wind. Trees are stiffer
+ * than grass, and a bush is a dense ball that barely gives at all.
+ */
+export const WIND_GRASS_SWAY = 0.09;
+export const WIND_BUSH_SWAY = 0.035;
+export const WIND_TREE_SWAY = 0.045;
+
 export const SHADOW_MAP_SIZE = 2048;
 /** Half-size of the area the shadow map covers around the player. */
 export const SHADOW_EXTENT = 14;
@@ -293,7 +315,11 @@ export const CHARACTERS_RECEIVE_SHADOW = false;
 
 // --- debug ------------------------------------------------------------------
 
-/** One switch for the whole debug panel: false and it is never created. */
-export const DEBUG_PANEL = true;
+/**
+ * One switch for the whole debug panel: false and it is never created.
+ * Off by default — this is a showcase, and it should not open with fps
+ * and raw coordinates pinned over the art. Flip it while working.
+ */
+export const DEBUG_PANEL = false;
 /** How often the panel redraws. Every frame is costly and unreadable. */
 export const DEBUG_REFRESH = 0.25;

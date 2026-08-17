@@ -15,12 +15,17 @@ import {
   TREE_DOOR_CLEARANCE,
   TREE_MAX_SLOPE,
   TREE_TRUNK_RADIUS,
+  WIND_BUSH_SWAY,
+  WIND_ENABLED,
+  WIND_GRASS_SWAY,
+  WIND_TREE_SWAY,
 } from '../config/constants';
 import { BURROWS } from '../config/burrows';
 import { facePoint } from './burrow/profile';
 import { PALETTE, darken } from '../config/palette';
 import { makeRandom } from '../core/random';
 import { toonSurface, toonVertexColored } from '../render/style';
+import { maxSway, windDepthMaterial, windMaterial, type WindProfile } from '../render/wind';
 import type { Circle } from './Obstacles';
 import { riverCarve } from './heightfield';
 import type { Ground } from './Ground';
@@ -45,6 +50,8 @@ import type { Ground } from './Ground';
  */
 export class Vegetation {
   private readonly chunks: THREE.InstancedMesh[] = [];
+  /** Materials cloned for the wind. Shared ones must never be disposed. */
+  private readonly materials: THREE.Material[] = [];
   /** Trunks as obstacles: you can't walk through a tree. */
   readonly treeTrunks: Circle[] = [];
 
@@ -60,10 +67,12 @@ export class Vegetation {
 
     this.addTrees(scene, ground, random);
 
-    this.addChunks(scene, grass, grassByChunk, PALETTE.grass, PALETTE.grassDry, 'grass');
+    this.addChunks(scene, grass, grassByChunk, PALETTE.grass, PALETTE.grassDry,
+      windProfile('grass', grass, WIND_GRASS_SWAY));
     // Bushes are darker and greener than the grass. In olive-grey they
     // read as boulders, the flattened ones especially
-    this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.85), PALETTE.door, 'bush');
+    this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.85), PALETTE.door,
+      windProfile('bush', bush, WIND_BUSH_SWAY));
   }
 
   get drawCallCount(): number {
@@ -75,10 +84,11 @@ export class Vegetation {
       chunk.geometry.dispose();
       chunk.dispose();
     }
+    for (const material of this.materials) material.dispose();
   }
 
   private addTrees(scene: THREE.Scene, ground: Ground, random: () => number): void {
-    addTreesTo(scene, ground, random, this.treeTrunks, this.chunks);
+    addTreesTo(scene, ground, random, this.treeTrunks, this.chunks, this.materials);
   }
 
   private addChunks(
@@ -87,9 +97,15 @@ export class Vegetation {
     byChunk: Map<number, Placement[]>,
     colorA: number,
     colorB: number,
-    name: string,
+    profile: WindProfile,
   ): void {
-    const material = toonSurface(0xffffff);
+    // toonSurface caches by colour, so grass and bushes are handed the
+    // very same material object — patching it would sway the whole scene
+    const material = WIND_ENABLED
+      ? windMaterial(toonSurface(0xffffff), profile)
+      : toonSurface(0xffffff);
+    if (WIND_ENABLED) this.materials.push(material);
+
     const matrix = new THREE.Matrix4();
     const color = new THREE.Color();
     const tint = new THREE.Color();
@@ -100,7 +116,7 @@ export class Vegetation {
       // The geometry is shared by all chunks: we copy the reference,
       // not the data
       const mesh = new THREE.InstancedMesh(geometry, material, placements.length);
-      mesh.name = `${name}_chunk_${key}`;
+      mesh.name = `${profile.key}_chunk_${key}`;
       mesh.castShadow = false;
       // Grass does receive shadow: without it, it glows on shaded ground
       mesh.receiveShadow = true;
@@ -118,6 +134,7 @@ export class Vegetation {
       // The sphere is computed from this chunk's instances and is
       // therefore tight — which was the whole point of the exercise
       mesh.computeBoundingSphere();
+      inflateForWind(mesh, profile);
 
       scene.add(mesh);
       this.chunks.push(mesh);
@@ -137,10 +154,23 @@ function addTreesTo(
   random: () => number,
   trunks: Circle[],
   chunks: THREE.InstancedMesh[],
+  materials: THREE.Material[],
 ): void {
   const doors = BURROWS.map((burrow) => facePoint(burrow));
   const geometry = treeGeometry();
-  const material = toonVertexColored();
+  const profile = windProfile('tree', geometry, WIND_TREE_SWAY);
+
+  let material: THREE.Material = toonVertexColored();
+  // The shadow pass draws with its own shader, which knows nothing about
+  // the displacement. Without a matching depth material the crown sways
+  // and its shadow stands still, which is worse than no wind at all
+  let depth: THREE.MeshDepthMaterial | null = null;
+  if (WIND_ENABLED) {
+    material = windMaterial(toonVertexColored(), profile);
+    depth = windDepthMaterial(profile);
+    materials.push(material, depth);
+  }
+
   const chunkSize = (VALLEY_RADIUS * 2) / VEGETATION_CHUNKS;
   const byChunk = new Map<number, Placement[]>();
 
@@ -190,6 +220,7 @@ function addTreesTo(
     // so only the nearby chunks make it into the pass
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    if (depth !== null) mesh.customDepthMaterial = depth;
 
     placements.forEach((placement, index) => {
       matrix.compose(placement.position, placement.rotation, placement.scale);
@@ -197,10 +228,31 @@ function addTreesTo(
     });
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
+    inflateForWind(mesh, profile);
 
     scene.add(mesh);
     chunks.push(mesh);
   }
+}
+
+/**
+ * The wind weights its bend by height, so the height has to be measured
+ * off the geometry rather than assumed: change a cone or an icosahedron
+ * here and the sway follows on its own.
+ */
+function windProfile(key: string, geometry: THREE.BufferGeometry, sway: number): WindProfile {
+  geometry.computeBoundingBox();
+  return { key, height: geometry.boundingBox?.max.y ?? 1, sway };
+}
+
+/**
+ * The cull sphere was measured around vertices that had not moved yet.
+ * Leave it and a chunk pops out of existence while a corner of it is
+ * still on screen — the more visible the stronger the wind.
+ */
+function inflateForWind(mesh: THREE.InstancedMesh, profile: WindProfile): void {
+  if (!WIND_ENABLED || mesh.boundingSphere === null) return;
+  mesh.boundingSphere.radius += maxSway(profile);
 }
 
 /** Trunk and two crowns, colour goes into the vertex attribute. */

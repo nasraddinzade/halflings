@@ -28,6 +28,7 @@ import { WorkSites } from '../world/WorkSites';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Renderer } from '../render/Renderer';
+import { advanceWind } from '../render/wind';
 import { Ground } from '../world/Ground';
 import { Obstacles } from '../world/Obstacles';
 import { Terrain } from '../world/Terrain';
@@ -197,6 +198,9 @@ export class Game {
     this.village?.update(delta, this.cameraRig.camera.position);
 
     this.river?.update(delta);
+    // One clock for everything that sways. It is a single uniform, so the
+    // whole valley bends for the price of one number per frame
+    advanceWind(delta);
     this.lighting.update(this.controller.position);
 
     this.renderer.render(this.scene, this.cameraRig.camera);
@@ -210,7 +214,6 @@ export class Game {
         triangles: stats.triangles,
         clip: this.locomotion.currentClip,
         speed: this.controller.speed,
-        stamina: this.controller.staminaLeft,
         grounded: this.controller.isGrounded,
         working: this.village?.working ?? null,
         visibleVillagers: this.village?.visible ?? null,

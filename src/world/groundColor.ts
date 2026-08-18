@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import {
+  POND_DEPTH,
   BANK_WIDTH,
   GROUND_DIRT_SLOPE,
   GROUND_PATCH_FREQUENCY,
@@ -11,7 +12,7 @@ import { PALETTE } from '../config/palette';
 import { WORK_POINTS, propPosition } from '../config/work';
 import { LANES, LANE_BLEND, LANE_HALF_WIDTH, doorSpurs } from '../config/lanes';
 import { hashSeed, makeRandom } from '../core/random';
-import { heightAt, riverCarve } from './heightfield';
+import { heightAt, pondCarve, riverCarve } from './heightfield';
 
 /**
  * Ground colour, per terrain vertex.
@@ -167,6 +168,12 @@ export function paintGround(geometry: THREE.BufferGeometry): void {
     if (carve > 0.01) {
       current.lerp(earth, 1 - smoothstep(0, BANK_WIDTH, Math.abs(carve - RIVER_DEPTH)));
     }
+
+    // The pond's margin is poached mud, for the same reason and by the
+    // same rule: strongest where the dish is deepest, fading out at the
+    // top of the bank. Without it the bed keeps its lawn under the water
+    const dish = pondCarve(x, z);
+    if (dish > 0.01) current.lerp(earth, smoothstep(0, POND_DEPTH * 0.5, dish));
 
     // Ways. Each carries its own width, and we take the strongest wear
     // rather than adding them up: where routes meet they must not compound

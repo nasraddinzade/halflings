@@ -22,7 +22,7 @@ import {
  *
  * three does not expose a slot for this, so the stock toon shader is
  * patched through onBeforeCompile, the same way the river waves are done
- * (world/River.ts). The tuning values are baked into the source as
+ * (world/Water.ts). The tuning values are baked into the source as
  * literals rather than passed as uniforms: they never change at runtime,
  * and a literal lets the compiler fold the arithmetic.
  *

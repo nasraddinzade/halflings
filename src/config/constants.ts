@@ -270,6 +270,82 @@ export const HEDGEROW_GATE_CLEARANCE = 1;
  * west side of the green, where the gardens stand against the hedge.
  */
 export const HEDGEROW_WORK_CLEARANCE = 1.6;
+
+/**
+ * The pond on the green.
+ *
+ * VERNACULAR_SCALE does NOT apply to any of these. Pond depth is named in
+ * docs/VILLAGE.md as one of the dimensions that stays at full size, along
+ * with tree crowns and river width — the same reason RIVER_DEPTH and
+ * RIVER_WATER_DEPTH are plain numbers a few lines away. Water is water.
+ *
+ * The radius is not a taste. It is the largest circle that leaves a body
+ * room to walk between the water and every hedge, tree and lane around
+ * the green's low corner.
+ */
+export const POND_RADIUS = 2.8;
+/** How far the shoreline wanders off that circle, as a share of it. */
+export const POND_WOBBLE = 0.13;
+/** How deep the dish is dug below the surrounding grade. */
+export const POND_DEPTH = 0.62;
+/**
+ * How far the water lies below the rim: freeboard, not depth. The pool
+ * itself comes out 0.41 m deep, which on a 1.1 m halfling is thigh-deep.
+ *
+ * Not 0.22. The water plane is flat and the ground is not, and at 0.22 it
+ * came out of the dish at ten vertices of the terrain mesh — a puddle
+ * spreading across the grass. A fine radial scan said the rim held; the
+ * mesh the BVH is actually built from said it did not, and the mesh is
+ * the one the player walks on. At 0.28 the lowest ground outside the
+ * shoreline still stands 27 mm above the water, and the price is 1.4 m²
+ * of surface out of sixteen.
+ */
+export const POND_WATER_DEPTH = 0.28;
+/**
+ * Width of the bank ramp. The floor inside it is flat, because a dug
+ * pond has a flat bottom; a dish that curves all the way to the middle
+ * held nine square metres instead of sixteen and read as a puddle in a
+ * crater. At 1.3 m the bank stands at 36 degrees — past
+ * GROUND_DIRT_SLOPE, so the margin shows as poached mud, and short of
+ * VEGETATION_MAX_SLOPE, so the grass above the waterline still grows.
+ */
+export const POND_BANK = 1.3;
+/** Ripple on still water, against RIVER_WAVE_HEIGHT on running water. */
+export const POND_WAVE_HEIGHT = 0.01;
+/** Rings and sectors in the water disc. */
+export const POND_SEGMENTS_ACROSS = 4;
+export const POND_SEGMENTS_ROUND = 28;
+
+/** The pound: a walled pen for straying stock, on the verge. */
+export const POUND_RADIUS = 2.3;
+export const POUND_SEGMENTS = 11;
+/** Chest-high on a halfling, so a beast cannot see over it. */
+export const POUND_WALL_HEIGHT = 0.95;
+export const POUND_WALL_THICKNESS = 0.3;
+/**
+ * Chord length. Eleven chords of 1.30 m on this radius subtend 361
+ * degrees and cannot close; at 1.32 the outer faces meet within 4 mm.
+ */
+export const POUND_CHORD = 1.32;
+/** How far the footings are sunk, so no wall floats on uneven ground. */
+export const POUND_BEDDING = 0.06;
+/** The gap left for the gate, as a share of one segment's arc. */
+export const POUND_GATE_SHARE = 1;
+
+/** The wellhead: its total height is a halfling, the scale reference. */
+export const WELL_INNER_RADIUS = 0.5;
+export const WELL_OUTER_RADIUS = 0.65;
+export const WELL_WALL_HEIGHT = 0.55;
+export const WELL_POST_HEIGHT = 1;
+export const WELL_POST_THICKNESS = 0.1;
+export const WELL_BARREL_RADIUS = 0.07;
+export const WELL_BEDDING = 0.03;
+
+/** Its own stream, so the pond's dressing holds still. */
+export const GREEN_SEED = 41207;
+
+/** The standard oak on the green, as a multiple of an ordinary tree. */
+export const GREEN_OAK_SCALE = 1.55;
 /**
  * The stretch of the cart lane with trees down both verges. It crosses
  * the open middle of the valley, where there is no boundary to stand in

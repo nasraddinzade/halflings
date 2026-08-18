@@ -78,10 +78,16 @@ export const LANES: readonly Lane[] = [
     points: [[-8, 1], [-12, -3.5], [-16, -8], [-20, -13.4], [-24, -17], [-26.5, -19.5]],
   },
   {
-    // On the green: the south gate to the well, the well to the oak.
+    // On the green: the south gate to the well, the well to the oak, the
+    // oak to the north gate. It used to run THROUGH the well and the oak,
+    // because it was drawn before either stood there and its middle two
+    // points were simply their positions. Bending the path round them is
+    // the right way out; moving them off their own path would leave a
+    // beaten track that starts at a gate and ends at nothing, which is
+    // exactly why buildPaths() was deleted.
     id: 'green-walk',
     kind: 'foot',
-    points: [[0, 3], [-1, 8.5], [-4.5, 12.5], [-4, 15]],
+    points: [[0.75, 3], [0.1, 8.8], [-2.55, 12.8], [-4, 15]],
   },
   {
     // The north bank, linking the three fishing spots.

@@ -40,6 +40,7 @@ import {
 } from '../config/constants';
 import { BURROWS } from '../config/burrows';
 import { allHedges } from '../config/hedges';
+import { OAK } from '../config/green';
 import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from '../config/lanes';
 import { WORK_POINTS, propPosition } from '../config/work';
 import { facePoint } from './burrow/profile';
@@ -48,7 +49,7 @@ import { makeRandom } from '../core/random';
 import { toonSurface, toonVertexColored } from '../render/style';
 import { maxSway, windDepthMaterial, windMaterial, type WindProfile } from '../render/wind';
 import type { Circle } from './Obstacles';
-import { riverCarve } from './heightfield';
+import { pondCarve, riverCarve } from './heightfield';
 import type { Ground } from './Ground';
 
 /**
@@ -248,7 +249,7 @@ function addTreesTo(
 
     const sample = ground.sample(x, z);
     if (sample === null || sample.slope > TREE_MAX_SLOPE) continue;
-    if (riverCarve(x, z) > 0.05) continue;
+    if (riverCarve(x, z) > 0.05 || pondCarve(x, z) > 0.05) continue;
     if (BURROWS.some((b) => Math.hypot(x - b.x, z - b.z) < b.radius + 1.5)) continue;
     if (doors.some((d) => Math.hypot(x - d.x, z - d.z) < TREE_DOOR_CLEARANCE)) continue;
 
@@ -333,6 +334,27 @@ function addHedgerowTrees(
   const placements: Placement[] = [];
   const standing: Array<{ x: number; z: number; crown: number }> = [];
 
+  // The standard oak on the green goes in first, and it goes in HERE
+  // rather than into a prop module: as one more instance of the same
+  // geometry the biggest thing in the village costs no draw call at all.
+  // First, because the cull sphere and the wind inflation are computed
+  // from the placements after this loop — appended afterwards, the tallest
+  // tree would pop out at the edge of frame and stand dead still in a gale
+  const oakGround = ground.sample(OAK.x, OAK.z);
+  if (oakGround !== null) {
+    placements.push({
+      position: new THREE.Vector3(OAK.x, oakGround.height, OAK.z),
+      rotation: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.7),
+      // No vertical jitter, unlike its neighbours. A tree whose height is
+      // uncertain by three metres cannot be framed, and this one is placed
+      // to cross the top of the load frame
+      scale: new THREE.Vector3(OAK.scale, OAK.scale, OAK.scale),
+      tint: 0.35,
+    });
+    standing.push({ x: OAK.x, z: OAK.z, crown: TREE_CROWN_RADIUS * OAK.scale });
+    trunks.push({ x: OAK.x, z: OAK.z, radius: TREE_TRUNK_RADIUS * OAK.scale });
+  }
+
   for (const line of hedgerowLines()) {
     // Half a step in, not a random fraction of one. On a fifteen-metre
     // run with two gateways in it there are only a couple of places a
@@ -367,7 +389,7 @@ function addHedgerowTrees(
         // the trunk missed the nearest work point by 1.7 m, but the bed
         // it belongs to reaches a metre out from its own centre
         if (workSpots.some((w) => Math.hypot(x - w.x, z - w.z) < HEDGEROW_WORK_CLEARANCE)) continue;
-        if (riverCarve(x, z) > 0.05) continue;
+        if (riverCarve(x, z) > 0.05 || pondCarve(x, z) > 0.05) continue;
 
         const scale = 0.95 + random() * 0.5;
 
@@ -575,8 +597,11 @@ function scatter(count: number, ground: Ground, random: () => number): Map<numbe
     if (sample === null) continue;
     // Grass won't hold on a steep slope — and it leaves the rim bare too
     if (sample.slope > VEGETATION_MAX_SLOPE) continue;
-    // Nor in the river: tufts poking out of the water give the fake away
-    if (riverCarve(x, z) > 0.05) continue;
+    // Nor in the water, river or pond: tufts poking out of the surface
+    // give the fake away. Six square metres of the pond is shallower than
+    // a grass blade is tall, so without the second test the whole margin
+    // stands up through the waterline
+    if (riverCarve(x, z) > 0.05 || pondCarve(x, z) > 0.05) continue;
     // Nor inside a burrow: the hill is a mesh now, the ground under it
     // is flat, and tufts would sprout straight through the roof
     if (BURROWS.some((b) => Math.hypot(x - b.x, z - b.z) < b.radius + 0.6)) continue;

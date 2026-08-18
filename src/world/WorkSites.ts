@@ -1,12 +1,11 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 import { PALETTE } from '../config/palette';
 import { WORK_POINTS, propPosition, workFacing } from '../config/work';
 import type { VillagerRole } from '../config/villagers';
 import { hashSeed, makeRandom } from '../core/random';
-import { applyStyle } from '../render/style';
 import type { Circle } from './Obstacles';
+import type { PropBatch } from './props/batch';
 import { heightAt } from './heightfield';
 
 /**
@@ -18,23 +17,18 @@ import { heightAt } from './heightfield';
  * (config/work.ts), and the props are built from that same data, so
  * moving the vegetable patch is still a change in exactly one place.
  *
- * Everything is merged by colour into a handful of meshes, like the
- * burrow doors: fifteen sites with four items each would cost close to a
- * hundred draw calls.
+ * Nothing here builds a mesh. Every part goes into the shared PropBatch
+ * and comes out merged with the green's furniture: fifteen sites of four
+ * items each would otherwise cost close to a hundred draw calls, and
+ * merging per module still cost three for every colour in every module.
  */
 export class WorkSites {
-  readonly group = new THREE.Group();
   /** Prop circles: you shouldn't walk through a sawhorse or a bed. */
   readonly blockers: Circle[] = [];
 
-  constructor() {
-    this.group.name = 'work_sites';
-
-    const byColor = new Map<number, THREE.BufferGeometry[]>();
+  constructor(batch: PropBatch) {
     const add = (color: number, geometry: THREE.BufferGeometry): void => {
-      const bucket = byColor.get(color);
-      if (bucket === undefined) byColor.set(color, [geometry]);
-      else bucket.push(geometry);
+      batch.add(geometry, color);
     };
 
     for (const point of WORK_POINTS) {
@@ -55,25 +49,6 @@ export class WorkSites {
       this.blockers.push({ x: spot.x, z: spot.z, radius: blockRadius(point.role) });
     }
 
-    for (const [color, geometries] of byColor) {
-      const merged = mergeGeometries(geometries, false);
-      for (const geometry of geometries) geometry.dispose();
-      if (merged === null) throw new Error('[worksites] could not merge the prop geometry');
-
-      merged.computeBoundingSphere();
-      const mesh = new THREE.Mesh(merged);
-      mesh.name = `worksite_parts_${color.toString(16)}`;
-      // Into the graph first, styling second: applyStyle hangs the
-      // outline next to the mesh, so the parent has to exist by then
-      this.group.add(mesh);
-      applyStyle(mesh, { color, outline: true });
-    }
-  }
-
-  dispose(): void {
-    this.group.traverse((child) => {
-      if (child instanceof THREE.Mesh) child.geometry.dispose();
-    });
   }
 }
 

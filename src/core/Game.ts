@@ -24,11 +24,13 @@ import { loadPlayer, type Player } from '../character/loadPlayer';
 import { PartLibrary } from '../character/buildVillager';
 import { Village } from '../world/Village';
 import { Vegetation } from '../world/Vegetation';
-import { River } from '../world/River';
+import { Water } from '../world/Water';
 import { Burrows } from '../world/Burrows';
 import { Hedges } from '../world/Hedges';
 import { Smoke } from '../world/Smoke';
 import { WorkSites } from '../world/WorkSites';
+import { GreenFurniture } from '../world/GreenFurniture';
+import { PropBatch } from '../world/props/batch';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
 import { Renderer } from '../render/Renderer';
@@ -61,10 +63,19 @@ export class Game {
   private player!: Player;
   private village: Village | null = null;
   private vegetation: Vegetation | null = null;
-  private readonly river: River | null = RIVER_ENABLED ? new River() : null;
+  private readonly water: Water | null = RIVER_ENABLED ? new Water() : null;
   private readonly burrows = new Burrows();
   private readonly hedges = new Hedges();
-  private readonly workSites = new WorkSites();
+  /**
+   * Every prop in the village merges together, not per module: the work
+   * sites and the green's furniture share five colours between them, and
+   * merged separately each colour costs its own mesh, outline and shadow
+   * draw in each module.
+   */
+  private readonly props = new THREE.Group();
+  private readonly batch = new PropBatch();
+  private readonly workSites = new WorkSites(this.batch);
+  private readonly greenFurniture = new GreenFurniture(this.batch);
   /** Built after the lighting: it takes the sun direction from it. */
   private readonly sky: Sky | null = null;
   /** Built after the burrows: it takes the chimney mouths from them. */
@@ -103,7 +114,7 @@ export class Game {
     this.scene.add(this.terrain.mesh);
     this.ground = new Ground(this.terrain.bvh);
 
-    if (this.river !== null) this.scene.add(this.river.mesh);
+    if (this.water !== null) this.scene.add(this.water.mesh);
     this.scene.add(this.burrows.group);
     this.obstacles.addStatic(this.burrows.blockers);
     if (SMOKE_ENABLED) {
@@ -114,8 +125,11 @@ export class Game {
     // Into the grid, not the static list: four hundred circles is the
     // same order as the tree trunks, and the grid is what that list is for
     this.obstacles.addToGrid(this.hedges.blockers);
-    this.scene.add(this.workSites.group);
+    this.props.name = 'props';
+    this.batch.build(this.props);
+    this.scene.add(this.props);
     this.obstacles.addToGrid(this.workSites.blockers);
+    this.obstacles.addToGrid(this.greenFurniture.blockers);
 
     // Vegetation goes in right away: it is static and depends only on
     // the terrain, so it has no reason to wait for the characters to load
@@ -188,9 +202,11 @@ export class Game {
     this.sky?.dispose();
     this.hedges.dispose();
     this.smoke?.dispose();
-    this.river?.dispose();
+    this.water?.dispose();
     this.burrows.dispose();
-    this.workSites.dispose();
+    this.props.traverse((child) => {
+      if (child instanceof THREE.Mesh) child.geometry.dispose();
+    });
     this.vegetation?.dispose();
     this.terrain.dispose();
     this.renderer.dispose();
@@ -235,7 +251,7 @@ export class Game {
     // After the camera moved, before the render: the dome is centred on
     // the camera, and a frame's lag would show as the sky sliding
     this.sky?.update(this.cameraRig.camera.position);
-    this.river?.update(delta);
+    this.water?.update(delta);
     // One clock for everything that sways. It is a single uniform, so the
     // whole valley bends for the price of one number per frame
     advanceWind(delta);

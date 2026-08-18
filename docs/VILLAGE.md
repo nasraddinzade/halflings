@@ -99,6 +99,62 @@ Spawn (0, 0) is 3 m south of the foot gate. The player's first move is through a
 | Pound | (−8.5, 1.0) | −0.44 | 11 wall segments 1.30 × 0.95 × 0.30 on r 2.30 (4.6 m across), one 1.0 m gate NE toward the lane, 11 coping slabs on edge. ~200 tri. Verified range 0.17 m, slope 3.6°. |
 | Benches | on the three relocated idler points | | existing `bench()` from `WorkSites.ts`, free |
 
+#### As built
+
+Four of the five positions in the table above were laid out before the
+hedges, the hedgerow trees, the lanes and the footpath existed, and four
+of the five landed inside one of them. Everything below was re-solved
+against the world as it actually stands.
+
+| | planned | built | why it moved |
+|---|---|---|---|
+| oak | (−4.5, 12.5) | **unchanged** | — |
+| wellhead | (−1.0, 8.5) | **unchanged** | — |
+| pond | (−7.0, 4.5), r 3.5 | **(−5.75, 7.25), r 2.8** | at r 3.5 the water ran 2.0 m past the green's south hedge and its centre was inside a hedgerow tree's crown |
+| pound | (−8.5, 1.0) | **(−6.0, −2.5)** | 0.37 m from the mill lane's centreline — inside the road |
+| benches | three idler points | **all three moved** | two seats stood in the cart road, one straddled the footpath |
+| garden beds | five points | **four moved** | two overlapped the green's own hedges, one sat where the pond is, one was against the oak |
+
+**The footpath is the furniture, and it was the path that had to bend.**
+`green-walk` exists to run *south gate → well → oak → north gate*; three of
+its four points were the gate, the well and the oak. Reading "the well sits
+exactly on a path vertex" as a collision and shoving the well 1.7 m aside
+would have left a beaten track from a gate to an empty patch of grass —
+which is the defect that got `buildPaths()` deleted in the first place. The
+props stayed; the polyline now passes 1.08 m from the wellhead (its track
+edge 8 cm off the kerb, because the path leads *to* it) and 1.79 m from the
+oak, against the 1.33 m the hedgerow-tree rule demands of any tree beside a
+foot lane.
+
+**The pond is a dug pond, not a dish.** The first profile curved from the
+shoreline to the middle and held 9 m² — a puddle in a crater. A flat floor
+with a 1.3 m bank ramp holds **15.3 m², 0.41 m deep**, and the bank stands
+at 36°: past `GROUND_DIRT_SLOPE`, so the margin reads as poached mud, and
+short of `VEGETATION_MAX_SLOPE`, so the grass above the waterline still
+grows. Radius 2.8 is not taste — it is the largest circle leaving a body
+room to walk between the water and every hedge, tree and lane around it.
+The narrowest point of that walk is **1.48 m**, three player-widths.
+
+**The waterline is not a circle anybody drew.** The dish is cut into the
+height field; the water is a level plane; the terrain hides the plane
+wherever it rises above it. What you see is the intersection of the two.
+`POND_WATER_DEPTH` is 0.28 and not the blueprint's 0.22 because at 0.22 the
+plane escaped the dish at ten vertices of the terrain mesh — a fine radial
+scan said the rim held, and the mesh the BVH is built from said otherwise.
+
+**Cost.** The pond's water is not a second surface: it is appended to the
+river's ribbon with a per-vertex wave amplitude, so still water and running
+water share one geometry, one material and one shader program. `River.ts`
+is now `Water.ts`, because that is what it is. The furniture merges into a
+shared `PropBatch` with the work-site props rather than merging per module:
+**one new colour bucket, three draw calls, 816 triangles** — against the
+fifteen calls it would have cost as a module of its own. `pondCarve` adds
+**3.1 ms per pass, 12.4 ms of startup**, using a squared-distance early-out;
+with `Math.hypot` there it was 29 ms.
+
+Terrain invariants unchanged against the baseline: 0 rim leaks over 3,600
+bearings, thinnest steep band 12.0 m, spawn ground −0.53 m.
+
 ### 2.3 Lanes — four classes replacing one
 
 `PATH_WIDTH = 1.1` becomes half-widths, blend = 1.45 × half-width:

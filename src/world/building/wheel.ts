@@ -7,6 +7,7 @@ import {
   WHEEL_BED_CLEARANCE,
   WHEEL_FLOAT_THICKNESS,
   WHEEL_RADIUS,
+  WHEEL_SHAFT_OVERHANG,
   WHEEL_RIM_INNER,
   WHEEL_RPM,
   WHEEL_SPOKES,
@@ -51,7 +52,7 @@ export class MillWheel {
   readonly mesh: THREE.Mesh;
   private readonly speed = (WHEEL_RPM * Math.PI * 2) / 60;
 
-  constructor(x: number, z: number) {
+  constructor(x: number, z: number, shaftRun: number) {
     // Set from the BED, not from the water surface. Dipping the floats a
     // fixed depth put them 2 mm off the bottom — the pit happens to hold
     // 0.292 m and the intended dip was 0.29 — and on a mesh sampled every
@@ -72,12 +73,19 @@ export class MillWheel {
 
     const parts: THREE.BufferGeometry[] = [];
 
-    const axle = new THREE.CylinderGeometry(
-      WHEEL_AXLE_RADIUS, WHEEL_AXLE_RADIUS, WHEEL_WIDTH * 1.5, 8,
-    );
+    // The shaft, not a stub. A wheel whose axle stops at its own hub
+    // turns nothing: the shaft runs through the mill wall to the gearing
+    // inside, and that is the entire reason the wheel is there. It reaches
+    // from an outer bearing on the far side, through the hub, to just
+    // inside the wall
+    const reach = WHEEL_SHAFT_OVERHANG + shaftRun;
+    const axle = new THREE.CylinderGeometry(WHEEL_AXLE_RADIUS, WHEEL_AXLE_RADIUS, reach, 8);
     // Along Z, to match the plane the rims and floats are built in. The
     // wheel's axis has to be across the flow, and the stream runs along x
     axle.rotateX(Math.PI / 2);
+    // Centred on the run rather than on the hub: the mill is only on one
+    // side of the wheel
+    axle.translate(0, 0, (shaftRun - WHEEL_SHAFT_OVERHANG) / 2);
     parts.push(axle.toNonIndexed());
 
     // Two rims at different radii, so the outer edge is never a clean

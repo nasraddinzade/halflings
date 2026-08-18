@@ -56,8 +56,12 @@ export function millExtras(building: Building, batch: PropBatch): void {
   const hood = new THREE.BoxGeometry(LUCAM_WIDTH, FRAME_STOREY * 0.62, LUCAM_PROJECTION);
   put(hood, PALETTE.wood, 0, sill + FRAME_STOREY * 0.31, front - LUCAM_PROJECTION / 2);
 
+  // Covered with whatever the roof above it is covered with, which is
+  // also what keeps it out of a colour bucket of its own: in roofTile it
+  // was twelve triangles costing three draw calls, the exact ratio the
+  // stack was moved off brick to avoid
   const gable = new THREE.BoxGeometry(LUCAM_WIDTH, LUCAM_GABLE, LUCAM_PROJECTION * 0.5);
-  put(gable, PALETTE.roofTile, 0, sill + FRAME_STOREY * 0.62 + LUCAM_GABLE / 2,
+  put(gable, PALETTE.thatch, 0, sill + FRAME_STOREY * 0.62 + LUCAM_GABLE / 2,
     front - LUCAM_PROJECTION * 0.5);
 
   for (const side of [-1, 1]) {

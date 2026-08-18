@@ -468,6 +468,10 @@ export const WHEEL_PIT_BANK = 1;
 export const WHEEL_BED_CLEARANCE = 0.15;
 /** One turn every 9.2 s. Faster reads as a fairground ride. */
 export const WHEEL_RPM = 6.5;
+/** How far the shaft carries past the wheel to its outer bearing. */
+export const WHEEL_SHAFT_OVERHANG = 0.55;
+/** The bearing blocks the shaft turns in, at the wall and on the pier. */
+export const WHEEL_BEARING = 0.34;
 /**
  * The lucam: the gabled hood projecting from the mill's top storey, so a
  * sack can be hoisted out of a cart without getting wet. About twenty

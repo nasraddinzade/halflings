@@ -429,15 +429,43 @@ export const WHEEL_FLOATS = 24;
 export const WHEEL_SPOKES = 12;
 export const WHEEL_FLOAT_THICKNESS = 0.05;
 /**
+ * The wheel pit: a hollow dug under the wheel, deeper than the channel.
+ *
+ * docs/VILLAGE.md cut every piece of waterworks, and it was right about
+ * all of them — a weir, a leat, a bay and a tailrace are a hydrology
+ * module for one prop. A pit is not that. It is one smoothstep bowl in
+ * the height field, the same shape as the pond dish, and without it the
+ * wheel stands in 0.42 m of water: 0.29 m of immersion, twelve per cent
+ * of its own diameter. Against opaque water with no spray that does not
+ * read as a wheel in a stream, it reads as a wheel resting on one — which
+ * is exactly what it looked like.
+ *
+ * Deepening the bed does not move the surface: the water plane comes from
+ * groundHeight, which no carve touches. The pit just holds more water.
+ */
+export const WHEEL_PIT_DEPTH = 0.4;
+/** Wider than the wheel, or its rim stands on the ramp and nothing sinks. */
+export const WHEEL_PIT_RADIUS = 2.4;
+export const WHEEL_PIT_BANK = 1;
+
+/**
  * How far the floats stay off the bed of the pit.
  *
  * This, and not the dip, is the number that matters. The pit holds 0.292 m
  * of water and the intended dip was 0.29, which left the paddles two
  * millimetres off the bottom — on terrain sampled every 0.667 m, a wheel
- * grinding through the riverbed. Setting the axle from the bed instead
- * leaves the floats dipping about 0.21 m, which still reads as driven.
+ * grinding through the riverbed. Setting the axle from the bed instead,
+ * and from the highest point under the whole footprint rather than the
+ * centre, leaves the floats dipping about two thirds of a metre once the
+ * pit is dug.
+ *
+ * 0.15 and not 0.08 because the axle is set from the analytic field while
+ * the wheel is seen and collided against the terrain MESH, which samples
+ * every 0.667 m and sits above the field between samples. At 0.08 the
+ * floats measured 18 mm inside the mesh — the same gap that let the pond
+ * leak, found the same way.
  */
-export const WHEEL_BED_CLEARANCE = 0.08;
+export const WHEEL_BED_CLEARANCE = 0.15;
 /** One turn every 9.2 s. Faster reads as a fairground ride. */
 export const WHEEL_RPM = 6.5;
 /**

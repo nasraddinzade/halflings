@@ -26,6 +26,11 @@ import {
   POND_RADIUS,
   POND_WATER_DEPTH,
   POND_WOBBLE,
+  WHEEL_PIT_BANK,
+  WHEEL_PIT_DEPTH,
+  WHEEL_PIT_RADIUS,
+  WHEEL_X,
+  WHEEL_Z,
   RIVER_WATER_DEPTH,
   RIVER_WAVINESS,
   RIVER_WIDTH,
@@ -259,9 +264,33 @@ export function pondCarve(x: number, z: number): number {
   return POND_DEPTH * smoothstep(0, 1, Math.min(1, (edge - distance) / POND_BANK));
 }
 
-/** Ground height at world point (x, z), with the channel and pond cut in. */
+/**
+ * The wheel pit, dug under the mill wheel.
+ *
+ * Same shape and the same squared early-out as the pond dish, and folded
+ * into the same call so heightAt gains one comparison rather than one
+ * function. Deepening the bed does not move the water: the surface comes
+ * from groundHeight, which no carve touches, so the pit simply holds
+ * deeper water at the same level.
+ */
+const WHEEL_PIT_SQ = WHEEL_PIT_RADIUS * WHEEL_PIT_RADIUS;
+
+export function pitCarve(x: number, z: number): number {
+  const dx = x - WHEEL_X;
+  const dz = z - WHEEL_Z;
+  const distanceSq = dx * dx + dz * dz;
+  if (distanceSq >= WHEEL_PIT_SQ) return 0;
+  // Flat floor, ramped sides — the pond's shape, and for the pond's
+  // reason. A bowl that eases from the middle outwards is shallowest
+  // exactly where the wheel's rim stands, so a 0.40 m pit sank the wheel
+  // by five centimetres. The floor has to be wider than the wheel.
+  const reach = WHEEL_PIT_RADIUS - Math.sqrt(distanceSq);
+  return WHEEL_PIT_DEPTH * smoothstep(0, 1, Math.min(1, reach / WHEEL_PIT_BANK));
+}
+
+/** Ground height at (x, z), with the channel, the pond and the pit cut in. */
 export function heightAt(x: number, z: number): number {
-  return groundHeight(x, z) - riverCarve(x, z) - pondCarve(x, z);
+  return groundHeight(x, z) - riverCarve(x, z) - pondCarve(x, z) - pitCarve(x, z);
 }
 
 /**

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
 import { BUILDINGS, MILL } from '../config/buildings';
-import { WHEEL_X, WHEEL_Z } from '../config/constants';
+import { RIVER_WATER_DEPTH, WHEEL_RADIUS, WHEEL_X, WHEEL_Z } from '../config/constants';
+import { groundHeight } from './heightfield';
 import type { Circle } from './Obstacles';
 import { timberBuilding } from './building/frame';
 import { millExtras } from './building/mill';
@@ -25,6 +26,12 @@ export class Buildings {
    * composed once, which is exactly why the batch is cheap.
    */
   readonly wheel = new MillWheel(WHEEL_X, WHEEL_Z);
+  /**
+   * Where the wheel meets the water, for the spray. Two points, one at
+   * each side of the wheel's width, because a single column of puffs on
+   * the centre line reads as a chimney standing in a river.
+   */
+  readonly sprayPoints: THREE.Vector3[] = [];
 
   constructor(batch: PropBatch) {
     for (const building of BUILDINGS) {
@@ -36,6 +43,15 @@ export class Buildings {
     }
     // You do not walk into a turning wheel
     this.blockers.push({ x: WHEEL_X, z: WHEEL_Z, radius: 1.35 });
+
+    // At the waterline on the downstream side, where the floats leave the
+    // water — which is where a real wheel throws it
+    const surface = groundHeight(WHEEL_X, WHEEL_Z) - RIVER_WATER_DEPTH;
+    for (const across of [-0.35, 0.35]) {
+      this.sprayPoints.push(
+        new THREE.Vector3(WHEEL_X - WHEEL_RADIUS * 0.55, surface + 0.05, WHEEL_Z + across),
+      );
+    }
   }
 
   update(delta: number): void {

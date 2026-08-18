@@ -613,6 +613,22 @@ export const SMOKE_END_RADIUS = 1.15;
  */
 export const SMOKE_OPACITY = 0.42;
 
+/**
+ * Spray thrown up by the mill wheel.
+ *
+ * Short-lived and small, and it does not drift: thrown water falls where
+ * it was thrown, so the gust that leans the chimney plumes must not carry
+ * this sideways. It exists because a wheel touching an opaque water plane
+ * reads as one resting on it — the geometry measured right and still
+ * looked wrong, and this is the part that says the two are in contact.
+ */
+export const SPRAY_PUFFS = 8;
+export const SPRAY_LIFETIME = 0.8;
+export const SPRAY_RISE = 0.75;
+export const SPRAY_START_RADIUS = 0.1;
+export const SPRAY_END_RADIUS = 0.26;
+export const SPRAY_OPACITY = 0.5;
+
 // --- sky --------------------------------------------------------------------
 
 export const SKY_ENABLED = true;

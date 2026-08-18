@@ -27,7 +27,7 @@ import { Vegetation } from '../world/Vegetation';
 import { Water } from '../world/Water';
 import { Burrows } from '../world/Burrows';
 import { Hedges } from '../world/Hedges';
-import { Smoke } from '../world/Smoke';
+import { Smoke, WHEEL_SPRAY } from '../world/Smoke';
 import { WorkSites } from '../world/WorkSites';
 import { GreenFurniture } from '../world/GreenFurniture';
 import { Buildings } from '../world/Buildings';
@@ -82,6 +82,8 @@ export class Game {
   private readonly sky: Sky | null = null;
   /** Built after the burrows: it takes the chimney mouths from them. */
   private readonly smoke: Smoke | null = null;
+  /** Its own instance: spray is a different plume, not a different chimney. */
+  private readonly spray: Smoke | null = null;
   private controller!: PlayerController;
   private locomotion!: LocomotionState;
 
@@ -123,6 +125,8 @@ export class Game {
       // The inn's stack draws with the burrows': one plume array, one mesh
       this.smoke = new Smoke([...this.burrows.chimneys, ...this.buildings.chimneys]);
       this.scene.add(this.smoke.mesh);
+      this.spray = new Smoke(this.buildings.sprayPoints, WHEEL_SPRAY);
+      this.scene.add(this.spray.mesh);
     }
     this.scene.add(this.hedges.mesh);
     // Into the grid, not the static list: four hundred circles is the
@@ -207,6 +211,7 @@ export class Game {
     this.sky?.dispose();
     this.hedges.dispose();
     this.smoke?.dispose();
+    this.spray?.dispose();
     this.water?.dispose();
     this.burrows.dispose();
     this.buildings.dispose();

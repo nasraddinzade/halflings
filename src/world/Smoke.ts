@@ -11,6 +11,12 @@ import {
   SMOKE_GUST_SHARE,
   SMOKE_LEAN,
   SMOKE_START_RADIUS,
+  SPRAY_END_RADIUS,
+  SPRAY_LIFETIME,
+  SPRAY_OPACITY,
+  SPRAY_PUFFS,
+  SPRAY_RISE,
+  SPRAY_START_RADIUS,
   WIND_ENABLED,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
@@ -38,11 +44,57 @@ import { gustGLSL, windTime } from '../render/wind';
  * the gust that lays the grass over leans the plumes at the same instant,
  * and a scene whose motion agrees with itself reads as authored.
  */
+/** What a plume is: the numbers that differ between smoke and spray. */
+export interface PlumeKind {
+  puffs: number;
+  lifetime: number;
+  rise: number;
+  drift: number;
+  startRadius: number;
+  endRadius: number;
+  opacity: number;
+  color: number;
+  shade: number;
+}
+
+export const CHIMNEY_SMOKE: PlumeKind = {
+  puffs: SMOKE_PUFFS,
+  lifetime: SMOKE_LIFETIME,
+  rise: SMOKE_RISE,
+  drift: SMOKE_DRIFT,
+  startRadius: SMOKE_START_RADIUS,
+  endRadius: SMOKE_END_RADIUS,
+  opacity: SMOKE_OPACITY,
+  color: PALETTE.smoke,
+  shade: PALETTE.smokeShade,
+};
+
+/**
+ * Spray at the foot of the mill wheel.
+ *
+ * Short-lived, small, and it does not drift: thrown water falls where it
+ * was thrown. It exists because a wheel touching an opaque water plane
+ * reads as a wheel resting on one — the geometry was measured right and
+ * still looked wrong, and this is the part that says the two are in
+ * contact.
+ */
+export const WHEEL_SPRAY: PlumeKind = {
+  puffs: SPRAY_PUFFS,
+  lifetime: SPRAY_LIFETIME,
+  rise: SPRAY_RISE,
+  drift: 0,
+  startRadius: SPRAY_START_RADIUS,
+  endRadius: SPRAY_END_RADIUS,
+  opacity: SPRAY_OPACITY,
+  color: PALETTE.smoke,
+  shade: PALETTE.water,
+};
+
 export class Smoke {
   readonly mesh: THREE.InstancedMesh;
 
-  constructor(chimneys: readonly THREE.Vector3[]) {
-    const count = chimneys.length * SMOKE_PUFFS;
+  constructor(chimneys: readonly THREE.Vector3[], kind: PlumeKind = CHIMNEY_SMOKE) {
+    const count = chimneys.length * kind.puffs;
     const geometry = new THREE.IcosahedronGeometry(1, 0);
 
     // Two numbers per puff: where it is in its life, and a shape seed so
@@ -50,11 +102,11 @@ export class Smoke {
     const phase = new Float32Array(count);
     const seed = new Float32Array(count);
     for (let c = 0; c < chimneys.length; c++) {
-      for (let p = 0; p < SMOKE_PUFFS; p++) {
-        const i = c * SMOKE_PUFFS + p;
+      for (let p = 0; p < kind.puffs; p++) {
+        const i = c * kind.puffs + p;
         // Evenly spread along the plume, nudged per chimney so the six of
         // them do not puff in lockstep
-        phase[i] = (p / SMOKE_PUFFS + c * 0.37) % 1;
+        phase[i] = (p / kind.puffs + c * 0.37) % 1;
         seed[i] = ((c * 7 + p * 13) % 17) / 17;
       }
     }
@@ -74,8 +126,18 @@ export class Smoke {
     // After the merge, not inside it: merge clones, and a cloned clock
     // would tick on its own and drift away from the grass
     material.uniforms['uWindTime'] = windTime;
-    material.uniforms['uSmoke'] = { value: new THREE.Color(PALETTE.smoke) };
-    material.uniforms['uSmokeShade'] = { value: new THREE.Color(PALETTE.smokeShade) };
+    material.uniforms['uSmoke'] = { value: new THREE.Color(kind.color) };
+    material.uniforms['uSmokeShade'] = { value: new THREE.Color(kind.shade) };
+    // Uniforms, not literals baked into the source. Baked, spray with its
+    // own lifetime would compile a second shader program for the same
+    // twelve lines of GLSL — the trap Water.ts already had to be dug out
+    // of. As uniforms both plumes share one program and differ by value
+    material.uniforms['uLifetime'] = { value: kind.lifetime };
+    material.uniforms['uRise'] = { value: kind.rise };
+    material.uniforms['uDrift'] = { value: kind.drift };
+    material.uniforms['uStartRadius'] = { value: kind.startRadius };
+    material.uniforms['uEndRadius'] = { value: kind.endRadius };
+    material.uniforms['uOpacity'] = { value: kind.opacity };
 
     this.mesh = new THREE.InstancedMesh(geometry, material, count);
     this.mesh.name = 'smoke';
@@ -95,11 +157,11 @@ export class Smoke {
     for (let c = 0; c < chimneys.length; c++) {
       const mouth = chimneys[c];
       if (mouth === undefined) continue;
-      for (let p = 0; p < SMOKE_PUFFS; p++) {
+      for (let p = 0; p < kind.puffs; p++) {
         // Translation only. Scale and offset change over a puff's life,
         // so they belong in the shader, not in a matrix written once
         matrix.makeTranslation(mouth.x, mouth.y, mouth.z);
-        this.mesh.setMatrixAt(c * SMOKE_PUFFS + p, matrix);
+        this.mesh.setMatrixAt(c * kind.puffs + p, matrix);
       }
     }
     this.mesh.instanceMatrix.needsUpdate = true;
@@ -125,6 +187,11 @@ function vertex(): string {
 #include <fog_pars_vertex>
 
 uniform float uWindTime;
+uniform float uLifetime;
+uniform float uRise;
+uniform float uDrift;
+uniform float uStartRadius;
+uniform float uEndRadius;
 
 ${gustGLSL()}
 
@@ -136,7 +203,7 @@ varying vec3 vNormalWorld;
 
 void main() {
   // One puff's life, 0 at the chimney mouth and 1 where it is gone.
-  vLife = fract( uWindTime / ${n(SMOKE_LIFETIME)} + aPhase );
+  vLife = fract( uWindTime / uLifetime + aPhase );
 
   // The anchor is the chimney mouth: the instance matrix is a pure
   // translation, so its fourth column is that point in world space.
@@ -147,20 +214,20 @@ void main() {
   // instant instead, every puff shares one value and the whole plume
   // swings like a wiper; frozen at birth, the column carries the history
   // of the gust up itself, which is what a plume actually is.
-  float birth = uWindTime - vLife * ${n(SMOKE_LIFETIME)};
+  float birth = uWindTime - vLife * uLifetime;
   float lean = ${lean};
 
   // Rising slows a little as the puff cools and spreads, but only a
   // little: sqrt() threw the first puff a third of the way up the column
   // on its own and left a gap at the mouth. Drift builds up faster,
   // because the longer it is in the air the more of the wind it has felt
-  float rise = ${n(SMOKE_RISE)} * pow( vLife, 0.85 );
-  vec2 drift = dir * ( ${n(SMOKE_DRIFT)} * lean * vLife * vLife );
+  float rise = uRise * pow( vLife, 0.85 );
+  vec2 drift = dir * ( uDrift * lean * vLife * vLife );
   // A slow curl so the column is not a ruler, and so consecutive puffs
   // do not sit on one axis where their seams would line up
   float curl = sin( vLife * 5.0 + aSeed * 6.2831 ) * 0.34 * vLife;
 
-  float radius = mix( ${n(SMOKE_START_RADIUS)}, ${n(SMOKE_END_RADIUS)}, vLife );
+  float radius = mix( uStartRadius, uEndRadius, vLife );
   // Lumps, not spheres: squash each puff differently on its own axes
   vec3 lump = vec3( 1.0 + aSeed * 0.35, 0.82, 1.0 - aSeed * 0.3 );
 
@@ -183,6 +250,8 @@ const FRAGMENT = `
 #include <common>
 #include <fog_pars_fragment>
 
+uniform float uOpacity;
+
 uniform vec3 uSmoke;
 uniform vec3 uSmokeShade;
 
@@ -201,7 +270,7 @@ void main() {
   // so the tail thins rather than switching off.
   float rising = smoothstep( 0.0, 0.12, vLife );
   float gone = 1.0 - vLife;
-  float alpha = ${SMOKE_OPACITY.toFixed(3)} * rising * gone * gone;
+  float alpha = uOpacity * rising * gone * gone;
 
   gl_FragColor = vec4( color, alpha );
 

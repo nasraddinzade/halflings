@@ -12,3 +12,6 @@ KayKit_Character_Animations_1.1/
 .DS_Store
 Thumbs.db
 *.log
+
+# Scratch files that measuring agents drop in the repo root
+__*.mjs

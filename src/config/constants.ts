@@ -629,6 +629,46 @@ export const SPRAY_START_RADIUS = 0.1;
 export const SPRAY_END_RADIUS = 0.26;
 export const SPRAY_OPACITY = 0.5;
 
+/**
+ * The ford, on the cart lane where it crosses the channel.
+ *
+ * Not the blueprint's x in [-2.25, 2.25]: that was written for a lane
+ * running through x = 0, and the lane as solved crosses at -0.40. The
+ * water there is 6.5 m across and 0.45 m at its deepest — thigh-deep on a
+ * halfling, which is the whole point of having a bridge as well.
+ *
+ * No ramps. The blueprint regrades both approaches at 7 %; measured on the
+ * lane as built the banks stand at 21.1 and 21.7 degrees against a
+ * MAX_SLOPE of 50, so they are already walkable and a height-field term
+ * would buy nothing for its startup cost.
+ */
+export const FORD_X = -0.4;
+export const FORD_Z = -22.07;
+export const FORD_SETTS = 12;
+export const FORD_SETT_WIDTH = 0.9;
+export const FORD_SETT_LENGTH = 0.7;
+
+/**
+ * The plank footbridge, downstream-side of the ford.
+ *
+ * At the blueprint's x = 13 the south landing falls 0.83 m from
+ * burrow-7's mound — a bridge onto somebody's doorstep. At 16.5 it clears
+ * by 3.16 m and still meets the north bank path within 0.71 m. The span
+ * is 9.2 m rather than 8.0 because the channel is genuinely wider there.
+ *
+ * The detour is about 26 m against a four-second wade, so the bridge is
+ * the DRY way over, not the fast one. WADE_SPEED keeps its meaning.
+ */
+export const BRIDGE_X = 16.5;
+export const BRIDGE_Z_NORTH = -14.3;
+export const BRIDGE_Z_SOUTH = -23.5;
+/** Two halflings abreast is a real negotiation at PLAYER_RADIUS 0.25. */
+export const BRIDGE_DECK_WIDTH = 1.1;
+export const BRIDGE_PLANKS = 11;
+export const BRIDGE_BEAM = 0.24;
+export const BRIDGE_HUMP = 0.45;
+export const BRIDGE_RAIL_HEIGHT = 0.62;
+
 // --- sky --------------------------------------------------------------------
 
 export const SKY_ENABLED = true;

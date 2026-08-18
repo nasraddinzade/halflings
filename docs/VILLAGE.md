@@ -414,6 +414,24 @@ measurement:
   and the wheel span inside a stationary contour. It is a child of the mesh
   now and inherits the rotation.
 
+**Both buildings were first built back to front.** `yaw` rotates the
+building, and the front — door, windows, close studding, a mill's lucam —
+is the face at local −depth/2. At `yaw = PI` that face swings to the far
+side: the inn's door and studding landed at z = 29.08, on the away side
+from a green whose centre is at z = 9, and the mill's loading doors faced
+the river where the wheel is. The inn is at 0 and the mill at PI now. The
+long axis is unchanged either way; what the angle decides is which side
+gets the openings, and no measurement of clearances or levels can catch
+that — only looking can.
+
+**Why the wheel appeared to hang in the air.** At the blueprint's pit the
+terrain mesh rises to −1.342 against a water plane at −1.360: the bank
+pokes through the ribbon exactly where the wheel stood, the visible
+waterline retreats, and the wheel hangs over what looks like dry ground.
+The single-point depth reading was right and useless. At the pit as built
+no terrain vertex stands above the water, and the wheel sits 0.315 m into
+it.
+
 **Cost.** The frame goes into the shared `PropBatch` and the wheel cannot:
 merged static geometry has its matrix composed once, which is the whole
 reason the batch is cheap. Three draw calls for the only moving mechanism

@@ -22,7 +22,15 @@ export interface Building {
   bays: number;
   /** Depth across, in metres. */
   depth: number;
-  /** Which way the long front faces, radians. */
+  /**
+   * Rotation of the building about its own centre.
+   *
+   * The FRONT — door, windows, close studding, and a mill's lucam — is the
+   * face at local -depth/2, and after this rotation it ends up at
+   * `(x + sin(yaw) * -depth/2, z + cos(yaw) * -depth/2)`. Read that before
+   * setting it: at yaw = PI the front swings to the far side, and both
+   * buildings were first built showing the village their backs.
+   */
   yaw: number;
   /**
    * Storeys to the wall plate. A dwelling is one; a working building is
@@ -65,8 +73,10 @@ export const INN: Building = {
   // Three bays long, and deep for a village house: the through passage
   // has to take a cart. BAY is already at halfling scale — see its comment
   depth: BAY * 1.6,
-  // Facing down the green, which is where the custom comes from
-  yaw: Math.PI,
+  // Facing down the green, which is where the custom comes from. Zero, not
+  // PI: at PI the door, the windows and the close studding all landed at
+  // z = 29.08, on the far side from a green whose centre is at z = 9
+  yaw: 0,
   storeys: 1,
   // Thatch cannot be shallow: below about 45 degrees it holds water and
   // rots. This is an angle, so VERNACULAR_SCALE does not touch it
@@ -97,7 +107,11 @@ export const MILL: Building = {
   z: -20.8,
   bays: 3,
   depth: 4,
-  yaw: 0,
+  // PI, so the front turns north to the yard at (-23.5, -18.5). The long
+  // axis is along x either way; what PI changes is which side gets the
+  // loading doors and the lucam. At 0 they faced the river, where the
+  // wheel is — sacks hoisted straight into the water
+  yaw: Math.PI,
   storeys: 3,
   // Tile, not thatch: nobody roofs a building full of flour dust and
   // friction in straw. A tiled roof may be shallower than a thatched one

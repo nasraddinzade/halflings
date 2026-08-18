@@ -392,8 +392,14 @@ export const FRAME_BRACE = 0.09;
  * Centres of close studding. Close studding means studs about their own
  * width apart — the expensive way to frame a wall, used on the face that
  * would be seen from the road and nowhere else.
+ *
+ * 0.34 and not the 0.19 of the real thing. At 19 cm centres a 7.5 cm stud
+ * covers forty per cent of the wall, and from ten metres the whole face
+ * averages into a dark striped mass: the panels stop reading and the
+ * building goes grey. The frame has to be legible at the distance it is
+ * actually seen from, which is not the distance a joiner sees it from.
  */
-export const FRAME_STUD_GAP = 0.19;
+export const FRAME_STUD_GAP = 0.34;
 /**
  * How far the daub panel sits behind the timber face.
  *

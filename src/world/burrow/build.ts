@@ -76,6 +76,16 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
 
     for (const part of doorFrame()) add(part.color, place(part.geometry, FACE_OFFSET + 0.06));
 
+    // Round windows either side. After the door itself this is the most
+    // recognisable thing a halfling dwelling has, and there were none:
+    // fifteen blank green domes with a disc on the front read as bunkers,
+    // not as houses somebody lives in
+    for (const part of windows(face)) add(part.color, place(part.geometry, FACE_OFFSET + part.out));
+
+    // A hood over the door, on two brackets. Every door that opens into a
+    // hillside has one or the rain runs down the face and in
+    for (const part of porch()) add(part.color, place(part.geometry, FACE_OFFSET + part.out));
+
     const knob = new THREE.SphereGeometry(0.07, 8, 6);
     knob.translate(0, DOOR_CENTER_HEIGHT, 0);
     add(PALETTE.thatch, place(knob, FACE_OFFSET + 0.14));
@@ -85,12 +95,23 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
     // Chimney on the crown of the mound. Its mouth is handed out so the
     // smoke starts exactly where the pipe ends, rather than at a height
     // guessed from the burrow data and drifting the day someone edits it
-    const pipeHeight = 0.6;
-    const pipeCentre = face.base + burrow.height - 0.15;
-    const pipe = new THREE.CylinderGeometry(0.13, 0.16, pipeHeight, 8);
-    pipe.translate(burrow.x, pipeCentre, burrow.z);
-    add(PALETTE.rock, pipe);
-    chimneys.push(new THREE.Vector3(burrow.x, pipeCentre + pipeHeight / 2, burrow.z));
+    // A stack, not a pipe. A grey tube on a grass dome says nothing; a
+    // squared shaft with a course of stone on top says a hearth
+    const stackHeight = 0.78;
+    const stackFoot = face.base + burrow.height - 0.3;
+    const shaft = new THREE.BoxGeometry(0.34, stackHeight, 0.34);
+    shaft.rotateY(face.yaw);
+    shaft.translate(burrow.x, stackFoot + stackHeight / 2, burrow.z);
+    add(PALETTE.rock, shaft);
+    const cap = new THREE.BoxGeometry(0.46, 0.1, 0.46);
+    cap.rotateY(face.yaw);
+    cap.translate(burrow.x, stackFoot + stackHeight + 0.05, burrow.z);
+    add(PALETTE.woodDark, cap);
+    chimneys.push(new THREE.Vector3(burrow.x, stackFoot + stackHeight + 0.16, burrow.z));
+
+    // The front garden. A dwelling with no plot around it is a hole in a
+    // hill; the paling and its gate are what make it somebody's
+    for (const part of frontGarden(random)) add(part.color, place(part.geometry, FACE_OFFSET));
 
     // The mound is a mesh now, not terrain, so impassability is set by
     // a circle: otherwise you could walk straight through the burrow
@@ -165,4 +186,113 @@ function checkFits(burrow: Burrow, face: BurrowFace): void {
       'no room around the door frame, increase radius',
     );
   }
+}
+
+/**
+ * Round windows either side of the door.
+ *
+ * Skipped where the cut is too narrow to hold them — the mounds differ in
+ * radius, and a window running off the edge of the face reads worse than
+ * no window at all.
+ */
+function windows(face: BurrowFace): Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> {
+  const parts: Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> = [];
+  const radius = 0.32;
+  const across = DOOR_FRAME_RADIUS + radius + 0.34;
+  if (across + radius > face.halfWidth - 0.18) return parts;
+
+  const height = DOOR_CENTER_HEIGHT + 0.14;
+  for (const side of [-1, 1]) {
+    const glass = new THREE.CircleGeometry(radius, 16);
+    glass.translate(side * across, height, 0);
+    parts.push({ geometry: glass, color: PALETTE.ink, out: 0.02 });
+
+    const ring = new THREE.TorusGeometry(radius, 0.055, 6, 18);
+    ring.translate(side * across, height, 0);
+    parts.push({ geometry: ring, color: PALETTE.wood, out: 0.06 });
+
+    // A pair of bars, so the light reads as glazed rather than as a hole
+    for (const angle of [0, Math.PI / 2]) {
+      const bar = new THREE.BoxGeometry(radius * 2, 0.04, 0.04);
+      bar.rotateZ(angle);
+      bar.translate(side * across, height, 0);
+      parts.push({ geometry: bar, color: PALETTE.woodDark, out: 0.05 });
+    }
+
+    // A sill, which is what stops a round window looking like a porthole
+    const sill = new THREE.BoxGeometry(radius * 2.3, 0.07, 0.16);
+    sill.translate(side * across, height - radius - 0.02, 0);
+    parts.push({ geometry: sill, color: PALETTE.wood, out: 0.08 });
+  }
+  return parts;
+}
+
+/** A hood over the door, on two brackets. */
+function porch(): Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> {
+  const parts: Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> = [];
+  const top = DOOR_CENTER_HEIGHT + DOOR_FRAME_RADIUS + 0.16;
+
+  const hood = new THREE.BoxGeometry(DOOR_FRAME_RADIUS * 2.5, 0.09, 0.52);
+  hood.rotateX(-0.16);
+  hood.translate(0, top, 0);
+  parts.push({ geometry: hood, color: PALETTE.thatch, out: 0.26 });
+
+  for (const side of [-1, 1]) {
+    const bracket = new THREE.BoxGeometry(0.07, 0.34, 0.07);
+    bracket.rotateX(0.5);
+    bracket.translate(side * DOOR_FRAME_RADIUS * 1.05, top - 0.2, 0);
+    parts.push({ geometry: bracket, color: PALETTE.woodDark, out: 0.14 });
+  }
+  return parts;
+}
+
+/**
+ * The front garden: a paling fence in an arc before the door, open where
+ * the path comes through.
+ *
+ * This is the piece that turns fifteen doors in fifteen hills into fifteen
+ * households. A boundary you can see over is the point — it says *mine*
+ * without shutting the village out, which is exactly what a cottage paling
+ * is for.
+ */
+function frontGarden(random: () => number): Array<{ geometry: THREE.BufferGeometry; color: number }> {
+  const parts: Array<{ geometry: THREE.BufferGeometry; color: number }> = [];
+  const radius = 3.4;
+  const height = 0.62;
+  // Measured in the face's own frame: the path runs straight out on z
+  const gate = 0.24;
+
+  for (let i = 0; i <= 26; i++) {
+    const t = i / 26;
+    const angle = (-1.02 + t * 2.04);
+    if (Math.abs(angle) < gate) continue;
+    const x = Math.sin(angle) * radius;
+    const z = Math.cos(angle) * radius;
+    const pale = new THREE.BoxGeometry(0.07, height + random() * 0.05, 0.07);
+    pale.rotateY(-angle);
+    pale.translate(x, height / 2, z);
+    parts.push({ geometry: pale, color: PALETTE.wood });
+  }
+
+  // Two rails behind the pales, and a post either side of the gateway
+  for (const y of [height * 0.32, height * 0.78]) {
+    for (const half of [-1, 1]) {
+      for (let i = 0; i < 12; i++) {
+        const a0 = half * (gate + (1.02 - gate) * (i / 12));
+        const a1 = half * (gate + (1.02 - gate) * ((i + 1) / 12));
+        const mid = (a0 + a1) / 2;
+        const rail = new THREE.BoxGeometry(0.04, 0.05, radius * Math.abs(a1 - a0) + 0.02);
+        rail.rotateY(-mid + Math.PI / 2);
+        rail.translate(Math.sin(mid) * radius, y, Math.cos(mid) * radius);
+        parts.push({ geometry: rail, color: PALETTE.woodDark });
+      }
+    }
+  }
+  for (const side of [-1, 1]) {
+    const post = new THREE.BoxGeometry(0.11, height + 0.22, 0.11);
+    post.rotateY(-side * gate);
+    post.translate(Math.sin(side * gate) * radius, (height + 0.22) / 2, Math.cos(side * gate) * radius);
+    parts.push({ geometry: post, color: PALETTE.woodDark });
+  }
+  return parts;
 }

@@ -8,7 +8,9 @@ import {
   FRAME_RAIL,
   FRAME_STUD,
   FRAME_STUD_GAP,
-  FRAME_WALL_HEIGHT,
+  FRAME_DOOR_HEIGHT,
+  FRAME_DOOR_WIDTH,
+  FRAME_STOREY,
   ROOF_COAT,
   ROOF_OVERHANG,
   ROOF_RIDGE_BAND,
@@ -41,8 +43,8 @@ import type { PropBatch } from '../props/batch';
  * frame's timber merges with the sawbenches and its stone with the pound.
  */
 export interface BuiltBuilding {
-  /** Where a plume of smoke should start, if this one has a stack. */
-  chimney: THREE.Vector3;
+  /** Where a plume of smoke should start, or null for a hearthless one. */
+  chimney: THREE.Vector3 | null;
   blockers: Circle[];
   /** Floor level, so anything standing against the wall can find it. */
   floorY: number;
@@ -105,6 +107,11 @@ export function timberBuilding(building: Building, batch: PropBatch): BuiltBuild
   return { chimney, blockers, floorY };
 }
 
+/** Height to the wall plate: storeys, not a constant. */
+export function eavesOf(building: Building): number {
+  return building.storeys * FRAME_STOREY;
+}
+
 /** Building-local (along, across) to world. */
 function place(building: Building, along: number, across: number): { x: number; z: number } {
   const c = Math.cos(building.yaw);
@@ -140,7 +147,7 @@ function plinth(put: Put, length: number, depth: number): void {
 function walls(put: Put, length: number, depth: number, b: Building): void {
   const half = length / 2;
   const halfDepth = depth / 2;
-  const eaves = FRAME_WALL_HEIGHT;
+  const eaves = eavesOf(b);
   const bayWidth = length / b.bays;
 
   // Sill beam and wall plate, all four walls
@@ -220,19 +227,26 @@ function walls(put: Put, length: number, depth: number, b: Building): void {
   }
 
   // The doorway: a dark recess in the middle bay of the show face, with a
-  // lintel low enough that a villager has to duck
-  const doorHeight = eaves * 0.62;
-  const doorway = new THREE.BoxGeometry(1, doorHeight, FRAME_POST * 0.9);
-  put(doorway, PALETTE.woodDark, 0, doorHeight / 2, front - 0.02);
-  const lintel = new THREE.BoxGeometry(1.3, FRAME_RAIL * 1.4, FRAME_STUD * 1.2);
-  put(lintel, PALETTE.wood, 0, doorHeight + FRAME_RAIL * 0.7, front);
+  // lintel low enough that a villager has to duck. Absolute heights, not
+  // a share of the wall — as a fraction the three-storey mill got a door
+  // three metres tall
+  const doorway = new THREE.BoxGeometry(FRAME_DOOR_WIDTH, FRAME_DOOR_HEIGHT, FRAME_POST * 0.9);
+  put(doorway, PALETTE.woodDark, 0, FRAME_DOOR_HEIGHT / 2, front - 0.02);
+  const lintel = new THREE.BoxGeometry(FRAME_DOOR_WIDTH * 1.3, FRAME_RAIL * 1.4, FRAME_STUD * 1.2);
+  put(lintel, PALETTE.wood, 0, FRAME_DOOR_HEIGHT + FRAME_RAIL * 0.7, front);
 
-  // Two lights either side of the door, dark behind their mullions
-  for (const side of [-1, 1]) {
-    const light = new THREE.BoxGeometry(0.76, 0.5, FRAME_POST * 0.8);
-    put(light, PALETTE.woodDark, side * bayWidth, eaves * 0.55, front - 0.02);
-    const mullion = new THREE.BoxGeometry(0.06, 0.5, FRAME_STUD);
-    put(mullion, PALETTE.wood, side * bayWidth, eaves * 0.55, front);
+  // Lights either side of the door, dark behind their mullions — one row
+  // per storey, because a wall of blank daub three storeys high reads as
+  // a warehouse
+  for (let storey = 0; storey < b.storeys; storey++) {
+    const y = FRAME_STOREY * storey + FRAME_STOREY * 0.62;
+    if (y + 0.25 > eaves) break;
+    for (const side of [-1, 1]) {
+      const light = new THREE.BoxGeometry(0.76, 0.5, FRAME_POST * 0.8);
+      put(light, PALETTE.woodDark, side * bayWidth, y, front - 0.02);
+      const mullion = new THREE.BoxGeometry(0.06, 0.5, FRAME_STUD);
+      put(mullion, PALETTE.wood, side * bayWidth, y, front);
+    }
   }
 }
 
@@ -249,10 +263,11 @@ function walls(put: Put, length: number, depth: number, b: Building): void {
 function roof(put: Put, length: number, depth: number, b: Building): void {
   const pitch = (b.pitch * Math.PI) / 180;
   const halfDepth = depth / 2;
+  const eaves = eavesOf(b);
   // The eaves overhang the wall, so the slope runs further than the roof
   // covers. Everything below is measured from the ridge outwards
   const run = halfDepth + ROOF_OVERHANG;
-  const ridgeY = FRAME_WALL_HEIGHT + halfDepth * Math.tan(pitch);
+  const ridgeY = eaves + halfDepth * Math.tan(pitch);
   const drop = run * Math.tan(pitch);
   const slope = run / Math.cos(pitch);
 
@@ -272,7 +287,7 @@ function roof(put: Put, length: number, depth: number, b: Building): void {
   // slopes, at the wall line rather than out at the verge
   for (const side of [-1, 1]) {
     const gable = gableGeometry(depth, halfDepth * Math.tan(pitch));
-    put(gable, PALETTE.plaster, side * (length / 2 - 0.06), FRAME_WALL_HEIGHT, 0);
+    put(gable, PALETTE.plaster, side * (length / 2 - 0.06), eaves, 0);
   }
 }
 
@@ -304,9 +319,10 @@ function stack(
   depth: number,
   b: Building,
   floorY: number,
-): THREE.Vector3 {
+): THREE.Vector3 | null {
+  if (b.stackAt === null) return null;
   const pitch = (b.pitch * Math.PI) / 180;
-  const ridgeY = FRAME_WALL_HEIGHT + (depth / 2) * Math.tan(pitch);
+  const ridgeY = eavesOf(b) + (depth / 2) * Math.tan(pitch);
   const top = ridgeY + STACK_CLEARANCE;
   const u = b.stackAt * length;
 

@@ -367,11 +367,19 @@ export const GREEN_SEED = 41207;
 /**
  * A timber frame, at halfling scale. Real member sizes in brackets.
  *
- * Wall height is to the wall plate, not to the ridge. At 1.90 m a
- * halfling's door head lands about 1.18 m — he ducks under his own lintel,
- * which is what every surviving frame makes a full-grown adult do.
+ * Storey height, to the wall plate of a single-storey building. A
+ * dwelling is one storey; the mill is three, and that is most of what
+ * makes it read as a working building rather than a big house.
  */
-export const FRAME_WALL_HEIGHT = 1.9;
+export const FRAME_STOREY = 1.9;
+/**
+ * The doorway. Absolute, not a share of the wall: as a fraction the
+ * three-storey mill was given a door three metres tall. At 1.18 m a
+ * halfling ducks under his own lintel, which is what every surviving
+ * frame makes a full-grown adult do.
+ */
+export const FRAME_DOOR_HEIGHT = 1.18;
+export const FRAME_DOOR_WIDTH = 1;
 /** Principal post and the beams: sill, plate, tie. [250 mm oak] */
 export const FRAME_POST = 0.16;
 /** Common stud. [110 mm] */
@@ -405,6 +413,58 @@ export const FRAME_PLINTH = 0.3;
 export const ROOF_COAT = 0.19;
 export const ROOF_OVERHANG = 0.19;
 export const ROOF_RIDGE_BAND = 0.3;
+
+/**
+ * The mill wheel. Undershot: the stream runs past its bottom rather than
+ * being delivered over its top, which is the whole reason this project
+ * has no weir, no leat, no bay and no tailrace. 2.40 m across is a real
+ * twelve-foot wheel at halfling scale.
+ */
+export const WHEEL_RADIUS = 1.2;
+export const WHEEL_WIDTH = 1.2;
+export const WHEEL_AXLE_RADIUS = 0.09;
+/** The inner of the two rims; the outer sits 30 mm further out. */
+export const WHEEL_RIM_INNER = 1.15;
+export const WHEEL_FLOATS = 24;
+export const WHEEL_SPOKES = 12;
+export const WHEEL_FLOAT_THICKNESS = 0.05;
+/**
+ * How far the floats stay off the bed of the pit.
+ *
+ * This, and not the dip, is the number that matters. The pit holds 0.292 m
+ * of water and the intended dip was 0.29, which left the paddles two
+ * millimetres off the bottom — on terrain sampled every 0.667 m, a wheel
+ * grinding through the riverbed. Setting the axle from the bed instead
+ * leaves the floats dipping about 0.21 m, which still reads as driven.
+ */
+export const WHEEL_BED_CLEARANCE = 0.08;
+/** One turn every 9.2 s. Faster reads as a fairground ride. */
+export const WHEEL_RPM = 6.5;
+/**
+ * The lucam: the gabled hood projecting from the mill's top storey, so a
+ * sack can be hoisted out of a cart without getting wet. About twenty
+ * boxes, and worth more than the rest of the building — it is the one
+ * silhouette nothing else in a village has.
+ */
+export const LUCAM_PROJECTION = 0.9;
+export const LUCAM_WIDTH = 1.1;
+export const LUCAM_GABLE = 0.6;
+
+/**
+ * Where the pit sits.
+ *
+ * Not the -24.6 the blueprint gives. That point does hold 0.29 m of
+ * standing water, but it lies 2.5 m off the channel axis — up on the bank
+ * — and a 2.4 m wheel needs 2.4 m of bed, not one deep sample. Measured
+ * across the whole footprint, the wheel there cut 0.23 m into the bank.
+ * The bed does not go flat until about -25.7, and there the floats dip
+ * 0.34 m and clear the bottom by WHEEL_BED_CLEARANCE. It leaves the wheel
+ * 2.9 m from the mill's south wall rather than 1.8 — a longer pit, which
+ * is what a wheel standing in the stream rather than against the wall
+ * actually needs.
+ */
+export const WHEEL_X = -27.4;
+export const WHEEL_Z = -25.7;
 
 /** Brick stack. The clearance over the ridge is a fire rule, not a look. */
 export const STACK_WIDTH = 0.42;

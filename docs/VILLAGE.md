@@ -367,6 +367,60 @@ Spray at the wheel foot: `Smoke` unchanged, white, 8 puffs, 0.8 s lifetime, no d
 
 Mill yard **(−23.5, −18.5)**, 9 × 7, range 0.31 m.
 
+#### As built
+
+The mill went in through `frame.ts` unchanged apart from one parameter it
+was missing, which is the only honest test of whether that module was a
+primitive or the inn with a knob on it: **`storeys`**. Wall height had been
+a constant, and a constant is exactly the wrong shape for the one dimension
+that separates a dwelling from a working building. Everything else — bays,
+depth, pitch, the show face, the stack — was already a parameter and
+already right.
+
+| | planned | built |
+|---|---|---|
+| centre | (−27.4, −20.8) | **unchanged** |
+| axis | along x | **along x, and it has to be** |
+| storeys / eaves | 3 / +4.80 | **3 / +5.70** |
+| wheel pit | (−27.4, −24.6) | **(−27.4, −25.7)** |
+| wheel | 2.40 m, 24 floats, 6.5 rpm | **unchanged, 848 tri, 9.2 s a turn** |
+
+**The axis is not a style.** Turned to face the village like every other
+building here, the footprint swings its south-east corner into the channel:
+56 samples of 819 stand in water. Along x the whole footprint is dry.
+
+**The pit moved, because a wheel is not a point.** The blueprint measured
+0.29 m of standing water at (−27.4, −24.6) and that reproduces exactly. But
+that point lies 2.5 m off the channel axis, up on the bank, and a 2.4 m
+wheel needs 2.4 m of bed. Measured across the whole footprint the wheel
+there cut **0.23 m into the bank**. The bed does not go flat until about
+−25.7; there the floats dip 0.29 m and clear the bottom by 0.08 m
+everywhere, at the price of standing 2.9 m from the mill wall instead of
+1.8 — a longer pit, which is what a wheel in the stream rather than against
+the wall actually needs.
+
+Two defects the screenshots could never have shown, both found by
+measurement:
+
+- **The axle was set from the bed under the wheel's centre.** The centre is
+  the deepest point of a channel, so the stated clearance existed in exactly
+  one place: 2 mm at the middle and a quarter of a metre into the bank at
+  the sides. It is set from the highest bed under the whole footprint now.
+- **The wheel had no outline at all, and then had one that stood still.**
+  `applyStyle` hangs the inverted hull *beside* the mesh and copies its
+  transform once — correct for every static object it had ever been asked
+  to outline, and wrong for the only one that turns. First the mesh had no
+  parent, so the hull was built and silently dropped; then it was a sibling,
+  and the wheel span inside a stationary contour. It is a child of the mesh
+  now and inherits the rotation.
+
+**Cost.** The frame goes into the shared `PropBatch` and the wheel cannot:
+merged static geometry has its matrix composed once, which is the whole
+reason the batch is cheap. Three draw calls for the only moving mechanism
+in the world. Measured after all of it — hedges, 37 hedgerow trees, pond,
+green furniture, inn, mill, lucam and a turning wheel — the frame is
+**8.3 ms at 120 fps**, which is where it stood before any of this began.
+
 ### 2.8 The crossing
 
 **Ford** on the cart lane at x ∈ [−2.25, +2.25], channel centre z = −22.00 exactly. Measured: bed −1.24, water −0.79, north bank top (z=−17.5) −0.41, south (z=−26.5) −0.51, bank slope 18.0°.

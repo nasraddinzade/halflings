@@ -24,12 +24,20 @@ export interface Building {
   depth: number;
   /** Which way the long front faces, radians. */
   yaw: number;
+  /**
+   * Storeys to the wall plate. A dwelling is one; a working building is
+   * three, and that is most of what makes it read as one.
+   */
+  storeys: number;
   /** Roof pitch, degrees. NOT scaled: an angle is the same at any size. */
   pitch: number;
   /** Close studding on the front, box panels elsewhere: the show face. */
   showFront: boolean;
-  /** Where the stack rises, as a share of the length from the centre. */
-  stackAt: number;
+  /**
+   * Where the stack rises, as a share of the length from the centre, or
+   * null for a building with no hearth. A mill is not a house.
+   */
+  stackAt: number | null;
 }
 
 /**
@@ -59,6 +67,7 @@ export const INN: Building = {
   depth: BAY * 1.6,
   // Facing down the green, which is where the custom comes from
   yaw: Math.PI,
+  storeys: 1,
   // Thatch cannot be shallow: below about 45 degrees it holds water and
   // rots. This is an angle, so VERNACULAR_SCALE does not touch it
   pitch: 50,
@@ -66,7 +75,38 @@ export const INN: Building = {
   stackAt: -0.42,
 };
 
-export const BUILDINGS: readonly Building[] = [INN];
+/**
+ * The mill, downstream at the west end of the valley.
+ *
+ * Its long axis runs along x, and that is not a stylistic choice: turned
+ * to face the village like every other building here, the footprint swings
+ * its south-east corner into the channel — 56 samples of 819 stand in
+ * water. Along x the whole footprint is dry and the wheel lands 1.80 m
+ * from the south wall, which is close enough for the pit's side walls to
+ * bridge and far enough that no race has to be cut.
+ *
+ * Three storeys. A working building is tall where a dwelling is low, and
+ * at r = 34.4 it is the one thing visible over the wood from the green —
+ * 39.5 m away, twenty-five seconds' walk.
+ *
+ * No hearth: a mill is not a house, so no stack and no plume.
+ */
+export const MILL: Building = {
+  id: 'mill',
+  x: -27.4,
+  z: -20.8,
+  bays: 3,
+  depth: 4,
+  yaw: 0,
+  storeys: 3,
+  // Tile, not thatch: nobody roofs a building full of flour dust and
+  // friction in straw. A tiled roof may be shallower than a thatched one
+  pitch: 45,
+  showFront: false,
+  stackAt: null,
+};
+
+export const BUILDINGS: readonly Building[] = [INN, MILL];
 
 /** Length along the long axis, in metres. */
 export function buildingLength(building: Building): number {

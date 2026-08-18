@@ -134,6 +134,7 @@ export class Game {
     this.obstacles.addToGrid(this.workSites.blockers);
     this.obstacles.addToGrid(this.greenFurniture.blockers);
     this.obstacles.addToGrid(this.buildings.blockers);
+    this.scene.add(this.buildings.wheel.group);
 
     // Vegetation goes in right away: it is static and depends only on
     // the terrain, so it has no reason to wait for the characters to load
@@ -208,6 +209,7 @@ export class Game {
     this.smoke?.dispose();
     this.water?.dispose();
     this.burrows.dispose();
+    this.buildings.dispose();
     this.props.traverse((child) => {
       if (child instanceof THREE.Mesh) child.geometry.dispose();
     });
@@ -256,6 +258,7 @@ export class Game {
     // the camera, and a frame's lag would show as the sky sliding
     this.sky?.update(this.cameraRig.camera.position);
     this.water?.update(delta);
+    this.buildings.update(delta);
     // One clock for everything that sways. It is a single uniform, so the
     // whole valley bends for the price of one number per frame
     advanceWind(delta);

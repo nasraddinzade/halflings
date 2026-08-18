@@ -234,22 +234,45 @@ export function heightAt(x: number, z: number): number {
  * depth under its own centre, so the rim is groundHeight there. A number
  * in constants.ts would go stale the moment the terrain moved.
  */
+let pondSurface: number | null = null;
+
 export function pondWaterY(): number {
-  return groundHeight(POND.x, POND.z) - POND_WATER_DEPTH;
+  // Worked out once. It reads the ground under the pond's own centre, and
+  // waterDepthAt asks for it on every step of the player and of every
+  // villager choosing where to stand
+  if (pondSurface === null) pondSurface = groundHeight(POND.x, POND.z) - POND_WATER_DEPTH;
+  return pondSurface;
 }
 
 /**
  * How deep the water is over a pair of feet at height `feetY`. Zero
- * anywhere the river does not reach, and anywhere the feet are above the
- * surface — jumping out of the channel counts as out.
+ * anywhere there is no water, and anywhere the feet are above the surface
+ * — jumping out of the channel counts as out.
  *
- * The water surface is groundHeight - RIVER_WATER_DEPTH, which is exactly
- * how Water.ts builds its ribbon; both read this so the two cannot drift.
- * The deepest it gets is RIVER_DEPTH - RIVER_WATER_DEPTH, 0.45 m, which
- * on a 1.1 m halfling is a little over the knee.
+ * This is the one place that knows where water is, and everything else
+ * reads it: the player wades through it (PlayerController), and a
+ * villager picking somewhere to stand refuses any point where it is not
+ * zero (VillagerBrain). Add water anywhere and it has to be added here,
+ * or the surface is painted on: the pond went in with its geometry, its
+ * dish and its ground paint, and for one commit the player walked across
+ * it at full speed while villagers happily sat down in it.
+ *
+ * The two surfaces are different in kind. The channel's follows the
+ * ground with a fixed offset, which is how Water.ts builds its ribbon.
+ * The pond's is level, so the depth over it varies with the bed — up to
+ * 0.41 m, against the channel's 0.45 m, both a little over the knee on a
+ * 1.1 m halfling.
  */
 export function waterDepthAt(x: number, z: number, feetY: number): number {
+  let surface = -Infinity;
+
   const carve = riverCarve(x, z);
-  if (carve <= RIVER_WATER_DEPTH) return 0;
-  return Math.max(0, groundHeight(x, z) - RIVER_WATER_DEPTH - feetY);
+  if (carve > RIVER_WATER_DEPTH) surface = groundHeight(x, z) - RIVER_WATER_DEPTH;
+
+  // Inside the shoreline the level plane may still be under the ground,
+  // near the bank; the subtraction below is what decides, not this test
+  if (pondCarve(x, z) > 0) surface = Math.max(surface, pondWaterY());
+
+  if (surface === -Infinity) return 0;
+  return Math.max(0, surface - feetY);
 }

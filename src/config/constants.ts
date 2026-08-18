@@ -8,6 +8,26 @@ export const CHARACTER_SCALE = 0.50451;
 export const HALFLING_HEIGHT = 1.1;
 
 /**
+ * Vernacular dimensions are quoted for a 1.70 m adult and scaled to a
+ * 1.1 m halfling. APPLIES TO: lane and gate widths, hedge and wall
+ * heights, plot frontage, doors, steps, benches, bridge decks, wheel and
+ * building dimensions. DOES NOT APPLY TO: orchard spacing, tree crowns,
+ * river width, pond depth, hill slopes, and ANY ANGLE. A 50-degree roof
+ * pitch is 50 degrees at every size; shrinking the pitch with the
+ * building is what makes a small world read as a diorama.
+ */
+export const VERNACULAR_SCALE = 0.647;
+/**
+ * Bay of a timber frame. Every above-ground structure is a whole number
+ * of them.
+ *
+ * ALREADY SCALED. A real bay is about four metres — sixteen feet is the
+ * common one — and 4.0 x VERNACULAR_SCALE is 2.59. Do not scale this
+ * again; a three-bay inn is 7.8 m long, not 5.0.
+ */
+export const BAY = 2.6;
+
+/**
  * The KayKit model faces +Z: the boot toes reach out to z = 0.28 while the
  * heels only reach z = -0.13. In three.js `lookAt` aims along that same +Z,
  * so no extra rotation is needed. If the character starts moving backwards,
@@ -343,6 +363,52 @@ export const WELL_BEDDING = 0.03;
 
 /** Its own stream, so the pond's dressing holds still. */
 export const GREEN_SEED = 41207;
+
+/**
+ * A timber frame, at halfling scale. Real member sizes in brackets.
+ *
+ * Wall height is to the wall plate, not to the ridge. At 1.90 m a
+ * halfling's door head lands about 1.18 m — he ducks under his own lintel,
+ * which is what every surviving frame makes a full-grown adult do.
+ */
+export const FRAME_WALL_HEIGHT = 1.9;
+/** Principal post and the beams: sill, plate, tie. [250 mm oak] */
+export const FRAME_POST = 0.16;
+/** Common stud. [110 mm] */
+export const FRAME_STUD = 0.075;
+/** Mid rail of a box panel. [150 mm] */
+export const FRAME_RAIL = 0.1;
+/** Diagonal brace. [140 mm] */
+export const FRAME_BRACE = 0.09;
+/**
+ * Centres of close studding. Close studding means studs about their own
+ * width apart — the expensive way to frame a wall, used on the face that
+ * would be seen from the road and nowhere else.
+ */
+export const FRAME_STUD_GAP = 0.19;
+/**
+ * How far the daub panel sits behind the timber face.
+ *
+ * The most valuable three centimetres in the building. With the panel
+ * flush the wall is one flat plane and the frame disappears; set back, every
+ * member casts its own edge onto the panel beside it, and a three-step toon
+ * shader draws the whole frame for free with no texture at all.
+ */
+export const FRAME_PANEL_INSET = 0.03;
+/** Stone plinth under the sill: timber on the ground rots. */
+export const FRAME_PLINTH = 0.3;
+
+/**
+ * Thatch. The pitch lives with each building because it is an angle and
+ * angles are never scaled; these are the thicknesses, which are.
+ */
+export const ROOF_COAT = 0.19;
+export const ROOF_OVERHANG = 0.19;
+export const ROOF_RIDGE_BAND = 0.3;
+
+/** Brick stack. The clearance over the ridge is a fire rule, not a look. */
+export const STACK_WIDTH = 0.42;
+export const STACK_CLEARANCE = 0.74;
 
 /** The standard oak on the green, as a multiple of an ordinary tree. */
 export const GREEN_OAK_SCALE = 1.55;

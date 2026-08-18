@@ -283,6 +283,66 @@ Brick stack on the west gable to **+5.55**, 1.15 m clear of the ridge, wired in 
 Door 1.00 × 0.95 with a 0.18 m lintel — villagers duck. Two mullioned lights 0.76 × 0.50, 0.06 m mullion as geometry, leaded quarries as texture. **Panel plane inset 0.03 m behind the frame** — that offset alone gives the toon shader a shadow line down every stud.
 Frame is **box panels**, square, ~0.6 m; close studding only on the show gable facing the green.
 
+#### As built
+
+**Section 2.6 puts the inn in the wrong place, and measurably so.** At
+(5.5, 23.4) the plinth stands **2.61 m inside burrow-1's mound** and 0.32 m
+into burrow-1's own path to its door. The section was written when the
+village had six dwellings; burrow-1 was not there.
+
+Built at **(-0.1, 27)** — where `hedges.ts` and `lanes.ts` already assumed
+it, and right on the merits: bearing 359.8 against a gap midpoint of 0.1,
+in the one wide opening of the frontage ring between burrow-15 at 337.1 and
+burrow-1 at 23.1. Of every footprint tested across the whole head of the
+green, none was more level.
+
+| | planned | built |
+|---|---|---|
+| centre | (5.5, 23.4) | **(-0.1, 27)** |
+| footprint | 7.8 x 4.2 | **7.80 x 4.16 m** |
+| ridge, absolute | +4.79 | **+4.752 m** |
+| triangles | — | **964** |
+| draw calls | — | **6** (two new colour buckets) |
+| blockers | — | 44, into the grid |
+
+The ridge stands **1.23 m above the tallest mound crown in the ring**
+(burrow-1 at 3.52), so the inn is the head of the green and not merely a
+building on it.
+
+**The pad goes through the burrows' own term, not a new one.** A building
+needs its base level for the same reason a mound does, so `heightfield.ts`
+now loops a `PADS` list — fifteen dwellings plus the buildings — instead of
+looping `BURROWS`. The alternative was a second function with its own
+early-out inside `heightAt`, which runs some 593,000 times before the first
+frame; the pond dish cost 12 ms of startup exactly that way. This costs one
+more `hypot` in a loop that already runs fifteen times. It levels the
+footprint from **0.48 m of range to 0.16 m** and moves nothing else in the
+valley: every watched point — spawn, the green, the well, the oak, both
+neighbouring rims, the toft hedge, the croft rear — is unchanged to three
+decimals, and the front lane by 1 mm.
+
+**`BAY` is already at halfling scale.** A real bay is about four metres and
+4.0 x 0.647 = 2.59, so §1's 2.6 is the scaled figure. Scaling it again gave
+a 5.05 m inn; the comment on the constant now says so, because that mistake
+is one line away at all times.
+
+**The frame is the building.** Sill, posts, wall plate, tie beams, rails,
+studs and braces are all real members, and the daub panels sit 0.03 m
+behind the timber face. That inset is the most valuable three centimetres
+in the model: flush, the wall is one plane and the frame disappears; set
+back, every member casts its own edge onto the panel beside it and a
+three-step toon shader draws the whole frame with no texture at all. Close
+studding goes on the show front only — it was the expensive way to frame a
+wall and it went where the road could see it.
+
+Timber is `wood`, not a new silvered-oak token. §5 is right that
+black-and-white framing is a Victorian revival, but a silvered grey against
+`plaster` gives a toon shader almost no step to quantise and the frame
+would vanish at ten metres. `wood` is unpainted oak that has not yet
+greyed, it reads, and it merges with a colour bucket that already exists.
+The stack is stone for the same arithmetic: in brick it was its own bucket,
+three draw calls for twelve triangles.
+
 ### 2.7 The mill — no waterworks
 
 **Building centred (−27.4, −20.8)**, axis along x, 3 bays × 2.6 = **7.8 × 4.0 m**, pad level −1.15 (measured range 0.39 m).

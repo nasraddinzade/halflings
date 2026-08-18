@@ -33,6 +33,7 @@ import {
   VALLEY_RADIUS,
 } from '../config/constants';
 import { BURROWS, PAD_BIAS } from '../config/burrows';
+import { BUILDING_PADS } from '../config/buildings';
 import { POND, pondEdge } from '../config/green';
 import { faceOf, padWeight, type BurrowFace } from './burrow/profile';
 
@@ -119,8 +120,46 @@ export function riverCarve(x: number, z: number): number {
  */
 const FACES: ReadonlyArray<BurrowFace> = BURROWS.map((burrow) => faceOf(burrow, valleyFloor));
 
+/** A disc of ground held level, with the height it is held at. */
+interface Pad {
+  x: number;
+  z: number;
+  radius: number;
+  base: number;
+}
+
 /**
- * The ground under the burrows is flattened into a pad.
+ * Every level platform in the valley: fifteen dwellings, and the
+ * buildings.
+ *
+ * A building needs its base level for the same reason a burrow does, and
+ * it needs it through the SAME term. The alternative is a second function
+ * with its own early-out inside heightAt, which runs some 593,000 times
+ * before the first frame — the pond dish cost 12 ms of startup that way.
+ * One more entry in a loop that already runs fifteen times costs a hypot.
+ *
+ * A building pad carries no mound, so its radius is not a mound radius:
+ * padWeight holds the ground flat out to radius + PAD_MARGIN, and the
+ * radius here is chosen so that disc covers the footprint's own diagonal
+ * and no more.
+ */
+const PADS: ReadonlyArray<Pad> = [
+  ...BURROWS.map((burrow, i) => ({
+    x: burrow.x,
+    z: burrow.z,
+    radius: burrow.radius,
+    base: FACES[i]?.base ?? 0,
+  })),
+  ...BUILDING_PADS.map((pad) => ({
+    x: pad.x,
+    z: pad.z,
+    radius: pad.radius,
+    base: valleyFloor(pad.x, pad.z),
+  })),
+];
+
+/**
+ * The ground under the burrows and the buildings is flattened into a pad.
  *
  * The hill itself is no longer raised by the terrain: it became a
  * separate mesh together with the facade (burrow/mesh.ts). All the
@@ -143,12 +182,11 @@ function burrowGround(x: number, z: number, floor: number): number {
   let sum = 0;
   let total = 0;
 
-  for (let i = 0; i < BURROWS.length; i++) {
-    const burrow = BURROWS[i];
-    const face = FACES[i];
-    if (burrow === undefined || face === undefined) continue;
+  for (let i = 0; i < PADS.length; i++) {
+    const pad = PADS[i];
+    if (pad === undefined) continue;
 
-    const w = padWeight(burrow, x, z);
+    const w = padWeight(pad, x, z);
     if (w <= 0) continue;
     if (w > strongest) strongest = w;
 
@@ -157,9 +195,9 @@ function burrowGround(x: number, z: number, floor: number): number {
     // overlap the weights tie and neither owns the ground. Dividing by
     // distance breaks the tie in favour of whichever mound is actually
     // standing there.
-    const reach = Math.max(0, Math.hypot(x - burrow.x, z - burrow.z) - burrow.radius);
+    const reach = Math.max(0, Math.hypot(x - pad.x, z - pad.z) - pad.radius);
     const closeness = w / (PAD_BIAS + reach * reach);
-    sum += closeness * face.base;
+    sum += closeness * pad.base;
     total += closeness;
   }
 

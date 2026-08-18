@@ -112,9 +112,16 @@ export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => 
  * Without the leveling, valley swells climb up in front of the facade
  * and drown the bottom of the door.
  */
-export function padWeight(burrow: Burrow, x: number, z: number): number {
-  const distance = Math.hypot(x - burrow.x, z - burrow.z);
-  const inner = burrow.radius + PAD_MARGIN;
+/**
+ * How strongly the ground here is pulled to a pad's level.
+ *
+ * Takes only the disc, not a whole Burrow: the buildings hold their
+ * ground level through this same function, and a building has no mound
+ * and no height.
+ */
+export function padWeight(pad: { x: number; z: number; radius: number }, x: number, z: number): number {
+  const distance = Math.hypot(x - pad.x, z - pad.z);
+  const inner = pad.radius + PAD_MARGIN;
   if (distance <= inner) return 1;
   if (distance >= inner + PAD_FADE) return 0;
   const t = (distance - inner) / PAD_FADE;

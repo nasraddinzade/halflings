@@ -863,15 +863,22 @@ export const VEGETATION_SEED = 7734;
  * not a country. Fields are what make an English landscape read, and there
  * were none.
  *
- * The grain runs with the land: FIELD_GRAIN is the bearing of the scarps,
- * because a real field system aligns to the slope — along the contour and
- * up the fall line — and not to a radius from the middle. Cells are long
- * one way and short the other, because a field is a strip before it is a
- * square.
+ * The grain runs with the land, because a real field system aligns to the
+ * slope — along the contour and up the fall line — and not to a radius
+ * from the middle. There is no one grain: each furlong in config/fields.ts
+ * carries its own bearing, and a single FIELD_GRAIN for the whole valley
+ * lived here until the map showed every parcel in the parish running
+ * parallel to every other. Cells are long one way and short the other,
+ * because a field is a strip before it is a square.
+ *
+ * These two are the nominal cell; each furlong scales them a little. They
+ * came down from 21 x 14 when the parcels were cut back to their own
+ * furlongs: a big cell loses all of itself to a boundary it touches, so
+ * with five blocks in a disc this size the larger cell covered an eighth
+ * of the ground where this covers a quarter.
  */
-export const FIELD_GRAIN = 158;
-export const FIELD_ALONG = 21;
-export const FIELD_ACROSS = 14;
+export const FIELD_ALONG = 17;
+export const FIELD_ACROSS = 11;
 /** How far a corner may wander off the lattice. No field is a rectangle. */
 export const FIELD_JITTER = 5;
 /** Past this the wood takes over: fields belong to the village, not the rim. */
@@ -1056,3 +1063,27 @@ export const DEBUG_REFRESH = 0.25;
  */
 export const FIELD_FURROW_WAVELENGTH = 4.5;
 export const FIELD_FURROW_DEPTH = 0.22;
+
+/**
+ * How far a field keeps off the middle of the channel.
+ *
+ * RIVER_WIDTH * 1.5 is where the cut itself fades out, and the rest is
+ * the width of a hedge foot: the boundary stands at the top of the bank,
+ * not on it.
+ *
+ * Ten of thirty-one cells are lost to the water, and widening this to
+ * 7.5 m loses not one more — those ten straddle the channel outright,
+ * which is why they go. The riverside band they leave behind is open
+ * grass, and that is what riverside land is: haugh, grazed in common and
+ * not anybody's parcel.
+ */
+export const FIELD_RIVER_MARGIN = 5.5;
+
+/**
+ * The smallest thing still worth calling a field, in square metres.
+ *
+ * Cells caught edge-on by a furlong boundary come out of the clip as
+ * slivers a metre or two across; hedged on both sides, a sliver is not a
+ * parcel but a thick hedge with a stripe of grass inside it.
+ */
+export const FIELD_MIN_AREA = 90;

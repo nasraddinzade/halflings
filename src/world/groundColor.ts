@@ -12,7 +12,7 @@ import { PALETTE } from '../config/palette';
 import { WORK_POINTS, propPosition } from '../config/work';
 import { LANES, LANE_BLEND, LANE_HALF_WIDTH, doorSpurs } from '../config/lanes';
 import { FIELD_FURROW_DEPTH, FIELD_FURROW_WAVELENGTH } from '../config/constants';
-import { fieldAt, toGrain, type FieldUse } from '../config/fields';
+import { fieldAt, furrowPhase, type FieldUse } from '../config/fields';
 import { hashSeed, makeRandom } from '../core/random';
 import { heightAt, pondCarve, riverCarve } from './heightfield';
 
@@ -178,7 +178,7 @@ export function paintGround(geometry: THREE.BufferGeometry): void {
       // arable from the air. Wavelength is kept well above the terrain's
       // own quad so the stripe is sampled, not aliased into noise.
       if (field.use === 'arable') {
-        const [u] = toGrain(x, z);
+        const u = furrowPhase(field.furlong, x, z);
         const ridge = 0.5 + 0.5 * Math.cos((u * Math.PI * 2) / FIELD_FURROW_WAVELENGTH);
         current.lerp(furrow, (1 - ridge) * FIELD_FURROW_DEPTH);
       }

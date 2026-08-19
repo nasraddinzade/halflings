@@ -270,27 +270,34 @@ function trim(
 /**
  * The field boundaries.
  *
- * Each cell hands over only two of its four sides — the one to the west
- * and the one to the south — so a hedge between two fields is built once
- * rather than twice on top of itself. Two coincident hedges are twice the
- * triangles and a visible seam wherever their lumps disagree.
+ * Every side of every parcel, each built once. Two fields sharing a side
+ * name the same two corners, so keying on the pair — in whichever order —
+ * is enough to tell a shared boundary from a new one. Two coincident
+ * hedges are twice the triangles and a visible seam wherever their lumps
+ * disagree.
+ *
+ * The pairing has to be a dedup rather than a rule about which sides a
+ * cell owns. `west and south, plus north and east when nobody is next
+ * door` worked while every parcel was a quad on one lattice; parcels are
+ * now clipped to their furlong, so a cell can have five corners and its
+ * neighbour along a boundary is not the cell at (i + 1, j).
  */
 export function fieldBoundaries(): HedgeRun[] {
   const runs: HedgeRun[] = [];
-  const all = fields();
-  const here = new Set(all.map((f) => `${f.i},${f.j}`));
+  const built = new Set<string>();
+  const name = (p: readonly [number, number]): string => `${p[0].toFixed(2)},${p[1].toFixed(2)}`;
 
-  for (const field of all) {
-    const [a, b, c, d] = field.points;
-    if (a === undefined || b === undefined || c === undefined || d === undefined) continue;
-    // The two sides this cell owns outright
-    runs.push({ id: `${field.id}-s`, points: [a, b] });
-    runs.push({ id: `${field.id}-w`, points: [a, d] });
-    // And the two it only owns when there is nobody next door to own
-    // them. Without this a field on the edge of the system is hedged on
-    // two sides and open on the other two, which is not a field
-    if (!here.has(`${field.i},${field.j + 1}`)) runs.push({ id: `${field.id}-n`, points: [d, c] });
-    if (!here.has(`${field.i + 1},${field.j}`)) runs.push({ id: `${field.id}-e`, points: [b, c] });
+  for (const field of fields()) {
+    const p = field.points;
+    for (let a = 0; a < p.length; a++) {
+      const from = p[a];
+      const to = p[(a + 1) % p.length];
+      if (from === undefined || to === undefined) continue;
+      const key = [name(from), name(to)].sort().join('|');
+      if (built.has(key)) continue;
+      built.add(key);
+      runs.push({ id: `${field.id}-${a}`, points: [from, to] });
+    }
   }
   return runs;
 }

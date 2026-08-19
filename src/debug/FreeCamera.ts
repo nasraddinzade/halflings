@@ -26,7 +26,31 @@ import { heightAt } from '../world/heightfield';
  *   Shift    faster
  *   T        jump to map height, looking straight down
  *   G        drop to the ground under the camera
+ *
+ * It also hangs a handle on `window.fly` so a viewpoint can be asked for
+ * by name rather than flown to by holding a key for a guessed number of
+ * seconds. Looking is the only check that has ever caught the defects
+ * that mattered here, so the cost of taking one more look has to stay
+ * near zero — `fly.to(50, -12, 1.8, 250)` puts the eye in a named field
+ * facing a named way, every time, and the bearing it takes is the same
+ * number the readout prints.
  */
+
+/** What `window.fly` offers. Heights are metres above the ground. */
+export interface FlyHandle {
+  on(): void;
+  off(): void;
+  /** Bearing and pitch in degrees, as printed by the readout. */
+  to(x: number, z: number, height: number, bearing?: number, pitch?: number): void;
+  /** Straight down from map height over a point. */
+  map(x?: number, z?: number): void;
+  where(): { x: number; z: number; y: number; bearing: number; pitch: number };
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var fly: FlyHandle | undefined;
+}
 export class FreeCamera {
   active = false;
 
@@ -46,6 +70,32 @@ export class FreeCamera {
       'border-radius:6px', 'white-space:pre', 'pointer-events:none', 'display:none',
     ].join(';');
     document.body.appendChild(this.readout);
+
+    globalThis.fly = {
+      on: () => { this.active = true; this.readout.style.display = 'block'; },
+      off: () => { this.active = false; this.readout.style.display = 'none'; },
+      to: (x, z, height, bearing = 180, pitch = 0) => {
+        globalThis.fly?.on();
+        this.position.set(x, heightAt(x, z) + height, z);
+        // The readout prints a bearing, so the handle has to take one:
+        // passing a yaw in and reading a bearing out is how the camera
+        // was once pointed at the empty half of the valley
+        this.yaw = ((bearing - 180) * Math.PI) / 180;
+        this.pitch = (pitch * Math.PI) / 180;
+      },
+      map: (x = this.position.x, z = this.position.z) => {
+        globalThis.fly?.on();
+        this.position.set(x, MAP_HEIGHT, z);
+        this.pitch = -Math.PI / 2 + 0.001;
+      },
+      where: () => ({
+        x: this.position.x,
+        z: this.position.z,
+        y: this.position.y,
+        bearing: ((this.yaw * 180) / Math.PI + 180 + 360) % 360,
+        pitch: (this.pitch * 180) / Math.PI,
+      }),
+    };
   }
 
   /** Returns true while it owns the camera. */
@@ -113,5 +163,6 @@ export class FreeCamera {
 
   dispose(): void {
     this.readout.remove();
+    globalThis.fly = undefined;
   }
 }

@@ -61,8 +61,26 @@ export const PATH_STONES = 4;
  * not in fractions of the radius: with fractions the pad on small mounds
  * ran out right in front of the threshold.
  */
-export const PAD_MARGIN = 3.6;
-export const PAD_FADE = 2.6;
+export const PAD_MARGIN = 1;
+export const PAD_FADE = 4;
+/**
+ * A dwelling's pad is a FORECOURT, not a disc.
+ *
+ * It used to be omnidirectional: radius + 3.6 m held dead level, fading
+ * over 2.6 — a disc some fourteen metres across, centred on the mound and
+ * reaching out behind the hill it is cut into. On flat ground nobody
+ * noticed. The moment the valley gets any relief that disc irons it flat,
+ * and the dwelling stops being dug into anything.
+ *
+ * Now it is limited three ways: it reaches PAD_BACK behind the cut face
+ * and no further, it is only as wide as the frontage plus PAD_SIDE, and
+ * it fades over PAD_SIDE_FADE at the sides. Measured on the new landform,
+ * that is the difference between 641 grid points steeper than MAX_SLOPE
+ * and nine.
+ */
+export const PAD_BACK = 0.6;
+export const PAD_SIDE = 1;
+export const PAD_SIDE_FADE = 2;
 /**
  * Softens the closeness weighting where pads overlap. Small enough that a
  * mound owns the ground under itself, large enough that the term does not

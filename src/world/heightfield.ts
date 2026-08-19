@@ -37,10 +37,10 @@ import {
   TERRAIN_SEED,
   VALLEY_RADIUS,
 } from '../config/constants';
-import { BURROWS, PAD_BIAS } from '../config/burrows';
+import { BURROWS, PAD_BIAS, PAD_FADE, PAD_MARGIN } from '../config/burrows';
 import { BUILDING_PADS } from '../config/buildings';
 import { POND, pondEdge } from '../config/green';
-import { faceOf, padWeight, type BurrowFace } from './burrow/profile';
+import { faceOf, padWeight, type BurrowFace, type Pad } from './burrow/profile';
 
 function clamp01(value: number): number {
   return value < 0 ? 0 : value > 1 ? 1 : value;
@@ -125,13 +125,8 @@ export function riverCarve(x: number, z: number): number {
  */
 const FACES: ReadonlyArray<BurrowFace> = BURROWS.map((burrow) => faceOf(burrow, valleyFloor));
 
-/** A disc of ground held level, with the height it is held at. */
-interface Pad {
-  x: number;
-  z: number;
-  radius: number;
-  base: number;
-}
+/** A patch of ground held level, with the height it is held at. */
+type LevelPad = Pad & { base: number };
 
 /**
  * Every level platform in the valley: fifteen dwellings, and the
@@ -148,19 +143,39 @@ interface Pad {
  * radius here is chosen so that disc covers the footprint's own diagonal
  * and no more.
  */
-const PADS: ReadonlyArray<Pad> = [
-  ...BURROWS.map((burrow, i) => ({
-    x: burrow.x,
-    z: burrow.z,
-    radius: burrow.radius,
-    base: FACES[i]?.base ?? 0,
-  })),
-  ...BUILDING_PADS.map((pad) => ({
-    x: pad.x,
-    z: pad.z,
-    radius: pad.radius,
-    base: valleyFloor(pad.x, pad.z),
-  })),
+const PADS: ReadonlyArray<LevelPad> = [
+  ...BURROWS.map((burrow, i) => {
+    const face = FACES[i];
+    const outer = burrow.radius + PAD_MARGIN + PAD_FADE;
+    return {
+      x: burrow.x,
+      z: burrow.z,
+      radius: burrow.radius,
+      // The threshold and the way it looks: a dwelling's forecourt lies in
+      // front of its door, not all round the hill it is cut into
+      fx: face?.x ?? burrow.x,
+      fz: face?.z ?? burrow.z,
+      sx: Math.sin(face?.yaw ?? 0),
+      sz: Math.cos(face?.yaw ?? 0),
+      outerSq: outer * outer,
+      base: face?.base ?? 0,
+    };
+  }),
+  ...BUILDING_PADS.map((pad) => {
+    const outer = pad.radius + PAD_MARGIN + PAD_FADE;
+    // A building has no face to speak of, so its pad stays a disc
+    return {
+      x: pad.x,
+      z: pad.z,
+      radius: pad.radius,
+      fx: pad.x,
+      fz: pad.z,
+      sx: 0,
+      sz: 0,
+      outerSq: outer * outer,
+      base: valleyFloor(pad.x, pad.z),
+    };
+  }),
 ];
 
 /**

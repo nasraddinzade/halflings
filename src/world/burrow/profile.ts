@@ -5,7 +5,10 @@ import {
   FACE_CLEARANCE,
   FACE_CUT_BLEND,
   PAD_FADE,
+  PAD_BACK,
   PAD_MARGIN,
+  PAD_SIDE,
+  PAD_SIDE_FADE,
   type Burrow,
 } from '../../config/burrows';
 
@@ -99,9 +102,15 @@ export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => 
     x: burrow.x + Math.sin(yaw) * distance,
     z: burrow.z + Math.cos(yaw) * distance,
     distance,
-    // Pad level is taken at the middle of the mound: the terrain and
-    // the bottom of the facade both line up with it, so it must be one
-    base: valleyFloorAt(burrow.x, burrow.z),
+    // Taken at the THRESHOLD, not at the crown. On a bank of any slope
+    // those are different heights — 1.0 to 1.4 m apart on a 27-degree one —
+    // and the facade stands at the threshold. Levelled to the crown, the
+    // doorstep is buried and the pad has to iron the whole bank flat to
+    // reach it, which is exactly how the hillside gets cancelled
+    base: valleyFloorAt(
+      burrow.x + Math.sin(yaw) * distance,
+      burrow.z + Math.cos(yaw) * distance,
+    ),
     halfWidth: Math.sqrt(Math.max(0, burrow.radius ** 2 - distance ** 2)),
     height: faceHeightAt(burrow, distance, 0),
   };
@@ -119,13 +128,49 @@ export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => 
  * ground level through this same function, and a building has no mound
  * and no height.
  */
-export function padWeight(pad: { x: number; z: number; radius: number }, x: number, z: number): number {
-  const distance = Math.hypot(x - pad.x, z - pad.z);
+export interface Pad {
+  x: number;
+  z: number;
+  radius: number;
+  /** The threshold, and the way the door faces. Zero facing = a building. */
+  fx: number;
+  fz: number;
+  sx: number;
+  sz: number;
+  /** (radius + PAD_MARGIN + PAD_FADE) squared, worked out once. */
+  outerSq: number;
+}
+
+const ease = (t: number): number => t * t * (3 - 2 * t);
+
+export function padWeight(pad: Pad, x: number, z: number): number {
+  const dx = x - pad.x;
+  const dz = z - pad.z;
+  const d2 = dx * dx + dz * dz;
+  // Squared, and against a radius squared once at construction. This is
+  // asked some 593,000 times before the first frame and answers no to
+  // nearly all of them
+  if (d2 >= pad.outerSq) return 0;
+
+  const distance = Math.sqrt(d2);
   const inner = pad.radius + PAD_MARGIN;
-  if (distance <= inner) return 1;
-  if (distance >= inner + PAD_FADE) return 0;
-  const t = (distance - inner) / PAD_FADE;
-  return 1 - t * t * (3 - 2 * t);
+  let w = distance <= inner ? 1 : 1 - ease((distance - inner) / PAD_FADE);
+
+  // A building's pad has no face and stays a disc
+  if (pad.sx === 0 && pad.sz === 0) return w;
+
+  // Only as wide as the frontage: a forecourt, not a clearing
+  const side = Math.abs((x - pad.fx) * pad.sz - (z - pad.fz) * pad.sx);
+  const sideIn = pad.radius + PAD_SIDE;
+  if (side >= sideIn + PAD_SIDE_FADE) return 0;
+  if (side > sideIn) w *= 1 - ease((side - sideIn) / PAD_SIDE_FADE);
+
+  // And it stops just behind the cut. Beyond that is the hill itself,
+  // which is the whole point of the dwelling
+  const forward = (x - pad.fx) * pad.sx + (z - pad.fz) * pad.sz;
+  if (forward >= 0) return w;
+  if (forward <= -PAD_BACK) return 0;
+  return w * (1 - ease(-forward / PAD_BACK));
 }
 
 /** The dome behind the cut plane; in front of it there is none. */

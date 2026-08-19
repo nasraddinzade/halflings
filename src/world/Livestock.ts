@@ -2,7 +2,6 @@ import * as THREE from 'three';
 
 import {
   ANIMAL_BEDDING,
-  ANIMAL_BOUNDS_MARGIN,
   ANIMAL_CLIP_SPEED,
   ANIMAL_CLIP_SPEED_SPAN,
   ANIMAL_LENGTH,
@@ -112,16 +111,6 @@ export class Livestock {
       outline: true,
       castShadow: true,
       receiveShadow: true,
-    });
-
-    // The bind pose is a standing animal; a grazing one reaches further
-    // down and forward than the pose the bounds were computed from, and a
-    // tight sphere pops the whole beast out of view when it does. The
-    // villagers widen theirs for the same reason
-    root.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.geometry.boundingSphere !== null) {
-        child.geometry.boundingSphere.radius *= ANIMAL_BOUNDS_MARGIN;
-      }
     });
 
     const mixer = new THREE.AnimationMixer(root);

@@ -1154,26 +1154,38 @@ export const GATE_SWING = 1.75;
 export const FIELD_HEADLAND = 1;
 
 /**
- * The cattle in the pastures.
+ * The cattle in the pastures: nose to tail, in metres.
  *
- * Sized off the halfling, like everything else. A cow's back is a little
- * below a grown person's shoulder, and the halfling is 1.1 m: that puts a
- * beast at roughly 1.55 m nose to tail here. The model is scaled to this
- * length at load time rather than by a multiplier written down per animal
- * — world/livestock/library.ts measures each one, because the pack's
- * animals are modelled at different sizes and a single number would make
- * the donkey the size of the horse.
+ * A real cow, NOT a cow scaled to the halfling — and the difference is the
+ * whole point. This world is in real metres, and it is the person who is
+ * small: the grass is 0.3 m because grass is 0.3 m, and the doors are
+ * 1.3 m because halflings built them. An animal is not something anybody
+ * built. At 2.4 m long the withers stand at about 1.36 m, which is a
+ * hair above a halfling's eye — so a halfling looks a cow in the shoulder,
+ * and that is exactly the proportion this whole idiom lives on.
+ *
+ * Sized to 1.55 m first, by reasoning backwards from the halfling as if
+ * the cow were furniture. It read as a calf.
+ *
+ * The model is scaled to this length at load time rather than by a
+ * multiplier written down per animal: world/livestock/library.ts measures
+ * each one, because the pack's animals are modelled at different sizes and
+ * a single number would make the donkey the size of the horse.
  */
-export const ANIMAL_LENGTH = 1.55;
+export const ANIMAL_LENGTH = 2.4;
 /** How far a beast keeps off the hedge: room to walk round behind it. */
 export const ANIMAL_MARGIN = 2.4;
 /**
- * Head per square metre. Deliberately low. Each one costs a draw call, an
- * outline and a forty-two-bone skeleton, where the old static sheep cost
- * nothing but triangles — a pasture of 200 m2 now carries three beasts
- * rather than a dozen, and looks more like a pasture for it.
+ * Head per square metre. Low, because each one costs a draw call, an
+ * outline and a forty-two-bone skeleton — a pasture of 200 m2 carries
+ * five beasts rather than the dozen sheep it used to.
+ *
+ * Not as low as real stocking. A field with two cows in it is what a
+ * farmer wants and not what a player wants: from the lane it reads as an
+ * empty field somebody left a cow in. This is the number that was tuned by
+ * looking rather than by arithmetic.
  */
-export const ANIMAL_PER_ACRE = 0.017;
+export const ANIMAL_PER_ACRE = 0.026;
 /**
  * The most a beast's own footprint may rise and fall before it is moved.
  *

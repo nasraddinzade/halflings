@@ -5,7 +5,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 
 import { ANIMAL_URLS } from '../../config/assets';
 import { SLOTS, slotColor, type AnimalDress, type AnimalKind } from '../../config/animals';
-import { ANIMAL_LENGTH } from '../../config/constants';
+import { ANIMAL_BOUNDS_MARGIN, ANIMAL_LENGTH } from '../../config/constants';
 
 /**
  * Loads the field animals and turns each one into a single mesh.
@@ -113,16 +113,63 @@ function build(
   mesh.bind(first.skeleton, first.bindMatrix);
   mesh.bindMode = first.bindMode;
 
-  merged.computeBoundingBox();
-  merged.computeBoundingSphere();
-  const box = merged.boundingBox;
+  const rest = restBounds(root, mesh);
+
   // Scaled by its own length rather than by a number written down here:
   // the pack's animals are modelled at different sizes, and a single
   // multiplier would make the donkey the size of the horse
-  const length = box === null ? 1 : Math.max(box.max.z - box.min.z, box.max.x - box.min.x);
+  const size = rest.clone().applyMatrix4(mesh.matrixWorld).getSize(new THREE.Vector3());
+  const length = Math.max(size.z, size.x);
   const scale = length > 1e-6 ? ANIMAL_LENGTH / length : 1;
 
+  // Culling bounds from the same measurement, and for the same reason: a
+  // sphere sized off the stored vertices is four times too small here, and
+  // the whole animal would blink out of view whenever its centre left the
+  // frustum. Widened past the rest pose because a grazing beast reaches
+  // further down and forward than the pose this was measured in.
+  //
+  // Set ONCE, on the shared geometry. Every clone of this template points
+  // at this same BufferGeometry, so a caller that widened the radius per
+  // animal would multiply it once per head — 1.35 to the twelfth, not 1.35
+  merged.boundingBox = rest.clone();
+  const sphere = new THREE.Sphere();
+  rest.getBoundingSphere(sphere);
+  sphere.radius *= ANIMAL_BOUNDS_MARGIN;
+  merged.boundingSphere = sphere;
+
   return { root, clips: gltf.animations, scale };
+}
+
+/**
+ * The box the animal actually occupies in its rest pose, in the mesh's own
+ * coordinates.
+ *
+ * Measured through the bones, not off the geometry, and that distinction
+ * is the whole of a bug worth remembering. `geometry.boundingBox` is the
+ * box of the vertices AS STORED, and a skinned mesh stores them in bind
+ * space — the skeleton then moves and SCALES them. On this pack the two
+ * differ by a factor of four: the cow's vertices span 2.00 units and the
+ * bones stretch them to 8.07. Dividing the target length by the first
+ * number gave a cow 6.25 m long and 3.55 m tall, in a valley built around
+ * a halfling of 1.1 m.
+ *
+ * It also survived a check, because the check applied `matrixWorld` to
+ * the same wrong box and handed back the same wrong answer. What gets
+ * drawn is the geometry AFTER the bones, so that is what has to be
+ * measured.
+ */
+function restBounds(root: THREE.Object3D, mesh: THREE.SkinnedMesh): THREE.Box3 {
+  root.updateMatrixWorld(true);
+  const position = mesh.geometry.getAttribute('position');
+  const point = new THREE.Vector3();
+  const box = new THREE.Box3();
+  for (let i = 0; i < position.count; i++) {
+    point.fromBufferAttribute(position, i);
+    mesh.applyBoneTransform(i, point);
+    point.applyMatrix4(mesh.matrixWorld);
+    box.expandByPoint(point);
+  }
+  return box;
 }
 
 /** Fills a geometry's `color` attribute with one palette tone. */

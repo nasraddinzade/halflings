@@ -130,7 +130,7 @@ export class Game {
       this.spray = new Smoke(this.buildings.sprayPoints, WHEEL_SPRAY);
       this.scene.add(this.spray.mesh);
     }
-    this.scene.add(this.hedges.mesh);
+    this.scene.add(this.hedges.group);
     // Into the grid, not the static list: four hundred circles is the
     // same order as the tree trunks, and the grid is what that list is for
     this.obstacles.addToGrid(this.hedges.blockers);

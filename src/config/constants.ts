@@ -274,6 +274,27 @@ export const BANK_WIDTH = 1.2;
  */
 export const HEDGE_FOOT = 1;
 export const HEDGE_CREST = 0.95;
+/**
+ * The hedge is a BANK with a CROWN, not a solid ridge.
+ *
+ * Extruded as one smooth trapezoidal prism it read as a strip of dark
+ * green laid on the grass — a slab, not a hedge. Under a three-step toon
+ * shader a smooth prism has one lit face, one shaded face and no
+ * silhouette at all, and silhouette is the whole of what makes a hedge
+ * legible: a real one is a line of overlapping masses with a broken top,
+ * and the eye reads the broken top before it reads anything else.
+ *
+ * So the earth bank goes down to HEDGE_BANK and the rest of the height is
+ * lumps of foliage set along it, each with its own size, lean and tone.
+ * Instanced-cheap: about 24 triangles a lump against 8,000 for the ribbon
+ * it replaces.
+ */
+export const HEDGE_BANK = 0.34;
+/** Along the line, centres. Closer than a lump is wide, so it is a line. */
+export const HEDGE_LUMP_STEP = 0.62;
+export const HEDGE_LUMP_RADIUS = 0.46;
+/** Its own stream, so the foliage holds still when anything else moves. */
+export const HEDGE_SEED = 60719;
 /** Where the bank's shoulder sits, as a share of the crest. */
 export const HEDGE_SHOULDER = 0.19;
 /** How far the crest wanders, so no two metres of it are alike. */

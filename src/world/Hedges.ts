@@ -1,54 +1,93 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
-import { HEDGE_BEDDING, HEDGE_CREST, HEDGE_FOOT, HEDGE_ROUGHNESS, HEDGE_SHOULDER } from '../config/constants';
+import {
+  HEDGE_BANK,
+  HEDGE_BEDDING,
+  HEDGE_CREST,
+  HEDGE_FOOT,
+  HEDGE_LUMP_RADIUS,
+  HEDGE_LUMP_STEP,
+  HEDGE_SEED,
+  HEDGE_SHOULDER,
+} from '../config/constants';
 import { PALETTE, darken } from '../config/palette';
 import { allHedges, type HedgeRun } from '../config/hedges';
 import { applyStyle } from '../render/style';
 import type { Circle } from './Obstacles';
 import { heightAt } from './heightfield';
+import { makeRandom } from '../core/random';
 
 /**
- * Hedges, as extruded ribbon.
+ * Hedges: an earth bank with a crown of foliage standing on it.
  *
- * Not a term in the height field. A hedge bank is about a metre across
- * and the terrain samples at 1.5 quads to the metre, so it cannot be
- * represented there; and putting five hundred segment tests inside
- * heightAt would be paid two hundred thousand times at startup. As
- * geometry it costs about seven thousand triangles, merged into one mesh
- * and carrying no outline — the same reasoning as the grass, which is
- * that a contour drawn on a metre-wide object does not read.
+ * It was one smooth extruded prism, and it read as a strip of dark green
+ * laid on the grass. That is what a smooth prism does under a three-step
+ * toon shader: one lit face, one shaded face, and no silhouette. A hedge
+ * is legible almost entirely by its silhouette — a line of overlapping
+ * masses with a broken top — so the shape has to be in the geometry.
  *
- * Not instanced bushes either: the same length as instances would be
- * around twenty-six thousand triangles and would look like a row of
- * separate objects rather than a continuous boundary, which is precisely
- * what a boundary must not look like.
+ * The bank is still a ribbon, because a bank IS a smooth prism, and it is
+ * now low: HEDGE_BANK rather than the whole height. The rest is lumps.
+ *
+ * Not in the height field. A hedge bank is about a metre across and the
+ * terrain samples at 1.5 quads to the metre, so it cannot be represented
+ * there, and five hundred segment tests inside heightAt would be paid
+ * hundreds of thousands of times at startup.
+ *
+ * No outline on either piece, for the same reason the grass has none: a
+ * contour drawn on a half-metre lump does not read, and it would double
+ * the draw calls.
  *
  * The player is stopped by circles in the obstacle grid, not by slope.
  */
 export class Hedges {
+  readonly group = new THREE.Group();
+  /** The earth bank the hedge grows out of. */
   readonly mesh: THREE.Mesh;
   /** Fed into the same grid that already bins the tree trunks. */
   readonly blockers: Circle[] = [];
 
   constructor() {
-    const pieces: THREE.BufferGeometry[] = [];
+    const banks: THREE.BufferGeometry[] = [];
+    const leaves: THREE.BufferGeometry[] = [];
+    const random = makeRandom(HEDGE_SEED);
 
     for (const run of allHedges()) {
       const geometry = ribbon(run, this.blockers);
-      if (geometry !== null) pieces.push(geometry);
+      if (geometry !== null) banks.push(geometry);
+      crown(run, leaves, random);
     }
 
-    const merged = mergeGeometries(pieces, false);
-    for (const piece of pieces) piece.dispose();
-    if (merged === null) throw new Error('[hedges] could not merge the hedge geometry');
+    const merged = mergeGeometries(banks, false);
+    for (const piece of banks) piece.dispose();
+    if (merged === null) throw new Error('[hedges] could not merge the hedge bank');
     merged.computeVertexNormals();
     merged.computeBoundingSphere();
 
+    this.group.name = 'hedges';
     this.mesh = new THREE.Mesh(merged);
-    this.mesh.name = 'hedges';
+    this.mesh.name = 'hedge_bank';
+    this.group.add(this.mesh);
     applyStyle(this.mesh, {
-      color: darken(PALETTE.grass, 0.78),
+      // The bank is earth under grass, not foliage: darker and browner
+      // than the crown, or the two read as one slab again
+      color: darken(PALETTE.grass, 0.62),
+      outline: false,
+      castShadow: true,
+      receiveShadow: true,
+    });
+
+    const foliage = mergeGeometries(leaves, false);
+    for (const piece of leaves) piece.dispose();
+    if (foliage === null) throw new Error('[hedges] could not merge the hedge crown');
+    foliage.computeVertexNormals();
+    foliage.computeBoundingSphere();
+    const crownMesh = new THREE.Mesh(foliage);
+    crownMesh.name = 'hedge_crown';
+    this.group.add(crownMesh);
+    applyStyle(crownMesh, {
+      color: darken(PALETTE.grass, 0.86),
       outline: false,
       castShadow: true,
       receiveShadow: true,
@@ -56,15 +95,10 @@ export class Hedges {
   }
 
   dispose(): void {
-    this.mesh.geometry.dispose();
+    this.group.traverse((child) => {
+      if (child instanceof THREE.Mesh) child.geometry.dispose();
+    });
   }
-}
-
-/** Deterministic 1D wobble along a hedge, so no two metres are alike. */
-function crestAt(distance: number): number {
-  return HEDGE_CREST
-    + Math.sin(distance * 2.09) * HEDGE_ROUGHNESS * 0.6
-    + Math.sin(distance * 0.77 + 1.7) * HEDGE_ROUGHNESS * 0.4;
 }
 
 /**
@@ -120,7 +154,7 @@ function ribbon(run: HedgeRun, blockers: Circle[]): THREE.BufferGeometry | null 
 
       if (isGate(run, along)) { previous = -1; continue; }
 
-      const top = heightAt(x, z) + crestAt(along);
+      const top = heightAt(x, z) + HEDGE_BANK;
       for (const [across, share] of profile) {
         const px = x + nx * across;
         const pz = z + nz * across;
@@ -168,4 +202,64 @@ function isGate(run: HedgeRun, along: number): boolean {
     if (along >= gate[0] && along <= gate[1]) return true;
   }
   return false;
+}
+
+
+/**
+ * The foliage: a line of overlapping lumps along the run, standing on the
+ * bank.
+ *
+ * Each is squashed across the line and stretched along it, so a lump reads
+ * as part of a hedge rather than as a bush that happens to be in a row —
+ * and each gets its own height, lean and lateral nudge, because a hedge
+ * whose top is a smooth curve is the slab this replaces.
+ *
+ * Deliberately NOT instanced. An InstancedMesh would need its own draw
+ * call and its own cull sphere spanning the whole village; merged into one
+ * static mesh the crown costs nothing the bank was not already costing.
+ */
+function crown(run: HedgeRun, out: THREE.BufferGeometry[], random: () => number): void {
+  let travelled = 0;
+
+  for (let i = 1; i < run.points.length; i++) {
+    const a = run.points[i - 1];
+    const b = run.points[i];
+    if (a === undefined || b === undefined) continue;
+    const dx = b[0] - a[0];
+    const dz = b[1] - a[1];
+    const length = Math.hypot(dx, dz);
+    if (length < 1e-4) continue;
+    const nx = -dz / length;
+    const nz = dx / length;
+    const steps = Math.max(1, Math.round(length / HEDGE_LUMP_STEP));
+
+    for (let s = i === 1 ? 0 : 1; s <= steps; s++) {
+      const t = s / steps;
+      const along = travelled + length * t;
+      if (isGate(run, along)) continue;
+
+      // Sideways nudge and its own size, so no two are alike and the line
+      // wanders the way a grown hedge does
+      const side = (random() - 0.5) * HEDGE_FOOT * 0.42;
+      const x = a[0] + dx * t + nx * side;
+      const z = a[1] + dz * t + nz * side;
+      const radius = HEDGE_LUMP_RADIUS * (0.78 + random() * 0.5);
+      const squash = 0.85 + random() * 0.3;
+      // The TOP is chosen first and the centre is worked back from it.
+      // Choosing the centre and letting the radius add on top put 132 of
+      // 265 lumps above a halfling's 1.32 m eye — every lane a green
+      // corridor, which is the thing HEDGE_CREST exists to prevent
+      const top = HEDGE_CREST * (0.72 + random() * 0.28);
+      const centre = Math.max(HEDGE_BANK * 0.6, top - radius * squash);
+
+      const lump = new THREE.IcosahedronGeometry(radius, 0);
+      // Narrow across the line, longer along it: the mass of a hedge runs
+      // with the boundary, not across it
+      lump.scale(1, squash, 1.35);
+      lump.rotateY(Math.atan2(dx, dz) + (random() - 0.5) * 0.5);
+      lump.translate(x, heightAt(x, z) + centre, z);
+      out.push(lump.toNonIndexed());
+    }
+    travelled += length;
+  }
 }

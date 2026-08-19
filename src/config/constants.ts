@@ -149,10 +149,20 @@ export const VALLEY_RADIUS = VALLEY_SIZE / 2;
  * two and a half.
  *
  * Measured cost: the terrain is one draw call at any resolution, so the
- * frame barely notices. What is paid is startup — 481 ms to displace,
- * normal and build the BVH, against 258 ms at 256. Two quads per metre
- * costs 886 ms and buys nothing further; anything finer than a lane floor
- * belongs in geometry, not in the height field.
+ * frame barely notices. What is paid is startup.
+ *
+ * That figure used to read 481 ms and it is stale — it was measured
+ * before the pond dish, the wheel pit, the building pads and the scarps,
+ * every one of which added a term to heightAt. Measured again, warm:
+ * 1.6 s in total, of which displacement is 830 ms, vertex normals 120 and
+ * the BVH 719. The BVH is not the landform's fault — a flat plane of the
+ * same resolution costs 590 of those 719.
+ *
+ * Reading the vertices through the raw Float32Array instead of
+ * BufferAttribute.getX/setY was tried and changed nothing measurable, so
+ * the accessors are not the cost either. What is left is heightAt itself,
+ * and the honest next step is to make IT cheaper rather than to guess
+ * again at its callers.
  */
 export const VALLEY_SEGMENTS = 384;
 

@@ -1,0 +1,83 @@
+/**
+ * The valley's landform, as data.
+ *
+ * Before this the floor was flat: mean slope 3 degrees from r=10 to r=100,
+ * less than a metre of rise over any eight-metre span anywhere inside the
+ * rim. A dwelling dug into a hillside was the one thing the whole village
+ * is built around, and there was no hillside — the ground rose 0.30 m
+ * across a mound 3.13 m tall, so nine tenths of every "hill" was an
+ * artificial dome sitting on a lawn. That is why it did not read.
+ *
+ * A scarp is a straight crest with round ends, a skirt that falls away
+ * from it, and a front that wanders. Dwellings are cut into the skirt, so
+ * their doors face down the fall line and their backs are in real ground.
+ * Being data rather than noise, the settlement can be derived from it: a
+ * row of plots is a contour of a scarp, not a list of coordinates.
+ */
+
+export interface Scarp {
+  id: string;
+  /** Centre of the crest segment. */
+  x: number;
+  z: number;
+  /** Bearing of the crest; the fall line runs deg - 90. */
+  deg: number;
+  /** Half-length of the crest segment. The ends are round caps. */
+  half: number;
+  /** Distance at which the skirt is exactly zero. */
+  toe: number;
+  /** Width of the falling skirt. */
+  width: number;
+  /** Metres the shelf stands above the ground outside the toe. */
+  rise: number;
+  /** How far the front wanders, in metres. */
+  wobble: number;
+  wave: number;
+  phase: number;
+  /** Exempt from the water guard. */
+  free?: boolean;
+}
+
+export const SCARPS: readonly Scarp[] = [
+  // The broad lie of the land. Its crest lies west of everything, so its
+  // uphill direction is the same westward one the smaller banks have and
+  // it can never flip a fall line: it peaks at 10 degrees against a bank's
+  // 28. No dwellings sit on it. It is why the higher end and the mill
+  // stand three metres above the green.
+  //
+  // Its toe is 27 and not the 38 first proposed: at 38 the skirt reaches
+  // 105.6 m, and the rim starts at 104.96. A landform term that touches
+  // the rim is a landform term that can open the world's own border.
+  {
+    id: 'shoulder', x: -46, z: 12, deg: 158, half: 10,
+    toe: 27, width: 38, rise: 4.5, wobble: 4, wave: 0.1, phase: 0.4, free: true,
+  },
+  // The knot: four plots on the west side of the green.
+  {
+    id: 'town', x: -9.5, z: 6, deg: 157.7, half: 24,
+    toe: 19, width: 11, rise: 4.15, wobble: 3.5, wave: 0.105, phase: 1.35,
+  },
+  // The higher end: three plots, up the shoulder and back.
+  {
+    id: 'high', x: -44, z: 34, deg: 161, half: 17,
+    toe: 19, width: 11, rise: 4.15, wobble: 3, wave: 0.12, phase: 2.7,
+  },
+  // The far bank's terrace: four plots looking north over the channel.
+  // Exempt from the guard because it IS the terrace the guard exists to
+  // protect — guarding it against itself would flatten it.
+  {
+    id: 'haugh', x: 2.3, z: -50.8, deg: 114, half: 20,
+    toe: 19, width: 11, rise: 4.15, wobble: 2.6, wave: 0.14, phase: 0.15, free: true,
+  },
+  // Three steadings above the mill, at the west end of the water.
+  {
+    id: 'millbank', x: -47, z: -12, deg: 150, half: 15,
+    toe: 19, width: 11, rise: 3.9, wobble: 2, wave: 0.18, phase: 3.9,
+  },
+  // A single hillock east of the green: one outlying farmstead, so the
+  // nucleus reads as the middle of a parish rather than as the whole world.
+  {
+    id: 'fold', x: 28, z: 30, deg: 158, half: 3,
+    toe: 19, width: 11, rise: 4.15, wobble: 2, wave: 0.2, phase: 1.9,
+  },
+];

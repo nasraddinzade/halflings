@@ -26,6 +26,9 @@ import {
   POND_RADIUS,
   POND_WATER_DEPTH,
   POND_WOBBLE,
+  HAUGH_FLAT,
+  HAUGH_SLOPE,
+  SCARP_WOBBLE,
   WHEEL_PIT_BANK,
   WHEEL_PIT_DEPTH,
   WHEEL_PIT_RADIUS,
@@ -40,6 +43,7 @@ import {
 import { BURROWS, PAD_BIAS, PAD_FADE, PAD_MARGIN } from '../config/burrows';
 import { BUILDING_PADS } from '../config/buildings';
 import { POND, pondEdge } from '../config/green';
+import { SCARPS } from '../config/scarps';
 import { faceOf, padWeight, type BurrowFace, type Pad } from './burrow/profile';
 
 function clamp01(value: number): number {
@@ -88,6 +92,23 @@ function fbm(x: number, z: number, octaves: number): number {
   }
   return sum / total;
 }
+
+/** The scarps, with their trigonometry and their bounds worked out once. */
+const SCARP_TERMS = SCARPS.map((s) => {
+  const a = (s.deg * Math.PI) / 180;
+  const outer = s.toe + s.wobble;
+  return {
+    ...s,
+    ax: Math.sin(a),
+    az: Math.cos(a),
+    outerSq: outer * outer,
+    inner: s.toe - s.width,
+  };
+});
+
+// Declared here and not beside scarpAt: FACES is a module-level const that
+// calls valleyFloor while the module is still initialising, and a `const`
+// read before its own line throws. The function hoists; the table does not.
 
 /** Channel axis: where the middle of the river runs at a given x. */
 export function riverCenterZ(x: number): number {
@@ -225,8 +246,64 @@ function burrowGround(x: number, z: number, floor: number): number {
   return lerp(floor, sum / total, strongest);
 }
 
+
+/**
+ * Raised ground may not stand higher than a ramp rising from HAUGH_FLAT
+ * metres off the channel axis.
+ *
+ * A gate, not a min and not a smooth-min. A hard min is one scarp-tuning
+ * away from creasing, and a smooth-min with an early-out creases at its
+ * own toe. This is smooth everywhere, exactly zero over the water, exactly
+ * h once there is room, and it can only ever REMOVE height — so no future
+ * edit to the scarps can put a cliff over the channel, whoever makes it.
+ */
+function waterGuard(height: number, acrossFromAxis: number): number {
+  if (height <= 0) return 0;
+  const need = HAUGH_FLAT + height / HAUGH_SLOPE;
+  if (acrossFromAxis >= need) return height;
+  return height * smoothstep(HAUGH_FLAT, need, acrossFromAxis);
+}
+
+/** How high the scarps stand at this point. */
+function scarpAt(x: number, z: number, channelZ: number): number {
+  let free = 0;
+  let guarded = 0;
+
+  for (let i = 0; i < SCARP_TERMS.length; i++) {
+    const s = SCARP_TERMS[i];
+    if (s === undefined) continue;
+
+    const dx = x - s.x;
+    const dz = z - s.z;
+    // Distance to the crest SEGMENT, so the two ends are round caps and
+    // each bank dies for a reason instead of stopping at a drawn line
+    let along = dx * s.ax + dz * s.az;
+    if (along > s.half) along = s.half;
+    else if (along < -s.half) along = -s.half;
+
+    const ex = dx - along * s.ax;
+    const ez = dz - along * s.az;
+    const acrossSq = ex * ex + ez * ez;
+    if (acrossSq >= s.outerSq) continue;
+
+    // One sine along the crest shifts that distance, so the fall line is
+    // not a constant bearing: the doors splay without a hand-written angle
+    const across = Math.sqrt(acrossSq) - s.wobble * Math.sin(along * s.wave + s.phase);
+    if (across >= s.toe) continue;
+
+    const height = across <= s.inner
+      ? s.rise
+      : s.rise * (1 - smoothstep(s.inner, s.toe, across));
+    if (s.free) free += height;
+    else guarded += height;
+  }
+
+  if (guarded > 0) free += waterGuard(guarded, Math.abs(z - channelZ));
+  return free;
+}
+
 /** Valley terrain without the burrows and without the channel. */
-export function valleyFloor(x: number, z: number): number {
+export function valleyFloor(x: number, z: number, channelZ = riverCenterZ(x)): number {
   // 0 at the valley centre, 1 at the edge
   const distance = Math.hypot(x, z) / VALLEY_RADIUS;
 
@@ -238,9 +315,13 @@ export function valleyFloor(x: number, z: number): number {
   const calm = 1 - smoothstep(CENTER_CALM_INNER, CENTER_CALM_OUTER, distance);
   const hills = fbm(x * HILL_FREQUENCY, z * HILL_FREQUENCY, 4) * HILL_HEIGHT * (1 - calm * 0.8);
 
-  const detail = fbm(x * DETAIL_FREQUENCY, z * DETAIL_FREQUENCY, 3) * DETAIL_HEIGHT;
+  const detail = fbm(x * DETAIL_FREQUENCY, z * DETAIL_FREQUENCY, 3);
+  // The detail noise the terrain already computes, spent twice: once as
+  // height and once to crinkle the scarp edges, so a bank's front is never
+  // a drawn curve and costs no second octave
+  const wobble = detail * SCARP_WOBBLE;
 
-  return rim + hills + detail;
+  return rim + scarpAt(x + wobble, z - wobble, channelZ) + hills + detail * DETAIL_HEIGHT;
 }
 
 /** Ground height without the channel — the water stands on it. */

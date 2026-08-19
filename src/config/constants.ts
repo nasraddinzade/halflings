@@ -173,6 +173,16 @@ export const HILL_HEIGHT = 3.4;
 export const HILL_FREQUENCY = 0.013;
 export const DETAIL_HEIGHT = 0.45;
 export const DETAIL_FREQUENCY = 0.075;
+/**
+ * The water's own ground. Raised land may not stand higher than a ramp of
+ * HAUGH_SLOPE rising from HAUGH_FLAT metres off the channel axis — so no
+ * scarp, present or future, can put a cliff over the river.
+ */
+export const HAUGH_FLAT = 5;
+export const HAUGH_SLOPE = 0.36;
+/** The detail noise the terrain already computes crinkles the scarp edges. */
+export const SCARP_WOBBLE = 0.9;
+
 /** Inside this radius the terrain is damped — the village stands there. */
 export const CENTER_CALM_INNER = 0.05;
 export const CENTER_CALM_OUTER = 0.34;

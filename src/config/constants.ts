@@ -729,9 +729,52 @@ export const SPRAY_OPACITY = 0.5;
 // road: the lane moved with the village and the paving did not
 export const FORD_X = -2;
 export const FORD_Z = -22.34;
-export const FORD_SETTS = 12;
+/**
+ * The ford's gravel bar: how much of the channel's depth it takes back,
+ * and how far it reaches.
+ *
+ * A ford is the place a river is shallow. Cut to the channel's full depth
+ * it was 0.435 m under the surface — knee deep on a halfling, which is
+ * wadeable but hides the paving completely, so the crossing had nothing to
+ * show for itself but four posts.
+ *
+ * Solved rather than nudged: the carve scales by (1 - lift), so the depth
+ * over the setts comes to (W + 0.435)(1 - lift) - W. A first try at 0.62
+ * took too much and left the crossing DRY at -0.015 m, which is a
+ * causeway and not a ford. 0.40 gives about 0.145 m — ankle deep on a
+ * halfling, the stones visible through it, and still a river.
+ */
+export const FORD_BAR_LIFT = 0.45;
+export const FORD_BAR_REACH = 4.6;
+/**
+ * The paving: setts across the river, and setts along the crossing.
+ *
+ * Along the crossing there have to be enough to span the WET width, not
+ * the channel's nominal one — the water ribbon is drawn RIVER_WIDTH * 1.15
+ * either side of the line, so it is nearly seven metres across, and four
+ * setts covered under half of it.
+ */
+export const FORD_ROWS = 3;
+export const FORD_COLS = 10;
 export const FORD_SETT_WIDTH = 0.9;
 export const FORD_SETT_LENGTH = 0.7;
+/** How far out from the crossing line the marker posts stand, in metres. */
+export const FORD_POST_OUT = 4.4;
+/**
+ * The setts: how thick they are and how far their tops stand above the bed.
+ *
+ * They have to BREAK THE SURFACE, and that is not a taste — the water is
+ * an opaque plane, so however shallow the ford is made, a stone under it
+ * is a stone nobody will ever see. The first cut sank them 35 mm into the
+ * bed, which left 15 mm proud of it and 435 mm under the river: the ford
+ * had nothing to show for itself but four posts.
+ *
+ * Measured from the WATER rather than from the bed, so that every sett
+ * stands the same height clear of the surface however the bar domes
+ * underneath it. The stone is thick enough to reach the bed from there.
+ */
+export const FORD_SETT_THICKNESS = 0.45;
+export const FORD_SETT_PROUD = 0.05;
 
 /**
  * The plank footbridge, downstream-side of the ford.

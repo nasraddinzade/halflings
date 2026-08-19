@@ -19,6 +19,10 @@ import {
   RIVER_DEPTH,
   RIVER_ENABLED,
   RIVER_FADE_END,
+  FORD_BAR_LIFT,
+  FORD_BAR_REACH,
+  FORD_X,
+  FORD_Z,
   RIVER_FADE_START,
   RIVER_OFFSET_Z,
   POND_BANK,
@@ -136,7 +140,30 @@ export function riverCarve(x: number, z: number): number {
   const distance = Math.hypot(x, z) / VALLEY_RADIUS;
   const taper = 1 - smoothstep(RIVER_FADE_START, RIVER_FADE_END, distance);
 
-  return RIVER_DEPTH * profile * taper;
+  return RIVER_DEPTH * profile * taper * (1 - fordBar(x, z));
+}
+
+/**
+ * The bar of gravel at the ford, as a share of the channel's depth.
+ *
+ * A ford is not a place somebody laid stones in a river. It is the place
+ * the river is SHALLOW, and the stones are laid because it is shallow.
+ * Without the bar the crossing was cut to the same depth as the rest of
+ * the channel, its paving lay 0.435 m under the surface where nothing
+ * could see it, and the only thing marking the ford was four posts — two
+ * of which stood in open water.
+ *
+ * Written as a lift of the bed rather than a separate carve, so that
+ * everything already keyed to riverCarve — the water depth, the wading,
+ * the ground paint, the fields, the vegetation — follows it for free.
+ */
+function fordBar(x: number, z: number): number {
+  const dx = x - FORD_X;
+  const dz = z - FORD_Z;
+  const d2 = dx * dx + dz * dz;
+  if (d2 >= FORD_BAR_REACH * FORD_BAR_REACH) return 0;
+  const t = Math.sqrt(d2) / FORD_BAR_REACH;
+  return FORD_BAR_LIFT * (1 - t * t * (3 - 2 * t));
 }
 
 /**

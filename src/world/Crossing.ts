@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import {
   BRIDGE_BEAM,
+  FORD_POST_OUT,
   BRIDGE_DECK_WIDTH,
   BRIDGE_KERB_BURY,
   BRIDGE_PLANKS,
@@ -10,8 +11,11 @@ import {
   BRIDGE_X,
   BRIDGE_Z_NORTH,
   BRIDGE_Z_SOUTH,
-  FORD_SETTS,
+  FORD_COLS,
+  FORD_ROWS,
   FORD_SETT_LENGTH,
+  FORD_SETT_PROUD,
+  FORD_SETT_THICKNESS,
   FORD_SETT_WIDTH,
   FORD_X,
   FORD_Z,
@@ -55,24 +59,42 @@ export class Crossing {
    * trip hazard the player cannot see, and it would break the wade.
    */
   private buildFord(batch: PropBatch): void {
-    const halfWidth = (FORD_SETTS / 4) * FORD_SETT_WIDTH * 0.5;
+    const halfAcross = (FORD_ROWS * FORD_SETT_WIDTH) / 2;
+    const halfAlong = (FORD_COLS * FORD_SETT_LENGTH) / 2;
 
-    for (let row = 0; row < FORD_SETTS / 4; row++) {
-      for (let col = 0; col < 4; col++) {
-        const x = FORD_X - halfWidth + (row + 0.5) * FORD_SETT_WIDTH;
-        const z = FORD_Z - 1.5 * FORD_SETT_LENGTH + (col + 0.5) * FORD_SETT_LENGTH;
-        const sett = new THREE.BoxGeometry(FORD_SETT_WIDTH * 0.94, 0.1, FORD_SETT_LENGTH * 0.94);
-        // Sunk, not laid on: the bed is what the BVH stands the player on,
-        // and a stone proud of it is a step in the middle of a river
-        sett.translate(x, heightAt(x, z) - 0.035, z);
+    for (let row = 0; row < FORD_ROWS; row++) {
+      for (let col = 0; col < FORD_COLS; col++) {
+        const x = FORD_X - halfAcross + (row + 0.5) * FORD_SETT_WIDTH;
+        const z = FORD_Z - halfAlong + (col + 0.5) * FORD_SETT_LENGTH;
+        // Laid level with the WATER, not with the bed.
+        //
+        // A paved ford is a level causeway; the bed under it is not level,
+        // because the gravel bar that makes the crossing shallow is a
+        // dome. Set at a fixed height above the BED, only the three setts
+        // over the top of the dome broke the surface and the other nine
+        // stayed invisible — the ford read as three pale slivers floating
+        // in the river. Set at a fixed height above the WATER, all of them
+        // stand the same height clear of it, which is what a causeway is.
+        //
+        // The stone is thick enough to reach down into the bed from there,
+        // and the excess is buried
+        const water = groundHeight(x, z) - RIVER_WATER_DEPTH;
+        const sett = new THREE.BoxGeometry(
+          FORD_SETT_WIDTH * 0.94, FORD_SETT_THICKNESS, FORD_SETT_LENGTH * 0.94,
+        );
+        sett.translate(x, water + FORD_SETT_PROUD - FORD_SETT_THICKNESS / 2, z);
         batch.add(sett, PALETTE.rock);
       }
     }
 
     // Four squared posts marking the entry, the way a real ford is marked.
-    // No striped depth gauge — that is a modern highway object
+    // No striped depth gauge — that is a modern highway object.
+    //
+    // Set clear of the water. The ribbon is drawn RIVER_WIDTH * 1.15 wide
+    // either side of the channel line, and at 3.2 m out two of the four
+    // posts stood in it — a marker standing in the water marks nothing
     for (const x of [FORD_X - 2.2, FORD_X + 2.2]) {
-      for (const z of [FORD_Z + 3.2, FORD_Z - 3.2]) {
+      for (const z of [FORD_Z + FORD_POST_OUT, FORD_Z - FORD_POST_OUT]) {
         const post = new THREE.BoxGeometry(0.12, 0.9, 0.12);
         post.translate(x, heightAt(x, z) + 0.4, z);
         batch.add(post, PALETTE.woodDark);

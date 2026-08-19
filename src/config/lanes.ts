@@ -41,59 +41,62 @@ export const LANE_HALF_WIDTH: Readonly<Record<LaneClass, number>> = {
 export const LANE_BLEND = 1.45;
 
 export const LANES: readonly Lane[] = [
+  // Routed on the BUILT surface, not drawn on a map: cost is length times
+  // (1 + 9 grade^2), with a penalty past 22 degrees and a hard refusal
+  // past 26, and water, mounds and building pads forbidden. That is why
+  // the street holds 7 degrees across the knot while the hollow way up to
+  // the higher end is allowed 29.7 — a lane that climbs is a lane that
+  // climbs, and pretending otherwise is what produces a road through a
+  // hillside.
   {
-    // From the inn at the head of the green, south through the green, over
-    // the ford, and out between the two widest-spaced dwellings on the far
-    // bank. The one route that crosses the water.
-    id: 'cart',
-    kind: 'cart',
-    points: [
-      [-0.1, 20.1], [0.8, 17], [1.4, 11], [1.2, 6], [0.4, 0], [-0.4, -7],
-      [-0.6, -14], [-0.6, -18], [-0.4, -22], [-0.5, -26], [-6.2, -31.6], [-7.7, -37.3],
-    ],
+    // Past every door of the knot, along the green's west edge
+    id: 'street', kind: 'front',
+    points: [[1.5, 31], [9.5, 22.5], [10.5, 21], [10.5, 18.5], [14.5, 14.5],
+             [14.5, 9], [15.5, 8], [15.5, -2], [16, -2.5]],
   },
   {
-    // Past every door on the north bank, the long way round through the
-    // north. It cannot be a closed circle: the river breaks the ring on
-    // both sides, and a circle would cross it twice.
-    id: 'front',
-    kind: 'front',
-    points: [
-      [19.3, -8], [21.1, 0], [20, 8.3], [14.8, 14.8], [8.4, 19.7], [-0.1, 20.1],
-      [-8.5, 20.3], [-14.7, 15.2], [-19.7, 9.1], [-20.9, 1.2], [-17.4, -5.9], [-13.1, -13.8],
-    ],
+    // The toft rears behind the knot: how you get to the back of a plot
+    id: 'back', kind: 'croft',
+    points: [[-19, 21.5], [-8.5, 11], [-8.5, -1], [-6.5, -3], [-6.5, -8.5], [-6, -9]],
   },
   {
-    // The far bank's street runs BEHIND its row. Those doors face the
-    // centre of the valley, which over there means facing the water, so a
-    // street in front of them would be in the river.
-    id: 'over-water',
-    kind: 'front',
-    points: [[30, -30], [14.5, -34.8], [1.8, -36.1], [-16.3, -39.3]],
+    // The hollow way up to the higher end. It is steep because the ground
+    // is steep; a village on a hill has one of these
+    id: 'higher', kind: 'cart',
+    points: [[-19, 21.5], [-24, 26.5], [-27, 26.5], [-34, 33.5], [-34.5, 39.5],
+             [-35.5, 40.5], [-35.5, 42], [-40, 47], [-40, 52], [-38.5, 55.5],
+             [-33, 56], [-30.5, 54.5], [-30, 55]],
   },
   {
-    // Out of the village between two tofts, as a lane leaves a village.
-    id: 'mill',
-    kind: 'cart',
-    points: [[-8, 1], [-12, -3.5], [-16, -8], [-20, -13.4], [-24, -17], [-26.5, -19.5]],
+    // The green to the mill, along the north bank
+    id: 'millway', kind: 'cart',
+    points: [[16, -2.5], [14, -4.5], [14, -13], [13, -14], [11, -14], [9.5, -15.5],
+             [4, -16], [2, -17], [-3, -17.5], [-5, -18.5], [-10.5, -19], [-13, -20],
+             [-16.5, -20], [-19.5, -17], [-23.5, -17]],
   },
   {
-    // On the green: the south gate to the well, the well to the oak, the
-    // oak to the north gate. It used to run THROUGH the well and the oak,
-    // because it was drawn before either stood there and its middle two
-    // points were simply their positions. Bending the path round them is
-    // the right way out; moving them off their own path would leave a
-    // beaten track that starts at a gate and ends at nothing, which is
-    // exactly why buildPaths() was deleted.
-    id: 'green-walk',
-    kind: 'foot',
-    points: [[0.75, 3], [0.1, 8.8], [-2.55, 12.8], [-4, 15]],
+    // The mill up to its three steadings
+    id: 'mill-end', kind: 'croft',
+    points: [[-23.5, -17], [-23, -12.5], [-27.5, -6.5], [-28.5, -3], [-31, -0.5],
+             [-31, 2], [-34, 5], [-35.5, 4], [-35, 3]],
   },
   {
-    // The north bank, linking the three fishing spots.
-    id: 'bank',
-    kind: 'foot',
-    points: [[-8, -19.3], [-1, -18.4], [4, -17], [10, -15.9], [16, -14.8]],
+    // Down off the millway to the crossing
+    id: 'ford', kind: 'cart',
+    points: [[-6, -18.5], [-3, -19], [-2, -20], [-2, -24.5], [-1, -25.5], [-3, -27.5], [-4.5, -27.5]],
+  },
+  {
+    // In front of the water row, on the far bank
+    id: 'far', kind: 'front',
+    points: [[-8, -28.5], [-4, -29], [-2.5, -30.5], [1.5, -30.5], [4.5, -33.5],
+             [9.5, -33.5], [13.5, -35], [26, -35]],
+  },
+  { id: 'bridge-s', kind: 'foot', points: [[26, -35], [16.5, -25.5], [16.5, -23.5]] },
+  { id: 'bridge-n', kind: 'foot', points: [[16.5, -14.5], [14, -11.5], [14, -9], [15.5, -7.5]] },
+  {
+    // Out to the outlying farmstead
+    id: 'fold', kind: 'croft',
+    points: [[28, 20], [38.5, 30.5], [40, 33]],
   },
 ];
 

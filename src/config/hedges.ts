@@ -1,9 +1,8 @@
-import { BURROWS, FACE_CLEARANCE, type Burrow } from './burrows';
-import { INN } from './buildings';
+import { BURROWS, FACE_CLEARANCE, doorFacing, type Burrow } from './burrows';
 import { HEDGE_FOOT, PLAYER_RADIUS, RIVER_WATER_DEPTH } from './constants';
 import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from './lanes';
 import { DOOR_TOP } from '../world/burrow/profile';
-import { groundHeight, riverCarve, riverCenterZ } from '../world/heightfield';
+import { groundHeight, riverCarve } from '../world/heightfield';
 
 /**
  * Where the hedges run.
@@ -24,107 +23,116 @@ export interface HedgeRun {
   gates?: ReadonlyArray<readonly [number, number]>;
 }
 
-/** Where the crofts end and the wood begins. */
-export const CROFT_REAR = 42;
-/** Where a boundary starts, just clear of the frontage. */
-export const TOFT_INNER = 22.6;
-
-const bearingOf = (x: number, z: number): number =>
-  ((Math.atan2(x, z) * 180) / Math.PI + 360) % 360;
-const onArc = (r: number, deg: number): [number, number] =>
-  [Math.sin((deg * Math.PI) / 180) * r, Math.cos((deg * Math.PI) / 180) * r];
-
 /** Standing water over the ground at a point, without needing the player. */
 function flooded(x: number, z: number): boolean {
-  const carve = riverCarve(x, z);
-  if (carve <= RIVER_WATER_DEPTH) return false;
-  return groundHeight(x, z) - RIVER_WATER_DEPTH > groundHeight(x, z) - carve;
-}
-
-/** The inn takes a frontage on the ring like any household. */
-const INN_SEAT: Burrow = { id: 'inn', x: INN.x, z: INN.z, radius: 4.4, height: 4.14, facing: 0 };
-
-function ringSeats(): Array<{ seat: Burrow; deg: number }> {
-  return [...BURROWS.filter((b) => b.z > riverCenterZ(b.x)), INN_SEAT]
-    .map((seat) => ({ seat, deg: bearingOf(seat.x, seat.z) }))
-    .sort((a, b) => a.deg - b.deg);
-}
-
-/** The one wide opening in the ring, where the river cuts through it. */
-function ringGap(ring: ReturnType<typeof ringSeats>): { from: number; span: number } {
-  let widest = { from: 0, span: -1 };
-  for (let i = 0; i < ring.length; i++) {
-    const a = ring[i];
-    const b = ring[(i + 1) % ring.length];
-    if (a === undefined || b === undefined) continue;
-    const span = ((b.deg - a.deg) + 360) % 360;
-    if (span > widest.span) widest = { from: a.deg, span };
-  }
-  return widest;
+  return riverCarve(x, z) > RIVER_WATER_DEPTH;
 }
 
 /**
- * Boundaries between neighbours, running outward from the frontage.
+ * A plot boundary runs UPHILL from the frontage, along the fall line.
  *
- * Down the middle of the GAP, not along the angular bisector. With
- * unequal mound radii those are different lines, and the bisector came
- * within 0.88 m of a mound — half of that is inside the hedge itself.
+ * It used to be a ray from the origin, from r 22.6 to r 42, and the croft
+ * rear was a circle at r 42. Both were ring ideas: they only make sense
+ * if every dwelling sits on one circle facing the middle. With five foci
+ * on five banks a ray from the origin crosses whatever it happens to
+ * cross, and a circle at r 42 runs through three of them.
+ *
+ * A toft is the ground between two neighbours, and its edge is the line
+ * that neither of them can plough: from the frontage, straight back up
+ * the slope, to where the bank tops out. That is the same line a real
+ * boundary follows, and it needs no bearings and no radii.
  */
+function neighboursInFocus(): Array<[Burrow, Burrow]> {
+  // Two dwellings are neighbours if nothing else stands between them and
+  // they are close enough to share a boundary at all. 14 m is a little
+  // over the widest frontage class; beyond that they are separate foci
+  const pairs: Array<[Burrow, Burrow]> = [];
+  for (let i = 0; i < BURROWS.length; i++) {
+    for (let j = i + 1; j < BURROWS.length; j++) {
+      const a = BURROWS[i];
+      const b = BURROWS[j];
+      if (a === undefined || b === undefined) continue;
+      const apart = Math.hypot(a.x - b.x, a.z - b.z);
+      if (apart > 14) continue;
+      let between = false;
+      for (const other of BURROWS) {
+        if (other === a || other === b) continue;
+        if (Math.hypot(other.x - a.x, other.z - a.z) < apart
+          && Math.hypot(other.x - b.x, other.z - b.z) < apart) { between = true; break; }
+      }
+      if (!between) pairs.push([a, b]);
+    }
+  }
+  return pairs;
+}
+
 export function toftBoundaries(): HedgeRun[] {
-  const ring = ringSeats();
-  const gap = ringGap(ring);
   const runs: HedgeRun[] = [];
 
-  for (let i = 0; i < ring.length; i++) {
-    const a = ring[i];
-    const b = ring[(i + 1) % ring.length];
-    if (a === undefined || b === undefined) continue;
-    const span = ((b.deg - a.deg) + 360) % 360;
-    // No boundary across the river gap: there is nothing to divide there
-    if (span >= gap.span) continue;
+  for (const [a, b] of neighboursInFocus()) {
+    // The midpoint of the GAP, not of the centres: with unequal mounds
+    // those are different points, and the centre midpoint can sit inside
+    // the larger neighbour
+    const apart = Math.hypot(b.x - a.x, b.z - a.z);
+    const t = (apart + a.radius - b.radius) / (2 * apart);
+    const mx = a.x + (b.x - a.x) * t;
+    const mz = a.z + (b.z - a.z) * t;
 
-    const apart = Math.hypot(b.seat.x - a.seat.x, b.seat.z - a.seat.z);
-    const t = (apart + a.seat.radius - b.seat.radius) / (2 * apart);
-    const deg = bearingOf(
-      a.seat.x + (b.seat.x - a.seat.x) * t,
-      a.seat.z + (b.seat.z - a.seat.z) * t,
-    );
+    // Uphill is the way neither door looks. Take the two facings, average
+    // them, and run the boundary against it
+    const ax = Math.sin(doorFacing(a)) + Math.sin(doorFacing(b));
+    const az = Math.cos(doorFacing(a)) + Math.cos(doorFacing(b));
+    const len = Math.hypot(ax, az);
+    if (len < 1e-6) continue;
+    const ux = -ax / len;
+    const uz = -az / len;
 
-    // Stop short of the water if this bearing runs into it
-    let outer = CROFT_REAR;
-    for (let r = TOFT_INNER; r <= CROFT_REAR; r += 0.5) {
-      const [x, z] = onArc(r, deg);
-      if (flooded(x, z)) { outer = r - 1.5; break; }
+    // From just outside the frontage, back until the bank stops rising
+    const from: [number, number] = [mx - ux * 2.2, mz - uz * 2.2];
+    let reach = 4;
+    let last = groundHeight(mx, mz);
+    for (let d = 4; d <= 26; d += 0.5) {
+      const y = groundHeight(mx + ux * d, mz + uz * d);
+      if (y < last + 0.02) break;
+      last = y;
+      reach = d;
     }
-    if (outer <= TOFT_INNER + 2) continue;
-
-    runs.push({ id: `toft-${a.seat.id}`, points: [onArc(TOFT_INNER, deg), onArc(outer, deg)] });
+    if (reach < 6) continue;
+    const to: [number, number] = [mx + ux * reach, mz + uz * reach];
+    if (flooded(to[0], to[1])) continue;
+    runs.push({ id: `toft-${a.id}-${b.id}`, points: [from, to] });
   }
 
   return runs;
 }
 
-/** The back of the crofts, cut wherever it would meet the water. */
+/**
+ * The back of the crofts: an offset of the lane that serves their rears,
+ * not a circle. A croft ends where the next thing begins, and behind the
+ * knot that thing is the back lane.
+ */
 export function croftRear(): HedgeRun[] {
-  const ring = ringSeats();
-  const gap = ringGap(ring);
-  const runs: HedgeRun[] = [];
-  let open: Array<readonly [number, number]> | null = null;
+  const back = LANES.find((lane) => lane.id === 'back');
+  if (back === undefined) return [];
 
-  for (let deg = 0; deg <= 360; deg += 1.5) {
-    const [x, z] = onArc(CROFT_REAR, deg);
-    const behindTheRing = (((deg - gap.from) + 360) % 360) > gap.span;
-    if (behindTheRing && !flooded(x, z)) {
-      if (open === null) open = [];
-      open.push([x, z]);
-    } else if (open !== null) {
-      if (open.length > 2) runs.push({ id: `rear-${runs.length + 1}`, points: open });
-      open = null;
-    }
+  const points: Array<readonly [number, number]> = [];
+  for (let i = 1; i < back.points.length; i++) {
+    const a = back.points[i - 1];
+    const b = back.points[i];
+    if (a === undefined || b === undefined) continue;
+    const dx = b[0] - a[0];
+    const dz = b[1] - a[1];
+    const length = Math.hypot(dx, dz);
+    if (length < 1e-4) continue;
+    // Offset to the uphill side of the lane, which is the side the crofts
+    // are not on
+    const nx = (-dz / length) * 2.4;
+    const nz = (dx / length) * 2.4;
+    if (i === 1) points.push([a[0] + nx, a[1] + nz]);
+    points.push([b[0] + nx, b[1] + nz]);
   }
-  if (open !== null && open.length > 2) runs.push({ id: `rear-${runs.length + 1}`, points: open });
-
-  return runs;
+  if (points.length < 2) return [];
+  return [{ id: 'croft-rear', points }];
 }
 
 /**
@@ -132,10 +140,15 @@ export function croftRear(): HedgeRun[] {
  * edge — which is how a real green meets its street.
  */
 export const GREEN_HEDGES: readonly HedgeRun[] = [
-  { id: 'green-west', points: [[-10, 3], [-10, 15]] },
-  { id: 'green-north', points: [[-10, 15], [5, 15]] },
-  { id: 'green-south', points: [[-10, 3], [7, 3]] },
-  { id: 'green-east', points: [[7, 3], [7, 11]] },
+  {
+    // Ten-sided, and it is a residual rather than a shape: what is left
+    // inside the fork of the street, the millway and the fold lane. A
+    // green is the ground nobody built on, which is why real ones are
+    // never rectangles. 525 m2 against the old rectangle's 204
+    id: 'green',
+    points: [[16, -6.5], [14.5, 3], [13, 12], [10.5, 20], [11.5, 24.5], [21, 25.5],
+             [30.5, 20], [32, 6], [28.5, -4], [21.5, -8], [16, -6.5]],
+  },
 ];
 
 /**

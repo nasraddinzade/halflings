@@ -17,6 +17,7 @@ import {
   HEDGEROW_GATE_CLEARANCE,
   HEDGEROW_SEED,
   HEDGEROW_SPACING,
+  FIELD_HEADLAND,
   HEDGEROW_WORK_CLEARANCE,
   MEADOW_GRASS,
   PASTURE_GRASS,
@@ -707,6 +708,9 @@ function sow(ground: Ground, random: () => number): Map<number, Placement[]> {
         );
         if (x === undefined || z === undefined) continue;
         if (fieldAt(x, z) !== field) continue;
+        // Leave the headland bare: the plough turns there, and it is what
+        // keeps the crop off the hedge bank and out of the gateway
+        if (toBoundary(field.points, x, z) < FIELD_HEADLAND) continue;
 
         const sample = ground.sample(x, z);
         if (sample === null) continue;
@@ -732,6 +736,26 @@ function sow(ground: Ground, random: () => number): Map<number, Placement[]> {
   }
 
   return byChunk;
+}
+
+/** Shortest distance from a point to a polygon's boundary. */
+function toBoundary(
+  points: ReadonlyArray<readonly [number, number]>,
+  x: number,
+  z: number,
+): number {
+  let best = Infinity;
+  for (let a = 0, b = points.length - 1; a < points.length; b = a++) {
+    const p = points[a];
+    const q = points[b];
+    if (p === undefined || q === undefined) continue;
+    const dx = q[0] - p[0];
+    const dz = q[1] - p[1];
+    const len2 = dx * dx + dz * dz;
+    const t = len2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((x - p[0]) * dx + (z - p[1]) * dz) / len2));
+    best = Math.min(best, Math.hypot(x - (p[0] + dx * t), z - (p[1] + dz * t)));
+  }
+  return best;
 }
 
 /**

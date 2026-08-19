@@ -1,6 +1,7 @@
 import { BURROWS, FACE_CLEARANCE, doorFacing, type Burrow } from './burrows';
-import { HEDGE_FOOT, PLAYER_RADIUS, RIVER_WATER_DEPTH } from './constants';
+import { FIELD_GATE_WIDTH, HEDGE_FOOT, PLAYER_RADIUS, RIVER_WATER_DEPTH } from './constants';
 import { fields } from './fields';
+import { CLEARINGS } from './scarps';
 import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from './lanes';
 import { DOOR_TOP } from '../world/burrow/profile';
 import { groundHeight, riverCarve } from '../world/heightfield';
@@ -284,8 +285,10 @@ function trim(
  */
 export function fieldBoundaries(): HedgeRun[] {
   const runs: HedgeRun[] = [];
-  const built = new Set<string>();
+  const byEdge = new Map<string, HedgeRun>();
   const name = (p: readonly [number, number]): string => `${p[0].toFixed(2)},${p[1].toFixed(2)}`;
+  const keyOf = (a: readonly [number, number], b: readonly [number, number]): string =>
+    [name(a), name(b)].sort().join('|');
 
   for (const field of fields()) {
     const p = field.points;
@@ -293,12 +296,65 @@ export function fieldBoundaries(): HedgeRun[] {
       const from = p[a];
       const to = p[(a + 1) % p.length];
       if (from === undefined || to === undefined) continue;
-      const key = [name(from), name(to)].sort().join('|');
-      if (built.has(key)) continue;
-      built.add(key);
-      runs.push({ id: `${field.id}-${a}`, points: [from, to] });
+      const key = keyOf(from, to);
+      if (byEdge.has(key)) continue;
+      const run: HedgeRun = { id: `${field.id}-${a}`, points: [from, to] };
+      byEdge.set(key, run);
+      runs.push(run);
     }
   }
+
+  // Every field gets a way in, on the side facing the nearest part of the
+  // village. All forty were sealed when this was first built: hedges are
+  // obstacles, gateways were only ever cut where a lane crossed one, and
+  // no lane goes out among the fields — so a quarter of the valley was
+  // fenced off from the player. Nothing measured it, because the camera
+  // that flew out to look at the fields does not collide with anything.
+  //
+  // Facing the village is what makes the set of gateways connect rather
+  // than merely exist: each one leads to ground nearer the village than
+  // the field it leaves, so following gates always arrives somewhere
+  // open. A gate cut on a random side can lead into a field that leads
+  // back into this one.
+  for (const field of fields()) {
+    const p = field.points;
+    let near: HedgeRun | undefined;
+    let far: HedgeRun | undefined;
+    let nearD = Infinity;
+    let farD = -Infinity;
+
+    for (let a = 0; a < p.length; a++) {
+      const from = p[a];
+      const to = p[(a + 1) % p.length];
+      if (from === undefined || to === undefined) continue;
+      // Too short to hold a gateway and still be a hedge either side
+      if (Math.hypot(to[0] - from[0], to[1] - from[1]) < FIELD_GATE_WIDTH + 2) continue;
+      const midX = (from[0] + to[0]) / 2;
+      const midZ = (from[1] + to[1]) / 2;
+      let d = Infinity;
+      for (const c of CLEARINGS) d = Math.min(d, Math.hypot(midX - c.x, midZ - c.z));
+      const run = byEdge.get(keyOf(from, to));
+      if (d < nearD) { nearD = d; near = run; }
+      if (d > farD) { farD = d; far = run; }
+    }
+
+    // Two ways in, on opposite sides. One was not enough: a single gate
+    // facing the village can still open into a pocket walled off by its
+    // neighbours' own hedges, and one field in forty came out unreachable
+    // on foot from the spawn even though every field had a gate. Two is
+    // also what a real field has, so that a cart can be driven through
+    // rather than backed out
+    for (const run of [near, far]) {
+      if (run === undefined || (run.gates ?? []).length > 0) continue;
+      // In the middle of the side, not at a corner: allHedges reads a
+      // break at either end of a run as the boundary running out of a
+      // lane and trims the run back instead of opening it
+      const total = measure(run.points).pop() ?? 0;
+      const half = FIELD_GATE_WIDTH / 2;
+      run.gates = [[total / 2 - half, total / 2 + half] as const];
+    }
+  }
+
   return runs;
 }
 

@@ -1118,3 +1118,37 @@ export const CROP_JITTER = 0.14;
  */
 export const MEADOW_GRASS = 1.5;
 export const PASTURE_GRASS = 0.55;
+
+/**
+ * A field gateway, wide enough for a cart at halfling scale.
+ *
+ * The blockers along a hedge stand at HEDGE_FOOT / 2, so the clear width
+ * a player actually gets is this minus HEDGE_FOOT — still six times
+ * PLAYER_RADIUS, which is a gateway rather than a squeeze.
+ */
+export const FIELD_GATE_WIDTH = 2.2;
+
+/**
+ * The gate hung in a field gateway.
+ *
+ * Sized off the halfling, like everything else: a gate a halfling leans
+ * on is about chest high, which is 0.7 m rather than the 1.2 a human
+ * field gate stands at. Five bars, because that is what a field gate has
+ * and four reads as a fence panel.
+ */
+export const GATE_HEIGHT = 0.7;
+export const GATE_POST = 0.13;
+export const GATE_RAIL = 0.055;
+export const GATE_BARS = 5;
+/** How far back the leaf is swung. Open, not shut — see world/Gates.ts. */
+export const GATE_SWING = 1.75;
+
+/**
+ * The headland: the strip round the inside of a field that is not sown.
+ *
+ * It is where the plough turns, and it is why a real crop stops short of
+ * its own hedge. Sown to the boundary, the corn grew up the hedge bank
+ * and straight through the gateway, so the gate stood in a cornfield with
+ * no way to reach it.
+ */
+export const FIELD_HEADLAND = 1;

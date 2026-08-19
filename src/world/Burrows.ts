@@ -19,6 +19,8 @@ import type { Circle } from './Obstacles';
 export class Burrows {
   readonly group = new THREE.Group();
   readonly blockers: Circle[];
+  /** The garden palings, for the grid rather than the static list. */
+  readonly palings: Circle[];
   /** Where the smoke comes out. */
   readonly chimneys: THREE.Vector3[];
 
@@ -27,6 +29,7 @@ export class Burrows {
 
     const built = buildBurrows(valleyFloor);
     this.blockers = built.blockers;
+    this.palings = built.palings;
     this.chimneys = built.chimneys;
 
     const mounds = new THREE.Mesh(built.mounds);

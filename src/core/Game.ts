@@ -143,6 +143,9 @@ export class Game {
     if (this.water !== null) this.scene.add(this.water.mesh);
     this.scene.add(this.burrows.group);
     this.obstacles.addStatic(this.burrows.blockers);
+    // Into the grid, not the static list: four hundred palings against
+    // fifteen mounds, and the static list is scanned in full every frame
+    this.obstacles.addToGrid(this.burrows.palings);
     if (SMOKE_ENABLED) {
       // The inn's stack draws with the burrows': one plume array, one mesh
       this.smoke = new Smoke([...this.burrows.chimneys, ...this.buildings.chimneys]);

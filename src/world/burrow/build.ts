@@ -19,6 +19,7 @@ import { heightAt } from '../heightfield';
 import { hashSeed, makeRandom } from '../../core/random';
 import { buildMoundMesh, moundForward } from './mesh';
 import { DOOR_TOP, faceOf, type BurrowFace } from './profile';
+import type { Circle } from '../Obstacles';
 
 /**
  * Burrow builder. Turns four numbers per burrow into a finished house.
@@ -39,6 +40,17 @@ export interface BurrowBuild {
   /** Joinery and path stone, grouped by color. */
   parts: Map<number, THREE.BufferGeometry>;
   blockers: Array<{ x: number; z: number; radius: number }>;
+  /**
+   * The garden palings, kept apart from the blockers above.
+   *
+   * Four hundred circles, against fifteen mounds and fifteen doorways.
+   * The mounds go into the obstacle grid's static list, which is scanned
+   * in full every frame; four hundred more would be paid for on every
+   * step the player takes anywhere in the valley. These go into the grid,
+   * which is what the grid is for — it already bins the tree trunks and
+   * the hedges the same way.
+   */
+  palings: Circle[];
   /** Mouth of each chimney. Smoke is emitted from exactly these points. */
   chimneys: THREE.Vector3[];
 }
@@ -47,6 +59,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
   const mounds: THREE.BufferGeometry[] = [];
   const byColor = new Map<number, THREE.BufferGeometry[]>();
   const blockers: BurrowBuild['blockers'] = [];
+  const palings: Circle[] = [];
   const chimneys: THREE.Vector3[] = [];
 
   const add = (color: number, geometry: THREE.BufferGeometry): void => {
@@ -122,7 +135,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
 
     // The front garden. A dwelling with no plot around it is a hole in a
     // hill; the paling and its gate are what make it somebody's
-    for (const part of frontGarden(random, face, heightAt)) add(part.color, part.geometry);
+    for (const part of frontGarden(random, face, heightAt, palings)) add(part.color, part.geometry);
 
     // The mound is a mesh now, not terrain, so impassability is set by
     // a circle: otherwise you could walk straight through the burrow
@@ -144,7 +157,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
     parts.set(color, merged);
   }
 
-  return { mounds: merged, parts, blockers, chimneys };
+  return { mounds: merged, parts, blockers, palings, chimneys };
 }
 
 /**
@@ -374,6 +387,7 @@ function frontGarden(
   random: () => number,
   face: BurrowFace,
   groundAt: (x: number, z: number) => number,
+  blockers: Circle[],
 ): Array<{ geometry: THREE.BufferGeometry; color: number }> {
   const parts: Array<{ geometry: THREE.BufferGeometry; color: number }> = [];
   const radius = 3.4;
@@ -405,6 +419,10 @@ function frontGarden(
     // Sunk a little, so no pale ever shows daylight under its own foot
     pale.translate(p.x, p.y + tall / 2 - 0.05, p.z);
     parts.push({ geometry: pale, color: PALETTE.wood });
+    // A fence you can walk through is not a boundary, and the gap left in
+    // the arc for the path means nothing if the whole arc is walkable.
+    // Every pale, both gateposts — nothing here blocked anything before
+    blockers.push({ x: p.x, z: p.z, radius: 0.05 });
   }
 
   // Two rails, each following the ground between its own two pales
@@ -430,6 +448,7 @@ function frontGarden(
     post.rotateY(face.yaw - side * gate);
     post.translate(p.x, p.y + tall / 2 - 0.05, p.z);
     parts.push({ geometry: post, color: PALETTE.woodDark });
+    blockers.push({ x: p.x, z: p.z, radius: 0.06 });
   }
   return parts;
 }

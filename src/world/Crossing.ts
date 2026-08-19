@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import {
   BRIDGE_BEAM,
   BRIDGE_DECK_WIDTH,
-  BRIDGE_HUMP,
   BRIDGE_PLANKS,
   BRIDGE_RAIL_HEIGHT,
   BRIDGE_X,
@@ -19,6 +18,7 @@ import {
 import { PALETTE } from '../config/palette';
 import type { Circle } from './Obstacles';
 import { groundHeight, heightAt } from './heightfield';
+import { DECK_SKIN, deckHeightAt, deckLevel } from './bridge';
 import type { PropBatch } from './props/batch';
 
 /**
@@ -92,11 +92,12 @@ export class Crossing {
    */
   private buildBridge(batch: PropBatch): void {
     const span = BRIDGE_Z_NORTH - BRIDGE_Z_SOUTH;
-    const deckY = Math.max(heightAt(BRIDGE_X, BRIDGE_Z_NORTH), heightAt(BRIDGE_X, BRIDGE_Z_SOUTH)) + 0.12;
     const half = BRIDGE_DECK_WIDTH / 2;
-    // A hump, because a flat plank over nine metres sags in the eye even
-    // when it does not sag in the geometry
-    const rise = (t: number): number => BRIDGE_HUMP * Math.sin(t * Math.PI);
+    // Both the drawn deck and the walked deck come out of world/bridge.ts,
+    // so they cannot drift apart. `top` includes the landing ramps at each
+    // end; the beams and piles hang off it
+    const top = (t: number): number =>
+      deckHeightAt(BRIDGE_X, BRIDGE_Z_SOUTH + span * t) ?? deckLevel();
 
     for (const side of [-1, 1]) {
       // The beams follow the hump as a chain of short segments: one long
@@ -105,7 +106,7 @@ export class Crossing {
         const t0 = i / BRIDGE_PLANKS;
         const t1 = (i + 1) / BRIDGE_PLANKS;
         const z = BRIDGE_Z_SOUTH + span * (t0 + t1) / 2;
-        const y = deckY + rise((t0 + t1) / 2) - BRIDGE_BEAM / 2;
+        const y = top((t0 + t1) / 2) - DECK_SKIN - BRIDGE_BEAM / 2;
         const beam = new THREE.BoxGeometry(BRIDGE_BEAM, BRIDGE_BEAM * 0.8, span / BRIDGE_PLANKS + 0.02);
         beam.translate(BRIDGE_X + side * (half - BRIDGE_BEAM * 0.6), y, z);
         batch.add(beam, PALETTE.woodDark);
@@ -116,7 +117,7 @@ export class Crossing {
       const t = (i + 0.5) / BRIDGE_PLANKS;
       const z = BRIDGE_Z_SOUTH + span * t;
       const plank = new THREE.BoxGeometry(BRIDGE_DECK_WIDTH, 0.06, span / BRIDGE_PLANKS * 0.88);
-      plank.translate(BRIDGE_X, deckY + rise(t), z);
+      plank.translate(BRIDGE_X, top(t) - DECK_SKIN, z);
       batch.add(plank, PALETTE.wood);
     }
 
@@ -125,7 +126,7 @@ export class Crossing {
       const x = BRIDGE_X + side * (half - 0.1);
       const z = BRIDGE_Z_SOUTH + span * 0.5;
       const bed = heightAt(x, z);
-      const height = deckY + rise(0.5) - bed;
+      const height = top(0.5) - DECK_SKIN - BRIDGE_BEAM - bed;
       const pile = new THREE.CylinderGeometry(0.09, 0.11, height, 6);
       pile.translate(x, bed + height / 2, z);
       batch.add(pile, PALETTE.woodDark);
@@ -138,7 +139,7 @@ export class Crossing {
       const t = i / BRIDGE_PLANKS;
       const z = BRIDGE_Z_SOUTH + span * t;
       const post = new THREE.BoxGeometry(0.08, BRIDGE_RAIL_HEIGHT, 0.08);
-      post.translate(railX, deckY + rise(t) + BRIDGE_RAIL_HEIGHT / 2, z);
+      post.translate(railX, top(t) + BRIDGE_RAIL_HEIGHT / 2, z);
       batch.add(post, PALETTE.woodDark);
     }
     for (let i = 0; i < BRIDGE_PLANKS; i++) {
@@ -146,7 +147,7 @@ export class Crossing {
       const t1 = (i + 1) / BRIDGE_PLANKS;
       const z = BRIDGE_Z_SOUTH + span * (t0 + t1) / 2;
       const rail = new THREE.BoxGeometry(0.06, 0.07, span / BRIDGE_PLANKS + 0.02);
-      rail.translate(railX, deckY + rise((t0 + t1) / 2) + BRIDGE_RAIL_HEIGHT, z);
+      rail.translate(railX, top((t0 + t1) / 2) + BRIDGE_RAIL_HEIGHT, z);
       batch.add(rail, PALETTE.wood);
     }
 

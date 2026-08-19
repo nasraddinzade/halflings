@@ -207,7 +207,9 @@ export class PlayerController {
     this.position.y += this.velocity.y * delta;
 
     // 4. Ground contact
-    const below = this.ground.sample(this.position.x, this.position.z);
+    // The feet's own height goes in: it is what decides whether the
+    // footbridge's deck is the surface underfoot or a thing overhead
+    const below = this.ground.sample(this.position.x, this.position.z, this.position.y);
     if (below === null) return;
 
     if (this.position.y <= below.height) {
@@ -242,7 +244,7 @@ export class PlayerController {
   private tryStep(vx: number, vz: number, delta: number): boolean {
     const nextX = this.position.x + vx * delta;
     const nextZ = this.position.z + vz * delta;
-    const ahead = this.ground.sample(nextX, nextZ);
+    const ahead = this.ground.sample(nextX, nextZ, this.position.y);
 
     if (ahead === null) {
       // Off the edge of the terrain geometry entirely — there is no
@@ -270,6 +272,7 @@ export class PlayerController {
         ? this.ground.sample(
           this.position.x + (vx / speed) * STEP_REACH,
           this.position.z + (vz / speed) * STEP_REACH,
+          this.position.y,
         )
         : null;
       // A 0.15 m lip that levels off still passes: the probe lands on the

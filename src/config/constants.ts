@@ -1278,3 +1278,21 @@ export const ANIMAL_BOUNDS_MARGIN = 1.35;
  */
 export const ANIMAL_CLIP_SPEED = 0.82;
 export const ANIMAL_CLIP_SPEED_SPAN = 0.36;
+
+/**
+ * The footbridge's landings: the share of the span at each end that ramps
+ * down to the bank it lands on.
+ *
+ * Without them the north end is a 0.41 m wall against a STEP_HEIGHT of
+ * 0.15, and a bridge the player cannot climb onto is no better than one he
+ * falls through.
+ */
+export const BRIDGE_LANDING = 0.16;
+/**
+ * How far above the deck the feet may be and still be standing on it.
+ *
+ * The ground query has to know the feet's height, or the deck steals the
+ * surface from a player wading in the channel underneath and lifts him up
+ * through his own planks.
+ */
+export const DECK_REACH = 0.4;

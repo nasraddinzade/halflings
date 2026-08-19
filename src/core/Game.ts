@@ -35,6 +35,8 @@ import { GreenFurniture } from '../world/GreenFurniture';
 import { Buildings } from '../world/Buildings';
 import { Crossing } from '../world/Crossing';
 import { Gates } from '../world/Gates';
+import { Livestock } from '../world/Livestock';
+import { Hay } from '../world/Hay';
 import { PropBatch } from '../world/props/batch';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
@@ -86,6 +88,8 @@ export class Game {
   private readonly buildings = new Buildings(this.batch);
   private readonly crossing = new Crossing(this.batch);
   private readonly gates = new Gates(this.batch);
+  private readonly livestock = new Livestock(this.batch);
+  private readonly hay = new Hay(this.batch);
   /** Built after the lighting: it takes the sun direction from it. */
   private readonly sky: Sky | null = null;
   /** Built after the burrows: it takes the chimney mouths from them. */
@@ -148,6 +152,8 @@ export class Game {
     this.obstacles.addToGrid(this.buildings.blockers);
     this.obstacles.addToGrid(this.crossing.blockers);
     this.obstacles.addToGrid(this.gates.blockers);
+    this.obstacles.addToGrid(this.livestock.blockers);
+    this.obstacles.addToGrid(this.hay.blockers);
     this.scene.add(this.buildings.wheel.group);
 
     // Vegetation goes in right away: it is static and depends only on

@@ -1152,3 +1152,52 @@ export const GATE_SWING = 1.75;
  * no way to reach it.
  */
 export const FIELD_HEADLAND = 1;
+
+/**
+ * The beasts in the pastures.
+ *
+ * Sized off the halfling: a sheep beside a 1.1 m person stands about
+ * knee-to-thigh high and is a little under a metre long, which at this
+ * scale is a 0.62 m body on 0.24 m legs.
+ */
+export const BEAST_BODY = 0.72;
+export const BEAST_HEAD = 0.19;
+/**
+ * Leg, from hoof to belly. Short: a sheep is nearly all fleece, and the
+ * first cut stood a small pale lump on four long thin sticks, which in a
+ * green field reads as a boulder somebody has put a table under.
+ */
+export const BEAST_LEG = 0.16;
+export const BEAST_LEG_THICK = 0.048;
+/** How far a beast keeps off the hedge, so none is standing in one. */
+export const BEAST_MARGIN = 1.6;
+/** Head per square metre. A pasture of 200 m2 carries about a dozen. */
+export const BEAST_PER_ACRE = 0.045;
+export const LIVESTOCK_SEED = 'flock-2026';
+
+/** Stubble: what a meadow stands at between the mowing and the regrowth. */
+export const MOWN_GRASS = 0.4;
+
+/**
+ * Haycocks. A cock a halfling can just about see over is 0.9 m, and it
+ * sits on a base a little wider than it is tall.
+ */
+export const HAY_COCK_HEIGHT = 1.1;
+export const HAY_COCK_RADIUS = 0.85;
+/** How far a cock keeps off the hedge: room to fork it onto a cart. */
+export const HAY_MARGIN = 2;
+/** Cocks per square metre of mown meadow. */
+export const HAY_PER_ACRE = 0.03;
+export const HAY_SEED = 'hay-2026';
+
+/**
+ * The most a beast's own footprint may rise and fall before it is moved.
+ *
+ * The body rides on the highest foot so that no leg comes up through the
+ * back, which means the downhill legs stretch to reach their own ground.
+ * Past about this much the stretch is what the eye notices.
+ */
+export const BEAST_RELIEF = 0.14;
+
+/** The most a haycock's own base may rise and fall. Hay is not stacked on a bank. */
+export const HAY_RELIEF = 0.2;

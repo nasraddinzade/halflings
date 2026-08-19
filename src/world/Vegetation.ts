@@ -20,6 +20,7 @@ import {
   FIELD_HEADLAND,
   HEDGEROW_WORK_CLEARANCE,
   MEADOW_GRASS,
+  MOWN_GRASS,
   PASTURE_GRASS,
   PLAYER_RADIUS,
   VALLEY_RADIUS,
@@ -48,7 +49,7 @@ import { BURROWS } from '../config/burrows';
 import { allHedges } from '../config/hedges';
 import { OAK } from '../config/green';
 import { inClearing } from '../config/scarps';
-import { fieldAt, fields, inField, toGrainIn, toWorldIn } from '../config/fields';
+import { fieldAt, fields, inField, toBoundary, toGrainIn, toWorldIn } from '../config/fields';
 import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from '../config/lanes';
 import { WORK_POINTS, propPosition } from '../config/work';
 import { facePoint } from './burrow/profile';
@@ -645,7 +646,10 @@ function scatter(
     const field = fieldAt(x, z);
     if (field !== null) {
       if (field.use === 'arable') continue;
-      stand *= field.use === 'meadow' ? MEADOW_GRASS : PASTURE_GRASS;
+      // A mown meadow is stubble until it grows again, so it is shorter
+      // than the pasture next to it rather than taller
+      if (field.use === 'meadow') stand *= field.mown ? MOWN_GRASS : MEADOW_GRASS;
+      else stand *= PASTURE_GRASS;
     }
     const placement: Placement = {
       position: new THREE.Vector3(x, sample.height, z),
@@ -736,26 +740,6 @@ function sow(ground: Ground, random: () => number): Map<number, Placement[]> {
   }
 
   return byChunk;
-}
-
-/** Shortest distance from a point to a polygon's boundary. */
-function toBoundary(
-  points: ReadonlyArray<readonly [number, number]>,
-  x: number,
-  z: number,
-): number {
-  let best = Infinity;
-  for (let a = 0, b = points.length - 1; a < points.length; b = a++) {
-    const p = points[a];
-    const q = points[b];
-    if (p === undefined || q === undefined) continue;
-    const dx = q[0] - p[0];
-    const dz = q[1] - p[1];
-    const len2 = dx * dx + dz * dz;
-    const t = len2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((x - p[0]) * dx + (z - p[1]) * dz) / len2));
-    best = Math.min(best, Math.hypot(x - (p[0] + dx * t), z - (p[1] + dz * t)));
-  }
-  return best;
 }
 
 /**

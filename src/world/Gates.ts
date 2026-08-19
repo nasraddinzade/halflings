@@ -8,7 +8,7 @@ import {
   GATE_RAIL,
   GATE_SWING,
 } from '../config/constants';
-import { PALETTE } from '../config/palette';
+import { PALETTE, darken } from '../config/palette';
 import { allHedges, type HedgeRun } from '../config/hedges';
 import type { Circle } from './Obstacles';
 import { heightAt } from './heightfield';
@@ -31,6 +31,14 @@ import type { PropBatch } from './props/batch';
  * a hundred and sixty gates cost nothing beyond triangles in a mesh the
  * village was already drawing.
  */
+/**
+ * Weathered timber. PALETTE.wood is fresh sawn and reads bright orange
+ * against grass; a gate stands out in the weather for twenty years, and
+ * in the first cut every gateway in the valley was a red mark on a green
+ * field.
+ */
+const GATE_TIMBER = darken(PALETTE.wood, 0.74);
+
 export class Gates {
   readonly blockers: Circle[] = [];
 
@@ -59,7 +67,7 @@ export class Gates {
       const post = new THREE.BoxGeometry(GATE_POST, GATE_HEIGHT * 1.15, GATE_POST);
       post.rotateY(Math.atan2(dx, dz));
       post.translate(px, heightAt(px, pz) + (GATE_HEIGHT * 1.15) / 2, pz);
-      batch.add(post, PALETTE.woodDark);
+      batch.add(post, darken(PALETTE.woodDark, 0.82));
       // The posts stand at the very edge of the gap, inside the hedge's
       // own footprint, so they narrow nothing the player could use
       this.blockers.push({ x: px, z: pz, radius: GATE_POST });
@@ -73,7 +81,14 @@ export class Gates {
     const lx = Math.sin(bearing);
     const lz = Math.cos(bearing);
     const span = FIELD_GATE_WIDTH * 0.92;
-    const base = heightAt(hingeX, hingeZ);
+    // The leaf is two metres long: hung off the ground under its hinge
+    // alone, its far end floats or buries itself on any slope. It takes
+    // the lower of its two ends, which puts the gap under the head rather
+    // than the head in the turf
+    const base = Math.min(
+      heightAt(hingeX, hingeZ),
+      heightAt(hingeX + lx * span, hingeZ + lz * span),
+    );
 
     // Bars. The lowest sits a little off the ground and the top one at
     // full height; five of them is what a field gate has
@@ -82,7 +97,7 @@ export class Gates {
       const bar = new THREE.BoxGeometry(span, GATE_RAIL, GATE_RAIL);
       bar.rotateY(-bearing + Math.PI / 2);
       bar.translate(hingeX + (lx * span) / 2, y, hingeZ + (lz * span) / 2);
-      batch.add(bar, PALETTE.wood);
+      batch.add(bar, GATE_TIMBER);
     }
 
     // Head and heel: the two uprights that hold the bars together
@@ -92,7 +107,7 @@ export class Gates {
       const stile = new THREE.BoxGeometry(GATE_RAIL, GATE_HEIGHT, GATE_RAIL);
       stile.rotateY(-bearing);
       stile.translate(ux, base + GATE_HEIGHT / 2, uz);
-      batch.add(stile, PALETTE.wood);
+      batch.add(stile, GATE_TIMBER);
     }
 
     // The diagonal brace. A five-bar gate without it sags, and the eye
@@ -109,7 +124,7 @@ export class Gates {
       base + GATE_HEIGHT * 0.59,
       hingeZ + (lz * span) / 2,
     );
-    batch.add(brace, PALETTE.wood);
+    batch.add(brace, GATE_TIMBER);
   }
 }
 

@@ -81,6 +81,15 @@ export const PALETTE = {
    */
   corn: 0xdcc078,
   cornShade: 0xb08f4e,
+  /**
+   * Cut hay, paler and yellower than thatch. Thatch is what a roof does
+   * after years of weather; a cock built last week is still the colour of
+   * the grass it was, and in thatch it read as a traffic cone.
+   */
+  hay: 0xd9bd7d,
+  /** Fleece. Warm, not grey — in grey a beast in a green field is a rock. */
+  fleece: 0xe8e1cd,
+  fleeceDark: 0x9a8b74,
 
   // --- buildings ---
   wood: 0xa9794f,

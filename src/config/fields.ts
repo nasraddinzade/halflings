@@ -76,6 +76,16 @@ export interface Field {
    */
   points: ReadonlyArray<readonly [number, number]>;
   use: FieldUse;
+  /**
+   * Meadows only: whether the hay is already in.
+   *
+   * It lives on the field rather than in whatever draws the haycocks
+   * because two systems have to agree about it — a mown meadow carries
+   * cocks AND is cropped short, and an unmown one stands long and carries
+   * nothing. Decided in two places, they disagree, and half the valley
+   * grows stacks of hay in grass that was never cut.
+   */
+  mown: boolean;
   /** Its own shade, so two neighbouring pastures are not the same green. */
   tint: number;
 }
@@ -256,7 +266,9 @@ function build(): Field[] {
         const random = makeRandom(hashSeed(`field-${k}-${i}-${j}`));
         const draw = random();
         const use: FieldUse = draw < 0.44 ? 'pasture' : draw < 0.78 ? 'arable' : 'meadow';
-        out.push({ id: `field-${k}-${i}-${j}`, furlong: k, i, j, points, use, tint: random() });
+        // Meadows are mown in turn, not all on the same morning
+        const mown = use === 'meadow' && random() < 0.55;
+        out.push({ id: `field-${k}-${i}-${j}`, furlong: k, i, j, points, use, mown, tint: random() });
       }
     }
   }
@@ -386,4 +398,59 @@ export function fieldAt(x: number, z: number): Field | null {
 /** True inside any field, for anything that must keep out of them. */
 export function inField(x: number, z: number): boolean {
   return fieldAt(x, z) !== null;
+}
+
+/** Shortest distance from a point to a polygon's boundary. */
+export function toBoundary(
+  points: ReadonlyArray<readonly [number, number]>,
+  x: number,
+  z: number,
+): number {
+  let best = Infinity;
+  for (let a = 0, b = points.length - 1; a < points.length; b = a++) {
+    const p = points[a];
+    const q = points[b];
+    if (p === undefined || q === undefined) continue;
+    const dx = q[0] - p[0];
+    const dz = q[1] - p[1];
+    const len2 = dx * dx + dz * dz;
+    const t = len2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((x - p[0]) * dx + (z - p[1]) * dz) / len2));
+    best = Math.min(best, Math.hypot(x - (p[0] + dx * t), z - (p[1] + dz * t)));
+  }
+  return best;
+}
+
+/**
+ * Scattered places inside a field, no closer than `margin` to its hedge.
+ *
+ * Rejection sampling against the field's own bounding box, capped so a
+ * parcel that cannot hold what is asked of it gives up rather than spins.
+ * Everything that stands in a field needs this — the beasts in a pasture,
+ * the cocks in a meadow — and it belongs with the polygons rather than
+ * copied into each of them.
+ */
+export function placesIn(
+  field: Field,
+  count: number,
+  margin: number,
+  random: () => number,
+): Array<readonly [number, number]> {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let z0 = Infinity;
+  let z1 = -Infinity;
+  for (const p of field.points) {
+    x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]);
+    z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]);
+  }
+
+  const out: Array<readonly [number, number]> = [];
+  for (let tries = 0; tries < count * 40 && out.length < count; tries++) {
+    const x = x0 + random() * (x1 - x0);
+    const z = z0 + random() * (z1 - z0);
+    if (fieldAt(x, z) !== field) continue;
+    if (toBoundary(field.points, x, z) < margin) continue;
+    out.push([x, z]);
+  }
+  return out;
 }

@@ -45,6 +45,10 @@ export interface FlyHandle {
   /** Straight down from map height over a point. */
   map(x?: number, z?: number): void;
   where(): { x: number; z: number; y: number; bearing: number; pitch: number };
+  /** The last drawn frame, as a JPEG data URL, scaled to `width`. */
+  shot(width?: number, quality?: number): string;
+  /** The same frame, written to `.shots/<name>.jpg` by the dev server. */
+  save(name?: string, width?: number): Promise<string>;
 }
 
 declare global {
@@ -87,6 +91,23 @@ export class FreeCamera {
         globalThis.fly?.on();
         this.position.set(x, MAP_HEIGHT, z);
         this.pitch = -Math.PI / 2 + 0.001;
+      },
+      shot: (width = 640, quality = 0.55) => {
+        const canvas = document.querySelector('canvas');
+        if (canvas === null) return '';
+        const scaled = document.createElement('canvas');
+        scaled.width = width;
+        scaled.height = Math.round((width * canvas.height) / canvas.width);
+        const ctx = scaled.getContext('2d');
+        if (ctx === null) return '';
+        ctx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
+        return scaled.toDataURL('image/jpeg', quality);
+      },
+      save: async (name = 'latest', width = 1100) => {
+        const url = globalThis.fly?.shot(width, 0.72) ?? '';
+        if (url === '') return '';
+        const response = await fetch(`/__shot/${name}`, { method: 'POST', body: url });
+        return response.text();
       },
       where: () => ({
         x: this.position.x,

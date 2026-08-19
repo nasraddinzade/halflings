@@ -439,3 +439,26 @@ export function waterDepthAt(x: number, z: number, feetY: number): number {
   if (surface === -Infinity) return 0;
   return Math.max(0, surface - feetY);
 }
+
+/**
+ * How much the ground rises and falls across a footprint of this size.
+ *
+ * Anything wider than a step has to ask this before it is placed. A prop
+ * set on the single sample under its middle is bedded correctly at one
+ * point and wrong everywhere else — it floats on the downhill side if it
+ * takes the sample as its base, and buries itself on the uphill side if
+ * it takes the lowest. Both have shipped here more than once. The cure is
+ * to bed it honestly AND to refuse ground too broken to stand on, and
+ * this is the second half.
+ */
+export function reliefAt(x: number, z: number, radius: number): number {
+  let low = Infinity;
+  let high = -Infinity;
+  for (let a = 0; a < 8; a++) {
+    const angle = (a / 8) * Math.PI * 2;
+    const h = heightAt(x + Math.cos(angle) * radius, z + Math.sin(angle) * radius);
+    low = Math.min(low, h);
+    high = Math.max(high, h);
+  }
+  return high - low;
+}

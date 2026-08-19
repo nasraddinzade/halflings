@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+import { FREE_CAMERA } from '../config/constants';
+
 import { PIXEL_RATIO_CAP, SHADOW_MAP_SIZE } from '../config/constants';
 import { PALETTE } from '../config/palette';
 
@@ -9,7 +11,16 @@ export class Renderer {
   private onResize?: (width: number, height: number) => void;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.webgl = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.webgl = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      // Only while the developer camera is compiled in. Keeping the last
+      // frame around lets the canvas be read back at any moment, which is
+      // what makes `fly.shot()` possible — and looking is the only check
+      // in this project that has ever caught the faults that mattered, so
+      // it has to work even when nothing is watching the window.
+      preserveDrawingBuffer: FREE_CAMERA,
+    });
     this.webgl.setClearColor(PALETTE.sky);
     this.webgl.shadowMap.enabled = true;
     // PCFSoftShadowMap is deprecated in three 0.185 and gets swapped for

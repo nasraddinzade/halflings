@@ -4,6 +4,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 
 import {
   DEBUG_PANEL,
+  FREE_CAMERA,
   FOG_FAR,
   FOG_NEAR,
   MAX_DELTA,
@@ -17,6 +18,7 @@ import {
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
 import { DebugPanel } from '../debug/DebugPanel';
+import { FreeCamera } from '../debug/FreeCamera';
 import { AnimationLibrary } from '../character/AnimationLibrary';
 import { LocomotionState } from '../character/LocomotionState';
 import { PlayerController, type ControllerFrame } from '../character/PlayerController';
@@ -61,6 +63,8 @@ export class Game {
   private readonly input: Input;
   /** null when DEBUG_PANEL is off: the module then simply does not exist. */
   private readonly debug: DebugPanel | null = DEBUG_PANEL ? new DebugPanel() : null;
+  /** Owns the camera while it is on; the game keeps simulating beneath it. */
+  private readonly fly: FreeCamera | null = FREE_CAMERA ? new FreeCamera() : null;
 
   private player!: Player;
   private village: Village | null = null;
@@ -210,6 +214,7 @@ export class Game {
     this.stop();
     this.timer.dispose();
     this.debug?.dispose();
+    this.fly?.dispose();
     this.input.dispose();
     this.sky?.dispose();
     this.hedges.dispose();
@@ -249,9 +254,14 @@ export class Game {
     this.controller.update(this.frame, delta);
     if (this.controller.justLanded) this.cameraRig.land();
 
+    // The free camera takes the lens and nothing else: the player, the
+    // villagers, the water and the wind all carry on, so what you fly over
+    // is the running game rather than a still of it
+    const flying = this.fly?.update(this.input, this.cameraRig.camera, this.controller.position, delta) ?? false;
+
     // The camera runs after the controller to follow the already updated
     // position: otherwise it lags exactly one frame and the picture jitters
-    this.cameraRig.update(
+    if (!flying) this.cameraRig.update(
       this.controller.position,
       this.ground,
       delta,

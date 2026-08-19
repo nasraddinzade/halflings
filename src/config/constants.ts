@@ -1006,5 +1006,21 @@ export const GREET_COOLDOWN = 7;
  * and raw coordinates pinned over the art. Flip it while working.
  */
 export const DEBUG_PANEL = false;
+
+/**
+ * The developer's free camera. F toggles it; see debug/FreeCamera.ts.
+ *
+ * It exists because this village was laid out, measured and shipped
+ * without anyone ever seeing it from above. Every defect that mattered —
+ * a hedge that read as a slab, two buildings facing away from the village,
+ * a wheel hanging over dry ground — was found by looking, and none of them
+ * by measuring.
+ */
+export const FREE_CAMERA = true;
+export const FLY_SPEED = 14;
+export const FLY_FAST = 55;
+export const FLY_LOOK_RATE = 1.6;
+/** Where T puts you: high enough to hold the whole valley in frame. */
+export const MAP_HEIGHT = 150;
 /** How often the panel redraws. Every frame is costly and unreadable. */
 export const DEBUG_REFRESH = 0.25;

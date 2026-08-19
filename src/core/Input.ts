@@ -21,6 +21,8 @@ const MOVE_KEYS = new Set([
 
 export class Input {
   private readonly pressed = new Set<string>();
+  /** Presses already handed out by tookPress, cleared on release. */
+  private readonly taken = new Set<string>();
   private readonly intent: MoveIntent = { x: 0, z: 0 };
 
   /** Mouse movement accumulated over the frame, cleared in endFrame(). */
@@ -54,6 +56,25 @@ export class Input {
 
   get isPointerLocked(): boolean {
     return this.locked;
+  }
+
+  /**
+   * Raw key state, for the developer's free camera.
+   *
+   * The game reads intent, not keys, and that is right — but a debug
+   * flycam needs keys the movement mapping has no opinion about, and it
+   * has no business inventing a second listener to get them.
+   */
+  isDown(code: string): boolean {
+    return this.pressed.has(code);
+  }
+
+  /** True once per press, so a toggle does not fire every frame. */
+  tookPress(code: string): boolean {
+    if (!this.pressed.has(code)) return false;
+    if (this.taken.has(code)) return false;
+    this.taken.add(code);
+    return true;
   }
 
   /** Movement direction in camera axes. Length never exceeds one. */
@@ -127,6 +148,7 @@ export class Input {
   };
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
+    this.taken.delete(event.code);
     this.pressed.delete(event.code);
   };
 

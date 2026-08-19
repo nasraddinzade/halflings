@@ -81,3 +81,33 @@ export const SCARPS: readonly Scarp[] = [
     toe: 19, width: 11, rise: 4.15, wobble: 2, wave: 0.2, phase: 1.9,
   },
 ];
+
+/**
+ * Where the wood stops.
+ *
+ * One disc per focus, not one circle round the origin. TREE_CLEARING_RADIUS
+ * was a single 46 m ring centred on (0, 0) — which was the middle of the
+ * ring of dwellings, and the ring is gone. With five foci scattered across
+ * the valley a single circle either leaves half the village in the wood or
+ * clears the whole valley; and it never cleared bushes at all, so scrub
+ * grew up the street and inside the garden palings.
+ */
+export const CLEARINGS: ReadonlyArray<{ x: number; z: number; radius: number }> = [
+  { x: 4.7, z: 14.7, radius: 27 },     // the knot and its green
+  { x: -28.7, z: 45.4, radius: 22 },   // the higher end
+  { x: 6.1, z: -36.9, radius: 31 },    // the water row
+  { x: -34.8, z: -6.5, radius: 21 },   // the mill hamlet
+  { x: 43.1, z: 36.7, radius: 14 },    // the outlying farmstead
+];
+
+/** True where the wood is kept off. */
+export function inClearing(x: number, z: number): boolean {
+  for (let i = 0; i < CLEARINGS.length; i++) {
+    const c = CLEARINGS[i];
+    if (c === undefined) continue;
+    const dx = x - c.x;
+    const dz = z - c.z;
+    if (dx * dx + dz * dz < c.radius * c.radius) return true;
+  }
+  return false;
+}

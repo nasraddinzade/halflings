@@ -52,7 +52,17 @@ export class CameraRig {
    * off axis. Turned round, three are in frame and the middle one sits
    * six degrees off centre.
    */
-  private yaw = Math.PI;
+  /**
+   * Looking west-north-west from the green, up the street past the knot's
+   * four doors. It used to be PI because the dwellings were a ring and any
+   * bearing showed some of them; a village with five foci has a direction.
+   *
+   * 111.2 degrees of YAW, which is a compass bearing of 291.2. The two are
+   * not the same number and confusing them points the camera at the empty
+   * side of the valley: the camera sits at target + (sin yaw, ., cos yaw)
+   * and looks back, so the view runs along -(sin yaw, cos yaw).
+   */
+  private yaw = (111.2 * Math.PI) / 180;
   private pitch = 0.18;
 
   /** Where the wheel has put the boom, and where it has eased to. */

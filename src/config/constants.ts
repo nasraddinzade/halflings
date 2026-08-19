@@ -532,8 +532,11 @@ export const CART_AVENUE_OFFSET = 2.9;
 /** Frequency of the patches where green fades into dry grass. */
 export const GROUND_PATCH_FREQUENCY = 0.035;
 
-export const SPAWN_X = 0;
-export const SPAWN_Z = 0;
+// On the green, at its south-east corner, looking west-north-west up the
+// street. Ground -0.53 m, slope 1.25 deg. (0, 0) was the middle of a ring
+// that no longer exists
+export const SPAWN_X = 18.75;
+export const SPAWN_Z = 9.25;
 
 // --- animations -------------------------------------------------------------
 

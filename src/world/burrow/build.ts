@@ -12,6 +12,7 @@ import {
   type Burrow,
 } from '../../config/burrows';
 import { PALETTE } from '../../config/palette';
+import { heightAt } from '../heightfield';
 import { hashSeed, makeRandom } from '../../core/random';
 import { buildMoundMesh } from './mesh';
 import { DOOR_TOP, faceOf, type BurrowFace } from './profile';
@@ -111,7 +112,7 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
 
     // The front garden. A dwelling with no plot around it is a hole in a
     // hill; the paling and its gate are what make it somebody's
-    for (const part of frontGarden(random)) add(part.color, place(part.geometry, FACE_OFFSET));
+    for (const part of frontGarden(random, face, heightAt)) add(part.color, part.geometry);
 
     // The mound is a mesh now, not terrain, so impassability is set by
     // a circle: otherwise you could walk straight through the burrow
@@ -255,43 +256,65 @@ function porch(): Array<{ geometry: THREE.BufferGeometry; color: number; out: nu
  * without shutting the village out, which is exactly what a cottage paling
  * is for.
  */
-function frontGarden(random: () => number): Array<{ geometry: THREE.BufferGeometry; color: number }> {
+function frontGarden(
+  random: () => number,
+  face: BurrowFace,
+  groundAt: (x: number, z: number) => number,
+): Array<{ geometry: THREE.BufferGeometry; color: number }> {
   const parts: Array<{ geometry: THREE.BufferGeometry; color: number }> = [];
   const radius = 3.4;
   const height = 0.62;
-  // Measured in the face's own frame: the path runs straight out on z
   const gate = 0.24;
 
+  // Every piece is set on the ground UNDER ITSELF, and on the ground as
+  // BUILT — heightAt, with the pads and the carves in — not on the bare
+  // valleyFloor the face is measured from. Lifted to face.base the whole
+  // fence stands at one height, and a garden on a bank is a fence with
+  // half its pales in the air; measured against bare terrain instead, the
+  // forecourt pad rises under it and buries them. The hedges learned this
+  // twice over and this still repeated it
+  const at = (angle: number, radiusOut: number): { x: number; z: number; y: number } => {
+    const lx = Math.sin(angle) * radiusOut;
+    const lz = Math.cos(angle) * radiusOut;
+    const x = face.x + Math.sin(face.yaw) * lz + Math.cos(face.yaw) * lx;
+    const z = face.z + Math.cos(face.yaw) * lz - Math.sin(face.yaw) * lx;
+    return { x, z, y: groundAt(x, z) };
+  };
+
   for (let i = 0; i <= 26; i++) {
-    const t = i / 26;
-    const angle = (-1.02 + t * 2.04);
+    const angle = -1.02 + (i / 26) * 2.04;
     if (Math.abs(angle) < gate) continue;
-    const x = Math.sin(angle) * radius;
-    const z = Math.cos(angle) * radius;
-    const pale = new THREE.BoxGeometry(0.07, height + random() * 0.05, 0.07);
-    pale.rotateY(-angle);
-    pale.translate(x, height / 2, z);
+    const p = at(angle, radius);
+    const tall = height + random() * 0.05;
+    const pale = new THREE.BoxGeometry(0.07, tall, 0.07);
+    pale.rotateY(face.yaw - angle);
+    // Sunk a little, so no pale ever shows daylight under its own foot
+    pale.translate(p.x, p.y + tall / 2 - 0.05, p.z);
     parts.push({ geometry: pale, color: PALETTE.wood });
   }
 
-  // Two rails behind the pales, and a post either side of the gateway
-  for (const y of [height * 0.32, height * 0.78]) {
+  // Two rails, each following the ground between its own two pales
+  for (const share of [0.32, 0.78]) {
     for (const half of [-1, 1]) {
       for (let i = 0; i < 12; i++) {
         const a0 = half * (gate + (1.02 - gate) * (i / 12));
         const a1 = half * (gate + (1.02 - gate) * ((i + 1) / 12));
         const mid = (a0 + a1) / 2;
+        const p = at(mid, radius);
         const rail = new THREE.BoxGeometry(0.04, 0.05, radius * Math.abs(a1 - a0) + 0.02);
-        rail.rotateY(-mid + Math.PI / 2);
-        rail.translate(Math.sin(mid) * radius, y, Math.cos(mid) * radius);
+        rail.rotateY(face.yaw - mid + Math.PI / 2);
+        rail.translate(p.x, p.y + height * share, p.z);
         parts.push({ geometry: rail, color: PALETTE.woodDark });
       }
     }
   }
+
   for (const side of [-1, 1]) {
-    const post = new THREE.BoxGeometry(0.11, height + 0.22, 0.11);
-    post.rotateY(-side * gate);
-    post.translate(Math.sin(side * gate) * radius, (height + 0.22) / 2, Math.cos(side * gate) * radius);
+    const p = at(side * gate, radius);
+    const tall = height + 0.22;
+    const post = new THREE.BoxGeometry(0.11, tall, 0.11);
+    post.rotateY(face.yaw - side * gate);
+    post.translate(p.x, p.y + tall / 2 - 0.05, p.z);
     parts.push({ geometry: post, color: PALETTE.woodDark });
   }
   return parts;

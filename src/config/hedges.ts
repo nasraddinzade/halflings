@@ -1,4 +1,5 @@
 import { BURROWS, FACE_CLEARANCE, type Burrow } from './burrows';
+import { INN } from './buildings';
 import { HEDGE_FOOT, PLAYER_RADIUS, RIVER_WATER_DEPTH } from './constants';
 import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from './lanes';
 import { DOOR_TOP } from '../world/burrow/profile';
@@ -41,7 +42,7 @@ function flooded(x: number, z: number): boolean {
 }
 
 /** The inn takes a frontage on the ring like any household. */
-const INN_SEAT: Burrow = { id: 'inn', x: -0.1, z: 27, radius: 4.4, height: 4.14 };
+const INN_SEAT: Burrow = { id: 'inn', x: INN.x, z: INN.z, radius: 4.4, height: 4.14, facing: 0 };
 
 function ringSeats(): Array<{ seat: Burrow; deg: number }> {
   return [...BURROWS.filter((b) => b.z > riverCenterZ(b.x)), INN_SEAT]

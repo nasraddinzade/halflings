@@ -10,6 +10,22 @@ export interface Burrow {
   /** Radius and height of the mound, in meters. */
   radius: number;
   height: number;
+  /**
+   * Bearing the door faces, degrees, 0 = +z.
+   *
+   * Data, not a formula. It used to be `Math.atan2(-x, -z)` — face the
+   * middle of the valley — retyped in four separate files, and that one
+   * line is what produced a ring: if every door looks at the centre, every
+   * dwelling sits on a circle around it. A dwelling cut into a bank has
+   * exactly one possible aspect, downhill, and which way that is depends
+   * on the bank, not on the origin.
+   */
+  facing: number;
+}
+
+/** Which way this dwelling's door looks, in radians. */
+export function doorFacing(burrow: Burrow): number {
+  return (burrow.facing * Math.PI) / 180;
 }
 
 /**
@@ -120,26 +136,34 @@ export const PAD_BIAS = 0.8;
  * rather than a wall.
  */
 export const BURROWS: readonly Burrow[] = [
-  { id: 'burrow-1', x: 10.6, z: 24.8, radius: 3.33, height: 3.13 },
-  { id: 'burrow-2', x: 19.1, z: 19.1, radius: 3.71, height: 3.49 },
-  { id: 'burrow-3', x: 24.9, z: 10.3, radius: 3.14, height: 2.95 },
-  { id: 'burrow-4', x: 27, z: 0, radius: 3.52, height: 3.31 },
-  { id: 'burrow-5', x: 24, z: -9.9, radius: 2.95, height: 2.77 },
-  // Across the water. The ford and the footbridge exist for these four
-  { id: 'burrow-6', x: 25.5, z: -25.5, radius: 3.33, height: 3.13 },
-  { id: 'burrow-7', x: 11.9, z: -28.6, radius: 3.71, height: 3.49 },
-  { id: 'burrow-8', x: 1.5, z: -30, radius: 3.14, height: 2.95 },
-  { id: 'burrow-9', x: -13.8, z: -33.3, radius: 3.52, height: 3.31 },
-  // Back on the north bank, round to the head of the green
-  { id: 'burrow-10', x: -16.6, z: -17.4, radius: 2.95, height: 2.77 },
-  { id: 'burrow-11', x: -22.7, z: -7.7, radius: 3.33, height: 3.13 },
-  { id: 'burrow-12', x: -27, z: 1.6, radius: 3.71, height: 3.49 },
-  { id: 'burrow-13', x: -24.5, z: 11.3, radius: 3.14, height: 2.95 },
-  { id: 'burrow-14', x: -18.8, z: 19.4, radius: 3.52, height: 3.31 },
-  { id: 'burrow-15', x: -10.5, z: 24.9, radius: 2.95, height: 2.77 },
+  // Five foci, not a ring: four at the knot, three at the higher end, four
+  // along the water, three above the mill, and one outlying farmstead — so
+  // the village reads as the middle of a parish rather than as the whole
+  // world. Frontages are perch multiples (5.0292 m x VERNACULAR_SCALE):
+  // 2.5, 3, 4, 5, 6, 8, which is why no two plots are the same width.
+  //
+  // Every one of these is cut into a scarp. Measured across its own
+  // footprint the ground rises 2.31 to 3.20 m against the 2.17 m the arch
+  // needs, and the hill is 76 to 100 % of the mound's silhouette. On the
+  // ring it was 0.30 m and 0.7 %.
+  { id: 'burrow-1', x: -2.7, z: 25.03, radius: 3.71, height: 3.49, facing: 40.5 },
+  { id: 'burrow-2', x: 3.44, z: 18.82, radius: 2.95, height: 2.77, facing: 40.7 },
+  { id: 'burrow-3', x: 7.68, z: 12.25, radius: 3.14, height: 2.95, facing: 75.5 },
+  { id: 'burrow-4', x: 10.33, z: 2.77, radius: 3.52, height: 3.31, facing: 79.7 },
+
+  { id: 'burrow-5', x: -34.88, z: 51.22, radius: 3.52, height: 3.31, facing: 60 },
+  { id: 'burrow-6', x: -28.63, z: 46.04, radius: 2.95, height: 2.77, facing: 65.5 },
+  { id: 'burrow-7', x: -22.64, z: 39.06, radius: 3.14, height: 2.95, facing: 6.3 },
+
+  { id: 'burrow-8', x: -6.97, z: -33.18, radius: 3.33, height: 3.13, facing: 33.8 },
+  { id: 'burrow-9', x: 0.06, z: -36.67, radius: 2.95, height: 2.77, facing: 9.6 },
+  { id: 'burrow-10', x: 8.26, z: -37.99, radius: 3.14, height: 2.95, facing: 6.3 },
+  { id: 'burrow-11', x: 23.01, z: -39.78, radius: 3.52, height: 3.31, facing: 33.6 },
+
+  { id: 'burrow-12', x: -39.46, z: 0.03, radius: 3.33, height: 3.13, facing: 87.6 },
+  { id: 'burrow-13', x: -34.78, z: -6.55, radius: 2.95, height: 2.77, facing: 85.6 },
+  { id: 'burrow-14', x: -30.3, z: -12.91, radius: 3.14, height: 2.95, facing: 66.4 },
+
+  { id: 'burrow-15', x: 43.14, z: 36.73, radius: 3.52, height: 3.31, facing: 85.7 },
 ];
 
-/** Which way the door faces: always toward the center of the valley. */
-export function doorFacing(burrow: Burrow): number {
-  return Math.atan2(-burrow.x, -burrow.z);
-}

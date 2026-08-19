@@ -1,4 +1,4 @@
-import { BURROWS, FACE_CLEARANCE, type Burrow } from './burrows';
+import { BURROWS, FACE_CLEARANCE, doorFacing, type Burrow } from './burrows';
 import { DOOR_TOP } from '../world/burrow/profile';
 import { riverCenterZ } from '../world/heightfield';
 
@@ -99,7 +99,7 @@ export const LANES: readonly Lane[] = [
 
 /** Where a burrow's threshold sits, and which way it faces. */
 function threshold(burrow: Burrow): { x: number; z: number; yaw: number; reach: number } {
-  const yaw = Math.atan2(-burrow.x, -burrow.z);
+  const yaw = doorFacing(burrow);
   const reach = burrow.radius
     * Math.sqrt(Math.max(0, 1 - ((DOOR_TOP + FACE_CLEARANCE) / burrow.height) ** 2));
   return { x: burrow.x + Math.sin(yaw) * reach, z: burrow.z + Math.cos(yaw) * reach, yaw, reach };

@@ -9,6 +9,7 @@ import {
   PAD_MARGIN,
   PAD_SIDE,
   PAD_SIDE_FADE,
+  doorFacing,
   type Burrow,
 } from '../../config/burrows';
 
@@ -84,7 +85,7 @@ export function faceDistance(burrow: Burrow): number {
  * steer clear of the doors, and they do not need the height for that.
  */
 export function facePoint(burrow: Burrow): { x: number; z: number } {
-  const yaw = Math.atan2(-burrow.x, -burrow.z);
+  const yaw = doorFacing(burrow);
   const distance = faceDistance(burrow);
   return {
     x: burrow.x + Math.sin(yaw) * distance,
@@ -94,7 +95,7 @@ export function facePoint(burrow: Burrow): { x: number; z: number } {
 
 /** Everything both the terrain and the mesh builder need. */
 export function faceOf(burrow: Burrow, valleyFloorAt: (x: number, z: number) => number): BurrowFace {
-  const yaw = Math.atan2(-burrow.x, -burrow.z);
+  const yaw = doorFacing(burrow);
   const distance = faceDistance(burrow);
 
   return {

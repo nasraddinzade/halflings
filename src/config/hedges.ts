@@ -1,5 +1,6 @@
 import { BURROWS, FACE_CLEARANCE, doorFacing, type Burrow } from './burrows';
 import { HEDGE_FOOT, PLAYER_RADIUS, RIVER_WATER_DEPTH } from './constants';
+import { fields } from './fields';
 import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from './lanes';
 import { DOOR_TOP } from '../world/burrow/profile';
 import { groundHeight, riverCarve } from '../world/heightfield';
@@ -266,11 +267,39 @@ function trim(
   return cut;
 }
 
+/**
+ * The field boundaries.
+ *
+ * Each cell hands over only two of its four sides — the one to the west
+ * and the one to the south — so a hedge between two fields is built once
+ * rather than twice on top of itself. Two coincident hedges are twice the
+ * triangles and a visible seam wherever their lumps disagree.
+ */
+export function fieldBoundaries(): HedgeRun[] {
+  const runs: HedgeRun[] = [];
+  const all = fields();
+  const here = new Set(all.map((f) => `${f.i},${f.j}`));
+
+  for (const field of all) {
+    const [a, b, c, d] = field.points;
+    if (a === undefined || b === undefined || c === undefined || d === undefined) continue;
+    // The two sides this cell owns outright
+    runs.push({ id: `${field.id}-s`, points: [a, b] });
+    runs.push({ id: `${field.id}-w`, points: [a, d] });
+    // And the two it only owns when there is nobody next door to own
+    // them. Without this a field on the edge of the system is hedged on
+    // two sides and open on the other two, which is not a field
+    if (!here.has(`${field.i},${field.j + 1}`)) runs.push({ id: `${field.id}-n`, points: [d, c] });
+    if (!here.has(`${field.i + 1},${field.j}`)) runs.push({ id: `${field.id}-e`, points: [b, c] });
+  }
+  return runs;
+}
+
 export function allHedges(): HedgeRun[] {
   const ways = [...LANES, ...doorSpurs()];
   const out: HedgeRun[] = [];
 
-  for (const run of [...GREEN_HEDGES, ...toftBoundaries(), ...croftRear()]) {
+  for (const run of [...GREEN_HEDGES, ...toftBoundaries(), ...croftRear(), ...fieldBoundaries()]) {
     // Shorter than the ribbon's own step opens nothing — a sample that
     // merely grazed a lane, not a gateway
     const found = gatesFor(run, ways).filter((g) => g[1] - g[0] >= 0.5);

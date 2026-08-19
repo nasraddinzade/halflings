@@ -41,6 +41,7 @@ import { BURROWS } from '../config/burrows';
 import { allHedges } from '../config/hedges';
 import { OAK } from '../config/green';
 import { inClearing } from '../config/scarps';
+import { inField } from '../config/fields';
 import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from '../config/lanes';
 import { WORK_POINTS, propPosition } from '../config/work';
 import { facePoint } from './burrow/profile';
@@ -244,9 +245,10 @@ function addTreesTo(
     const x = Math.cos(angle) * radius;
     const z = Math.sin(angle) * radius;
 
-    // Every focus keeps its own clearing. One circle round the origin was
-    // the ring's idea of where the village was, and the ring is gone
-    if (inClearing(x, z)) continue;
+    // Every focus keeps its own clearing, and so does every field. A wood
+    // that grows over the farmland is what made the valley read as one
+    // undifferentiated green disc from the air
+    if (inClearing(x, z) || inField(x, z)) continue;
 
     const sample = ground.sample(x, z);
     if (sample === null || sample.slope > TREE_MAX_SLOPE) continue;
@@ -611,7 +613,7 @@ function scatter(
     // Bushes are scrub. They belong outside the village, not up the
     // street and inside the garden palings — which is where they grew
     // when nothing kept them out
-    if (keepOutOfTheVillage && inClearing(x, z)) continue;
+    if (keepOutOfTheVillage && (inClearing(x, z) || inField(x, z))) continue;
     // Nor inside a burrow: the hill is a mesh now, the ground under it
     // is flat, and tufts would sprout straight through the roof
     if (BURROWS.some((b) => Math.hypot(x - b.x, z - b.z) < b.radius + 0.6)) continue;

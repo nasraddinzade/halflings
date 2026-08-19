@@ -54,6 +54,27 @@ export const PALETTE = {
   earth: 0x8a6a49,
   rock: 0x9098a0,
 
+  /**
+   * The three field uses. From the air an English parish is a patchwork,
+   * and a patchwork needs three clearly separate values, not three shades
+   * of one: grazed turf reads green, ripe corn reads gold, a hay meadow
+   * sits between them. Hedged parcels all painted `grass` read as a net
+   * thrown over a lawn, which is exactly how the first cut of the fields
+   * looked from map height.
+   *
+   * They also have to clear the ground they sit in, not just each other.
+   * The open valley is not one colour: it runs from `grass` to nearly
+   * halfway to `grassDry` under the patch wave, so a pasture picked as a
+   * near neighbour of `grass` lands inside that range and vanishes. These
+   * three sit outside it — the pasture greener and darker than any rough
+   * ground gets, the meadow paler than any of it does.
+   */
+  fieldPasture: 0x6f9a4a,
+  fieldArable: 0xc4ab6b,
+  fieldMeadow: 0xb4b76a,
+  /** The furrow bottoms of ploughland, a shade off the crop above them. */
+  fieldFurrow: 0xa98f52,
+
   // --- buildings ---
   wood: 0xa9794f,
   woodDark: 0x74502f,

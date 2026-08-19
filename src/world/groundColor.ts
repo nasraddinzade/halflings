@@ -11,6 +11,8 @@ import {
 import { PALETTE } from '../config/palette';
 import { WORK_POINTS, propPosition } from '../config/work';
 import { LANES, LANE_BLEND, LANE_HALF_WIDTH, doorSpurs } from '../config/lanes';
+import { FIELD_FURROW_DEPTH, FIELD_FURROW_WAVELENGTH } from '../config/constants';
+import { fieldAt, toGrain, type FieldUse } from '../config/fields';
 import { hashSeed, makeRandom } from '../core/random';
 import { heightAt, pondCarve, riverCarve } from './heightfield';
 
@@ -139,6 +141,12 @@ export function paintGround(geometry: THREE.BufferGeometry): void {
   const dry = new THREE.Color(PALETTE.grassDry);
   const earth = new THREE.Color(PALETTE.earth);
   const rock = new THREE.Color(PALETTE.rock);
+  const furrow = new THREE.Color(PALETTE.fieldFurrow);
+  const crop: Record<FieldUse, THREE.Color> = {
+    pasture: new THREE.Color(PALETTE.fieldPasture),
+    arable: new THREE.Color(PALETTE.fieldArable),
+    meadow: new THREE.Color(PALETTE.fieldMeadow),
+  };
   const current = new THREE.Color();
 
   const data = new Float32Array(position.count * 3);
@@ -153,6 +161,28 @@ export function paintGround(geometry: THREE.BufferGeometry): void {
       (x + patchOffset) * GROUND_PATCH_FREQUENCY,
     ) * Math.cos((z - patchOffset) * GROUND_PATCH_FREQUENCY * 1.3);
     current.copy(grass).lerp(dry, patch * 0.45);
+
+    // Inside a hedged parcel the turf gives way to whatever is grown in
+    // it. This is the whole point of the field system: from map height a
+    // patchwork of hedges over one shade of green reads as a net thrown
+    // over a lawn, and it is the colour, not the boundary, that says
+    // country. The parcel's own tint moves it a few percent either way so
+    // that two pastures sharing a hedge are not the same green.
+    const field = fieldAt(x, z);
+    if (field !== null) {
+      current.copy(crop[field.use]);
+      const shade = 0.94 + field.tint * 0.12;
+      current.multiplyScalar(shade);
+      // Ridge and furrow: ploughland is ridged in lands a few metres
+      // wide, and those stripes are the most recognisable thing about
+      // arable from the air. Wavelength is kept well above the terrain's
+      // own quad so the stripe is sampled, not aliased into noise.
+      if (field.use === 'arable') {
+        const [u] = toGrain(x, z);
+        const ridge = 0.5 + 0.5 * Math.cos((u * Math.PI * 2) / FIELD_FURROW_WAVELENGTH);
+        current.lerp(furrow, (1 - ridge) * FIELD_FURROW_DEPTH);
+      }
+    }
 
     // Slopes: the steeper it gets, the more soil shows through the turf,
     // and at the very steepest — the rock of the rim

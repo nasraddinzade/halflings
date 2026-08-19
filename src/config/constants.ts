@@ -856,6 +856,28 @@ export const VEGETATION_CHUNKS = 8;
 export const VEGETATION_MAX_SLOPE = (38 * Math.PI) / 180;
 export const VEGETATION_SEED = 7734;
 
+/**
+ * The field system.
+ *
+ * Seen from 150 m the valley was nine tenths identical wood — a texture,
+ * not a country. Fields are what make an English landscape read, and there
+ * were none.
+ *
+ * The grain runs with the land: FIELD_GRAIN is the bearing of the scarps,
+ * because a real field system aligns to the slope — along the contour and
+ * up the fall line — and not to a radius from the middle. Cells are long
+ * one way and short the other, because a field is a strip before it is a
+ * square.
+ */
+export const FIELD_GRAIN = 158;
+export const FIELD_ALONG = 21;
+export const FIELD_ACROSS = 14;
+/** How far a corner may wander off the lattice. No field is a rectangle. */
+export const FIELD_JITTER = 5;
+/** Past this the wood takes over: fields belong to the village, not the rim. */
+export const FIELD_EDGE = 96;
+export const FIELD_SEED = 31771;
+
 /** Trees. Their silhouette is what makes the valley a valley, not a field. */
 export const TREE_COUNT = 1100;
 /**
@@ -1024,3 +1046,13 @@ export const FLY_LOOK_RATE = 1.6;
 export const MAP_HEIGHT = 150;
 /** How often the panel redraws. Every frame is costly and unreadable. */
 export const DEBUG_REFRESH = 0.25;
+
+/**
+ * Ridge and furrow. Ploughland is thrown up into lands a few metres wide,
+ * and from the air those stripes are what says arable. The wavelength has
+ * to stay well clear of the terrain's own quad (VALLEY_RADIUS * 2 /
+ * VALLEY_SEGMENTS, about 0.67 m)
+ * or the stripe is sampled below Nyquist and comes out as noise.
+ */
+export const FIELD_FURROW_WAVELENGTH = 4.5;
+export const FIELD_FURROW_DEPTH = 0.22;

@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import {
   BRIDGE_BEAM,
   BRIDGE_DECK_WIDTH,
+  BRIDGE_KERB_BURY,
   BRIDGE_PLANKS,
+  BRIDGE_PLANK_GAP,
   BRIDGE_RAIL_HEIGHT,
   BRIDGE_X,
   BRIDGE_Z_NORTH,
@@ -17,7 +19,7 @@ import {
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
 import type { Circle } from './Obstacles';
-import { groundHeight, heightAt } from './heightfield';
+import { groundHeight, heightAt, lowestAt } from './heightfield';
 import { DECK_SKIN, deckHeightAt, deckLevel } from './bridge';
 import type { PropBatch } from './props/batch';
 
@@ -94,31 +96,65 @@ export class Crossing {
     const span = BRIDGE_Z_NORTH - BRIDGE_Z_SOUTH;
     const half = BRIDGE_DECK_WIDTH / 2;
     // Both the drawn deck and the walked deck come out of world/bridge.ts,
-    // so they cannot drift apart. `top` includes the landing ramps at each
-    // end; the beams and piles hang off it
+    // so they cannot drift apart. `top` includes the landing ramps
     const top = (t: number): number =>
       deckHeightAt(BRIDGE_X, BRIDGE_Z_SOUTH + span * t) ?? deckLevel();
 
+    /**
+     * Lays a box from one point on the deck line to the next, pitched to
+     * match the fall between them.
+     *
+     * Everything on this bridge used to be an axis-aligned box dropped at
+     * the height of its own midpoint, which was fine while the deck was
+     * level and became a wreck the moment it got landing ramps: over the
+     * ramp each plank sat flat 0.2 m below its neighbour, so the deck came
+     * apart into a broken staircase with daylight between the treads and
+     * one plank lying loose on the grass. The measurements said the
+     * crossing was walkable — and it was — but nobody had looked at it.
+     */
+    const along = (
+      t0: number,
+      t1: number,
+      lift: number,
+      width: number,
+      thick: number,
+      x: number,
+      color: number,
+      shrink = 0,
+    ): void => {
+      const z0 = BRIDGE_Z_SOUTH + span * t0;
+      const z1 = BRIDGE_Z_SOUTH + span * t1;
+      const y0 = top(t0) + lift;
+      const y1 = top(t1) + lift;
+      const run = z1 - z0;
+      const rise = y1 - y0;
+      const length = Math.hypot(run, rise);
+      const box = new THREE.BoxGeometry(width, thick, Math.max(0.02, length - shrink));
+      box.rotateX(-Math.atan2(rise, run));
+      box.translate(x, (y0 + y1) / 2, (z0 + z1) / 2);
+      batch.add(box, color);
+    };
+
     for (const side of [-1, 1]) {
-      // The beams follow the hump as a chain of short segments: one long
-      // box would either float at the ends or dive through the deck
       for (let i = 0; i < BRIDGE_PLANKS; i++) {
-        const t0 = i / BRIDGE_PLANKS;
-        const t1 = (i + 1) / BRIDGE_PLANKS;
-        const z = BRIDGE_Z_SOUTH + span * (t0 + t1) / 2;
-        const y = top((t0 + t1) / 2) - DECK_SKIN - BRIDGE_BEAM / 2;
-        const beam = new THREE.BoxGeometry(BRIDGE_BEAM, BRIDGE_BEAM * 0.8, span / BRIDGE_PLANKS + 0.02);
-        beam.translate(BRIDGE_X + side * (half - BRIDGE_BEAM * 0.6), y, z);
-        batch.add(beam, PALETTE.woodDark);
+        along(
+          i / BRIDGE_PLANKS, (i + 1) / BRIDGE_PLANKS,
+          -DECK_SKIN - BRIDGE_BEAM / 2,
+          BRIDGE_BEAM, BRIDGE_BEAM * 0.8,
+          BRIDGE_X + side * (half - BRIDGE_BEAM * 0.6),
+          PALETTE.woodDark,
+        );
       }
     }
 
     for (let i = 0; i < BRIDGE_PLANKS; i++) {
-      const t = (i + 0.5) / BRIDGE_PLANKS;
-      const z = BRIDGE_Z_SOUTH + span * t;
-      const plank = new THREE.BoxGeometry(BRIDGE_DECK_WIDTH, 0.06, span / BRIDGE_PLANKS * 0.88);
-      plank.translate(BRIDGE_X, top(t) - DECK_SKIN, z);
-      batch.add(plank, PALETTE.wood);
+      // A hair of gap between boards: that is what a plank deck looks like,
+      // and it is what lets the water show through from above
+      along(
+        i / BRIDGE_PLANKS, (i + 1) / BRIDGE_PLANKS,
+        -DECK_SKIN, BRIDGE_DECK_WIDTH, 0.06, BRIDGE_X, PALETTE.wood,
+        BRIDGE_PLANK_GAP,
+      );
     }
 
     // One pair of piles at the middle, standing on the bed
@@ -132,23 +168,31 @@ export class Crossing {
       batch.add(pile, PALETTE.woodDark);
     }
 
+    // A stone kerb where each ramp runs out onto the bank. Without it the
+    // last board simply stops on the turf and reads as dropped there
+    for (const t of [0, 1]) {
+      const z = BRIDGE_Z_SOUTH + span * t;
+      const base = lowestAt(BRIDGE_X, z, half);
+      const height = top(t) - DECK_SKIN - base + BRIDGE_KERB_BURY;
+      const kerb = new THREE.BoxGeometry(BRIDGE_DECK_WIDTH + 0.3, height, 0.5);
+      kerb.translate(BRIDGE_X, top(t) - DECK_SKIN - height / 2, z);
+      batch.add(kerb, PALETTE.rock);
+    }
+
     // Handrail upstream only. The river runs east to west, so upstream is
     // the +x side: you lean on the rail with the current coming at you
     const railX = BRIDGE_X + half - 0.06;
     for (let i = 0; i <= BRIDGE_PLANKS; i += 2) {
       const t = i / BRIDGE_PLANKS;
-      const z = BRIDGE_Z_SOUTH + span * t;
       const post = new THREE.BoxGeometry(0.08, BRIDGE_RAIL_HEIGHT, 0.08);
-      post.translate(railX, top(t) + BRIDGE_RAIL_HEIGHT / 2, z);
+      post.translate(railX, top(t) + BRIDGE_RAIL_HEIGHT / 2, BRIDGE_Z_SOUTH + span * t);
       batch.add(post, PALETTE.woodDark);
     }
     for (let i = 0; i < BRIDGE_PLANKS; i++) {
-      const t0 = i / BRIDGE_PLANKS;
-      const t1 = (i + 1) / BRIDGE_PLANKS;
-      const z = BRIDGE_Z_SOUTH + span * (t0 + t1) / 2;
-      const rail = new THREE.BoxGeometry(0.06, 0.07, span / BRIDGE_PLANKS + 0.02);
-      rail.translate(railX, top((t0 + t1) / 2) + BRIDGE_RAIL_HEIGHT, z);
-      batch.add(rail, PALETTE.wood);
+      along(
+        i / BRIDGE_PLANKS, (i + 1) / BRIDGE_PLANKS,
+        BRIDGE_RAIL_HEIGHT, 0.06, 0.07, railX, PALETTE.wood,
+      );
     }
 
     // No blockers on the handrail. A Circle has no height, so these

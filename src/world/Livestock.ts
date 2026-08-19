@@ -16,6 +16,7 @@ import {
 } from '../config/constants';
 import { COATS, clipFor, type AnimalKind } from '../config/animals';
 import { fields, placesIn, type Field } from '../config/fields';
+import { POUND } from '../config/green';
 import { hashSeed, makeRandom } from '../core/random';
 import { applyStyle } from '../render/style';
 import type { AnimalLibrary } from './livestock/library';
@@ -62,6 +63,19 @@ export class Livestock {
 
   constructor(library: AnimalLibrary) {
     this.group.name = 'livestock';
+
+    // The stray in the pound.
+    //
+    // A ring of stone wall with a gate and nothing inside it is a circle
+    // for no reason — that is the first thing anyone asked about it. A
+    // pound is the pen a stray is shut in until its owner pays to have it
+    // back, and one beast standing in it says all of that without a word.
+    // It is also the only animal in the valley that is fenced IN rather
+    // than fenced out, which is the whole joke of the thing.
+    const impounded = makeRandom(hashSeed(`${LIVESTOCK_SEED}-pound`));
+    // Dead centre. Off-centre by even a third of the radius put a 2.4 m
+    // beast's muzzle through a wall 2.3 m away
+    this.place(library, POUND.x, POUND.z, impounded);
 
     for (const field of fields()) {
       if (field.use !== 'pasture') continue;

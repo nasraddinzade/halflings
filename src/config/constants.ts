@@ -749,7 +749,16 @@ export const BRIDGE_Z_NORTH = -14.3;
 export const BRIDGE_Z_SOUTH = -23.5;
 /** Two halflings abreast is a real negotiation at PLAYER_RADIUS 0.25. */
 export const BRIDGE_DECK_WIDTH = 1.1;
-export const BRIDGE_PLANKS = 11;
+/**
+ * Boards across the span. Raised from eleven: the landings take a sixth of
+ * the span at each end, and at eleven that was under two boards to fall
+ * 0.81 m — the ramp read as two steps rather than as a slope.
+ */
+export const BRIDGE_PLANKS = 18;
+/** The gap between boards. A deck with none is a table. */
+export const BRIDGE_PLANK_GAP = 0.07;
+/** How far the landing kerb is sunk into the bank it sits on. */
+export const BRIDGE_KERB_BURY = 0.25;
 export const BRIDGE_BEAM = 0.24;
 export const BRIDGE_HUMP = 0.45;
 export const BRIDGE_RAIL_HEIGHT = 0.62;
@@ -1287,7 +1296,7 @@ export const ANIMAL_CLIP_SPEED_SPAN = 0.36;
  * 0.15, and a bridge the player cannot climb onto is no better than one he
  * falls through.
  */
-export const BRIDGE_LANDING = 0.16;
+export const BRIDGE_LANDING = 0.22;
 /**
  * How far above the deck the feet may be and still be standing on it.
  *

@@ -63,8 +63,24 @@ export const POND_REACH = POND_RADIUS * (1 + POND_WOBBLE);
  * the whole footing ring, which is why it is there and not on the green.
  */
 export const POUND = {
-  x: 17,
-  z: -10.25,
+  // At the village's south end, by the lane and beside the inn. It stood
+  // at (17, -10.25), which was four metres from the footbridge's landing
+  // and nine from anything else: a lone ring of stone on a riverbank, and
+  // that is exactly how it read — a circle with no reason. A pound is
+  // village furniture, so it goes where the village is.
+  //
+  // Solved against the hedges, the lanes, the work sites, the burrows, the
+  // well, the oak, the pond AND the two buildings, sorted by how level the
+  // ground under it is. Two earlier attempts are worth recording: the
+  // first left the BUILDINGS out of the constraint list and put the pound
+  // four metres inside the inn; the second insisted on being inside the
+  // green's own boundary and found only banks, where the wall's panels —
+  // each bedded on its own ground — stepped down the slope and read as a
+  // row of shipping containers. Level ground matters more here than which
+  // side of a hedge it is on. This spot falls 0.07 m across the pound's
+  // whole width.
+  x: 19.5,
+  z: -11.5,
   radius: POUND_RADIUS,
   segments: POUND_SEGMENTS,
   /** Bearing of the gap, aimed at the lane the beast is driven along. */

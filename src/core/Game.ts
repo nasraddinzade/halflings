@@ -71,12 +71,13 @@ export class Game {
   /** null when DEBUG_PANEL is off: the module then simply does not exist. */
   private readonly debug: DebugPanel | null = DEBUG_PANEL ? new DebugPanel() : null;
   /** Owns the camera while it is on; the game keeps simulating beneath it. */
-  private readonly fly: FreeCamera | null = FREE_CAMERA
-    ? new FreeCamera(
-      this.cameraRig.camera,
-      () => this.renderer.render(this.scene, this.cameraRig.camera),
-    )
-    : null;
+  /**
+   * Owns the camera while it is on; the game keeps simulating beneath it.
+   *
+   * Built in the constructor rather than at the field, because it needs
+   * the renderer and the renderer is initialised there.
+   */
+  private readonly fly: FreeCamera | null = null;
 
   private player!: Player;
   private village: Village | null = null;
@@ -128,6 +129,14 @@ export class Game {
 
     this.renderer = new Renderer(canvas);
     this.renderer.setResizeHandler((width, height) => this.cameraRig.setAspect(width, height));
+
+    if (FREE_CAMERA) {
+      this.fly = new FreeCamera(
+        this.cameraRig.camera,
+        () => this.renderer.render(this.scene, this.cameraRig.camera),
+        { scene: this.scene, renderer: this.renderer.webgl },
+      );
+    }
 
     this.lighting = new Lighting(this.scene);
 

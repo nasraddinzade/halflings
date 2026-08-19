@@ -772,9 +772,13 @@ export const FORD_POST_OUT = 4.4;
  * Measured from the WATER rather than from the bed, so that every sett
  * stands the same height clear of the surface however the bar domes
  * underneath it. The stone is thick enough to reach the bed from there.
+ *
+ * And clear of the WAVE, not just of the surface: the river's ribbon rides
+ * RIVER_WAVE_HEIGHT up and down, so at 0.05 the crests washed over the
+ * paving and left blue puddles standing on the stones.
  */
 export const FORD_SETT_THICKNESS = 0.45;
-export const FORD_SETT_PROUD = 0.05;
+export const FORD_SETT_PROUD = 0.075;
 
 /**
  * The plank footbridge, downstream-side of the ford.

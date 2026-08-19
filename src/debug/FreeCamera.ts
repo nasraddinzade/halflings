@@ -49,6 +49,15 @@ export interface FlyHandle {
   shot(width?: number, quality?: number): string;
   /** The same frame, written to `.shots/<name>.jpg` by the dev server. */
   save(name?: string, width?: number): Promise<string>;
+  /**
+   * The live scene and renderer.
+   *
+   * For asking the running game questions that cannot be answered from the
+   * source — which meshes are actually submitted to the shadow map, what a
+   * bounding sphere came out as, what one pass costs. Every performance
+   * guess this project has made without one of these has been wrong.
+   */
+  inside(): { scene: THREE.Scene; renderer: THREE.WebGLRenderer; camera: THREE.PerspectiveCamera };
 }
 
 declare global {
@@ -85,6 +94,7 @@ export class FreeCamera {
   constructor(
     private readonly lens: THREE.PerspectiveCamera,
     private readonly draw: () => void,
+    private readonly world: { scene: THREE.Scene; renderer: THREE.WebGLRenderer },
   ) {
     this.readout = document.createElement('div');
     this.readout.style.cssText = [
@@ -134,6 +144,7 @@ export class FreeCamera {
         const response = await fetch(`/__shot/${name}`, { method: 'POST', body: url });
         return response.text();
       },
+      inside: () => ({ scene: this.world.scene, renderer: this.world.renderer, camera: this.lens }),
       where: () => ({
         x: this.position.x,
         z: this.position.z,

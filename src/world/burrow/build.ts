@@ -425,17 +425,35 @@ function frontGarden(
     blockers.push({ x: p.x, z: p.z, radius: 0.05 });
   }
 
-  // Two rails, each following the ground between its own two pales
+  // Two rails, PITCHED between their own two pales.
+  //
+  // They used to be horizontal boxes dropped at the height of the ground
+  // under their own midpoint, and the ground under a burrow's forecourt is
+  // not level — the pad holds it flat by the door and it falls away at the
+  // arc, so adjacent pales differ by a good fraction of a metre. A level
+  // rail between two of those floats clear of one and buries itself in the
+  // other, which is why every garden in the valley had rails hanging in
+  // mid-air beside pales of every height. The bridge planks were the same
+  // fault, found the same way: by looking.
+  const forward = new THREE.Vector3(0, 0, 1);
+  const line = new THREE.Vector3();
+  const turn = new THREE.Quaternion();
   for (const share of [0.32, 0.78]) {
     for (const half of [-1, 1]) {
       for (let i = 0; i < 12; i++) {
         const a0 = half * (gate + (1.02 - gate) * (i / 12));
         const a1 = half * (gate + (1.02 - gate) * ((i + 1) / 12));
-        const mid = (a0 + a1) / 2;
-        const p = at(mid, radius);
-        const rail = new THREE.BoxGeometry(0.04, 0.05, radius * Math.abs(a1 - a0) + 0.02);
-        rail.rotateY(face.yaw - mid + Math.PI / 2);
-        rail.translate(p.x, p.y + height * share, p.z);
+        const p0 = at(a0, radius);
+        const p1 = at(a1, radius);
+        const y0 = p0.y + height * share;
+        const y1 = p1.y + height * share;
+        line.set(p1.x - p0.x, y1 - y0, p1.z - p0.z);
+        const length = line.length();
+        if (length < 1e-4) continue;
+        turn.setFromUnitVectors(forward, line.clone().normalize());
+        const rail = new THREE.BoxGeometry(0.04, 0.05, length + 0.02);
+        rail.applyQuaternion(turn);
+        rail.translate((p0.x + p1.x) / 2, (y0 + y1) / 2, (p0.z + p1.z) / 2);
         parts.push({ geometry: rail, color: PALETTE.woodDark });
       }
     }

@@ -29,6 +29,32 @@ import { faceDistance, type BurrowFace } from './profile';
  * circle. Vertices that land near the door are pulled towards the door
  * plane, the more strongly the closer they are to its center.
  */
+/**
+ * How far the mound's surface stands out along the door's axis, at a point
+ * `side` metres across the face and `y` metres up it.
+ *
+ * The same dimple the mesh uses, exposed so that anything hung on the face
+ * can be put on the SURFACE rather than on the door's plane. The door sits
+ * in the middle of the pressed patch, where the surface is flat; a window
+ * a metre and a quarter to the side does not — the dimple has already
+ * begun to release there and the dome bulges forward of the door plane.
+ * Placed on the door plane anyway, the outer half of every window in the
+ * village was inside the hill, which turned a round window into the
+ * letter C.
+ */
+export function moundForward(burrow: Burrow, distance: number, side: number, y: number): number {
+  if (y >= burrow.height) return 0;
+  const radius = burrow.radius * Math.sqrt(Math.max(0, 1 - (y / burrow.height) ** 2));
+  const across = Math.min(Math.abs(side), radius);
+  const forward = Math.sqrt(Math.max(0, radius ** 2 - across ** 2));
+
+  const fromDoor = Math.hypot(side, y - DOOR_CENTER_HEIGHT);
+  const t = Math.min(1, Math.max(0, (fromDoor - DIMPLE_INNER) / (DIMPLE_OUTER - DIMPLE_INNER)));
+  const pull = 1 - t * t * (3 - 2 * t);
+  if (pull > 0 && forward > distance) return distance + (forward - distance) * (1 - pull);
+  return forward;
+}
+
 export function buildMoundMesh(burrow: Burrow, face: BurrowFace): THREE.BufferGeometry {
   const distance = faceDistance(burrow);
   const outX = Math.sin(face.yaw);

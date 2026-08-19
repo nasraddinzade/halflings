@@ -12,6 +12,7 @@ import {
   WELL_INNER_RADIUS,
   WELL_OUTER_RADIUS,
   WELL_POST_HEIGHT,
+  WELL_SHAFT_DROP,
   WELL_POST_THICKNESS,
   WELL_WALL_HEIGHT,
   GREEN_SEED,
@@ -61,6 +62,27 @@ export class GreenFurniture {
    * shows you straight through the well and the inverted-hull outline
    * inflates the wrong way and disappears.
    */
+  /**
+   * The wellhead.
+   *
+   * Rebuilt because it was three separate wrongs at once, and every one of
+   * them was a thing standing where another thing already was:
+   *
+   *  - the drum was a CAPPED cylinder, so its own top face lay over the
+   *    dark shaft disc and sealed the well. From anywhere a halfling
+   *    stands it read as a stone drum with a lid on;
+   *  - the two posts stood at OUTER_RADIUS - 0.09, which is inside the
+   *    drum's wall, so each was buried to two thirds of its length and
+   *    only stubs showed above the stone;
+   *  - and with the posts inside the drum the windlass they carry sat over
+   *    the wall rather than over the water, so the bucket hung above the
+   *    coping instead of down the shaft.
+   *
+   * Now: an open drum, a rolled rim, a dark shaft well down inside it, and
+   * a frame that STRADDLES the drum — posts on the ground outside the
+   * stone, a beam across their heads, the barrel under the beam and the
+   * rope falling down the middle.
+   */
   private buildWell(batch: PropBatch): void {
     const base = heightAt(WELL.x, WELL.z) - WELL_BEDDING;
     const put = (geometry: THREE.BufferGeometry, color: number): void => {
@@ -68,70 +90,69 @@ export class GreenFurniture {
       batch.add(geometry, color);
     };
 
+    // Open ended: the cap is what used to seal the well
     const drum = new THREE.CylinderGeometry(WELL_OUTER_RADIUS, WELL_OUTER_RADIUS + 0.03,
-      WELL_WALL_HEIGHT, 12);
+      WELL_WALL_HEIGHT, 12, 1, true);
     drum.translate(0, WELL_WALL_HEIGHT / 2, 0);
     put(drum, PALETTE.rock);
 
-    const coping = new THREE.CylinderGeometry(WELL_OUTER_RADIUS + 0.05,
-      WELL_OUTER_RADIUS + 0.05, 0.08, 12);
-    coping.translate(0, WELL_WALL_HEIGHT + 0.04, 0);
+    // A rolled rim rather than a slab, and a ring rather than a disc
+    const coping = new THREE.TorusGeometry(WELL_OUTER_RADIUS + 0.02, 0.07, 6, 14);
+    coping.rotateX(Math.PI / 2);
+    coping.translate(0, WELL_WALL_HEIGHT, 0);
     put(coping, PALETTE.rock);
 
     // The shaft: a disc, not a hole. There is no hole worth cutting in a
     // toon renderer, and a dark face set down inside the drum reads as
-    // one. In ink it would be its own colour bucket — three draw calls,
-    // counting the outline and the shadow, for twelve triangles — and
-    // sunk in the drum's own shade woodDark is as dark as ink anyway
+    // one. Set well below the rim so the drum's own wall shades it and it
+    // reads as depth rather than as a dark lid
     const shaft = new THREE.CircleGeometry(WELL_INNER_RADIUS, 12);
     shaft.rotateX(-Math.PI / 2);
-    shaft.translate(0, WELL_WALL_HEIGHT - 0.06, 0);
-    put(shaft, PALETTE.woodDark);
+    shaft.translate(0, WELL_WALL_HEIGHT - WELL_SHAFT_DROP, 0);
+    put(shaft, PALETTE.ink);
 
+    // The frame straddles the drum: on the ground, outside the stone
+    const stand = WELL_OUTER_RADIUS + WELL_POST_THICKNESS;
     for (const side of [-1, 1]) {
       const post = new THREE.BoxGeometry(WELL_POST_THICKNESS, WELL_POST_HEIGHT,
         WELL_POST_THICKNESS);
-      post.translate(side * (WELL_OUTER_RADIUS - 0.09), WELL_POST_HEIGHT / 2, 0);
+      post.translate(side * stand, WELL_POST_HEIGHT / 2, 0);
       put(post, PALETTE.woodDark);
     }
 
-    const barrel = new THREE.CylinderGeometry(WELL_BARREL_RADIUS, WELL_BARREL_RADIUS, 1.2, 8);
+    const beam = new THREE.BoxGeometry(stand * 2 + WELL_POST_THICKNESS, 0.09, 0.11);
+    beam.translate(0, WELL_POST_HEIGHT + 0.045, 0);
+    put(beam, PALETTE.wood);
+
+    const barrel = new THREE.CylinderGeometry(WELL_BARREL_RADIUS, WELL_BARREL_RADIUS,
+      stand * 2 - WELL_POST_THICKNESS, 8);
     barrel.rotateZ(Math.PI / 2);
-    barrel.translate(0, WELL_POST_HEIGHT - 0.05, 0);
+    barrel.translate(0, WELL_POST_HEIGHT - 0.12, 0);
     put(barrel, PALETTE.wood);
 
     // A windlass with no crank cannot be turned, and a villager standing
     // at one would be miming
-    const crank = new THREE.BoxGeometry(0.06, 0.22, 0.06);
-    crank.translate(0.68, WELL_POST_HEIGHT - 0.16, 0);
+    const crank = new THREE.BoxGeometry(0.055, 0.22, 0.055);
+    crank.translate(stand + 0.1, WELL_POST_HEIGHT - 0.21, 0);
     put(crank, PALETTE.woodDark);
-    const handle = new THREE.BoxGeometry(0.05, 0.05, 0.16);
-    handle.translate(0.68, WELL_POST_HEIGHT - 0.27, 0.08);
+    const handle = new THREE.BoxGeometry(0.05, 0.05, 0.17);
+    handle.translate(stand + 0.1, WELL_POST_HEIGHT - 0.31, 0.085);
     put(handle, PALETTE.woodDark);
 
-    const rope = new THREE.CylinderGeometry(0.012, 0.012, 0.17, 4);
-    rope.translate(0.3, WELL_POST_HEIGHT - 0.14, 0);
+    // Rope and bucket fall down the MIDDLE, over the shaft — which is what
+    // the frame is for
+    const ropeLength = WELL_POST_HEIGHT - 0.12 - (WELL_WALL_HEIGHT + 0.18);
+    const rope = new THREE.CylinderGeometry(0.012, 0.012, ropeLength, 4);
+    rope.translate(0, WELL_WALL_HEIGHT + 0.18 + ropeLength / 2, 0);
     put(rope, PALETTE.woodDark);
 
-    const bucket = new THREE.CylinderGeometry(0.13, 0.11, 0.18, 8);
-    bucket.translate(0.3, WELL_POST_HEIGHT - 0.31, 0);
+    const bucket = new THREE.CylinderGeometry(0.13, 0.11, 0.2, 8);
+    bucket.translate(0, WELL_WALL_HEIGHT + 0.1, 0);
     put(bucket, PALETTE.wood);
 
-    this.blockers.push({ x: WELL.x, z: WELL.z, radius: WELL_OUTER_RADIUS + 0.1 });
+    this.blockers.push({ x: WELL.x, z: WELL.z, radius: stand + 0.15 });
   }
 
-  /**
-   * The pound: a walled ring with one gate, for stock found straying.
-   *
-   * Eleven segments. The chord matters: eleven chords of 1.30 m on this
-   * radius subtend 361 degrees and cannot close, which leaves a 12 cm
-   * notch at every outer joint. At POUND_CHORD the outer faces meet
-   * within four millimetres and the ring is a wall.
-   *
-   * One segment is left out for the gateway, and a five-bar gate hangs in
-   * it. An open ring is not a pound, it is a ruin: the entire function of
-   * the thing is that what goes in does not come out.
-   */
   private buildPound(batch: PropBatch): void {
     const pitch = (Math.PI * 2) / POUND_SEGMENTS;
     const put = (geometry: THREE.BufferGeometry, color: number, angle: number,

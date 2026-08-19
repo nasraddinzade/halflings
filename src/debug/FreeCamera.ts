@@ -63,9 +63,29 @@ export class FreeCamera {
   private pitch = -0.2;
   private readonly forward = new THREE.Vector3();
   private readonly right = new THREE.Vector3();
+
   private readonly readout: HTMLElement;
 
-  constructor() {
+  /**
+   * @param draw Renders one frame on demand. The browser throttles
+   * requestAnimationFrame to a crawl — often to nothing — while the page
+   * is not being composited, which is exactly the state a headless look
+   * happens in: `fly.shot()` then reads a canvas that holds either the
+   * frame before last or nothing at all. Asking for a frame outright is
+   * the only thing that makes looking reliable when nobody is watching.
+   */
+  /**
+   * @param lens The camera itself, so that `fly.to()` can point it THERE
+   * AND THEN. Taking it from update() instead was not enough: update()
+   * runs in the game loop, the game loop is throttled to nothing while the
+   * page is not being composited, and so a shot taken right after a to()
+   * rendered the previous viewpoint. Every picture came back identical.
+   * @param draw Renders one frame on demand, for the same reason.
+   */
+  constructor(
+    private readonly lens: THREE.PerspectiveCamera,
+    private readonly draw: () => void,
+  ) {
     this.readout = document.createElement('div');
     this.readout.style.cssText = [
       'position:fixed', 'left:12px', 'top:12px', 'z-index:20',
@@ -86,15 +106,20 @@ export class FreeCamera {
         // was once pointed at the empty half of the valley
         this.yaw = ((bearing - 180) * Math.PI) / 180;
         this.pitch = (pitch * Math.PI) / 180;
+        this.aim();
       },
       map: (x = this.position.x, z = this.position.z) => {
         globalThis.fly?.on();
         this.position.set(x, MAP_HEIGHT, z);
         this.pitch = -Math.PI / 2 + 0.001;
+        this.aim();
       },
       shot: (width = 640, quality = 0.55) => {
         const canvas = document.querySelector('canvas');
         if (canvas === null) return '';
+        // A frame of the CURRENT camera, not whatever survived from before
+        this.aim();
+        this.draw();
         const scaled = document.createElement('canvas');
         scaled.width = width;
         scaled.height = Math.round((width * canvas.height) / canvas.width);
@@ -180,6 +205,20 @@ export class FreeCamera {
       + `      looking ${bearing.toFixed(0)}°   pitch ${((this.pitch * 180) / Math.PI).toFixed(0)}°\n`
       + `WASD move  QE down/up  IJKL look  Shift fast  T map  G ground  F off`;
     return true;
+  }
+
+  /** Points the lens where the handle says, without waiting for a frame. */
+  private aim(): void {
+    const camera = this.lens;
+    this.forward.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    camera.position.copy(this.position);
+    const cp = Math.cos(this.pitch);
+    camera.lookAt(
+      this.position.x + this.forward.x * cp,
+      this.position.y + Math.sin(this.pitch),
+      this.position.z + this.forward.z * cp,
+    );
+    camera.updateMatrixWorld(true);
   }
 
   dispose(): void {

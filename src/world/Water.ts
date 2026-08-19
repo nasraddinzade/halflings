@@ -190,9 +190,15 @@ function addPond(buffers: Buffers): void {
     for (let step = 0; step < POND_SEGMENTS_ROUND; step++) {
       const a = first + ring * stride + step;
       const b = a + stride;
-      // Rings run outward, steps run anticlockwise, so this winding
-      // faces up for the same reason the channel's does
-      buffers.indices.push(a, b, a + 1, a + 1, b, b + 1);
+      // Rings run outward, steps run anticlockwise — and the winding here
+      // used to be a -> b -> a+1, which is the REVERSE of the channel's
+      // and points the normal straight down. The comment above it claimed
+      // the opposite. FrontSide then culled every face of it, so the
+      // village pond was a muddy dish with reeds round it and no water in
+      // it, visible only from underneath the terrain. The channel's own
+      // comment two functions up says exactly what happens if you get this
+      // backwards; it was got backwards anyway
+      buffers.indices.push(a, a + 1, b, b, a + 1, b + 1);
     }
   }
 }

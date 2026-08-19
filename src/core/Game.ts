@@ -24,8 +24,9 @@ import { FreeCamera } from '../debug/FreeCamera';
 import { AnimationLibrary } from '../character/AnimationLibrary';
 import { LocomotionState } from '../character/LocomotionState';
 import { PlayerController, type ControllerFrame } from '../character/PlayerController';
-import { loadPlayer, type Player } from '../character/loadPlayer';
+import { dressPlayer, loadPlayer, type Player } from '../character/loadPlayer';
 import { PartLibrary } from '../character/buildVillager';
+import { PLAYER_LOOK } from '../config/villagers';
 import { Village } from '../world/Village';
 import { Vegetation } from '../world/Vegetation';
 import { Water } from '../world/Water';
@@ -70,7 +71,12 @@ export class Game {
   /** null when DEBUG_PANEL is off: the module then simply does not exist. */
   private readonly debug: DebugPanel | null = DEBUG_PANEL ? new DebugPanel() : null;
   /** Owns the camera while it is on; the game keeps simulating beneath it. */
-  private readonly fly: FreeCamera | null = FREE_CAMERA ? new FreeCamera() : null;
+  private readonly fly: FreeCamera | null = FREE_CAMERA
+    ? new FreeCamera(
+      this.cameraRig.camera,
+      () => this.renderer.render(this.scene, this.cameraRig.camera),
+    )
+    : null;
 
   private player!: Player;
   private village: Village | null = null;
@@ -190,6 +196,9 @@ export class Game {
     ]);
 
     this.player = player;
+    // Dressed after the atlas exists, not inside loadPlayer: the two load
+    // in parallel and the player's UVs are rewritten out of that atlas
+    dressPlayer(player, parts?.atlas ?? null, PLAYER_LOOK);
     this.scene.add(player.root);
 
     this.locomotion = new LocomotionState(player.mixer, library);

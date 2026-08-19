@@ -109,8 +109,14 @@ export class Vegetation {
       rate: WIND_GRASS_RATE,
     });
     // Bushes are darker and greener than the grass. In olive-grey they
-    // read as boulders, the flattened ones especially
-    this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.85), PALETTE.door, {
+    // read as boulders, the flattened ones especially.
+    //
+    // The second tone used to be PALETTE.door — a blue-green meant for
+    // painted joinery — and the per-instance tint lerps the whole way to
+    // it, so a share of every thicket in the valley came out teal. A bush
+    // is not a colour a village paints things; it varies between two
+    // greens
+    this.addChunks(scene, bush, bushByChunk, darken(PALETTE.grass, 0.85), darken(PALETTE.grass, 0.55), {
       key: 'bush',
       // Low pivot: a bush is a dense ball sitting on the ground, and only
       // its top gives. Pivot it at the crown and it squashes instead

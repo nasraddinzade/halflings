@@ -398,6 +398,14 @@ export const WELL_INNER_RADIUS = 0.5;
 export const WELL_OUTER_RADIUS = 0.65;
 export const WELL_WALL_HEIGHT = 0.55;
 export const WELL_POST_HEIGHT = 1;
+/**
+ * How far the dark shaft face sits below the rim.
+ *
+ * Far enough that the drum's own wall shades it from every angle a
+ * halfling can stand at. Level with the rim it reads as a dark lid, and
+ * that is not much better than the stone lid it replaced.
+ */
+export const WELL_SHAFT_DROP = 0.16;
 export const WELL_POST_THICKNESS = 0.1;
 export const WELL_BARREL_RADIUS = 0.07;
 export const WELL_BEDDING = 0.03;

@@ -36,8 +36,14 @@ export const OAK = { x: 26, z: 20.25, scale: GREEN_OAK_SCALE } as const;
  * the ground does not. That third line is the one you see.
  */
 export const POND = {
-  x: 29.5,
-  z: 0,
+  // Moved in off the green's eastern boundary, where it used to sit with
+  // the boundary hedge running 0.38 m from its middle — that is, straight
+  // through the water. Solved rather than nudged: this is the spot inside
+  // the green with the most room to every hedge, lane, work site, the well,
+  // the oak and the pound at once, on ground that is nearly level. It
+  // clears the hedge by 3.1 m where it used to overlap it by 2.8
+  x: 25.5,
+  z: 7.5,
   radius: POND_RADIUS,
   wobble: POND_WOBBLE,
   depth: POND_DEPTH,

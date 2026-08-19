@@ -93,7 +93,13 @@ export const SCARPS: readonly Scarp[] = [
  * grew up the street and inside the garden palings.
  */
 export const CLEARINGS: ReadonlyArray<{ x: number; z: number; radius: number }> = [
-  { x: 4.7, z: 14.7, radius: 27 },     // the knot and its green
+  { x: 4.7, z: 14.7, radius: 27 },     // the knot
+  // The green itself. It was inside the knot's disc when that disc was
+  // drawn, and the green has since grown east and south past it: the pond
+  // stood 1.8 m outside and the pound 0.8 m, which meant the wood was free
+  // to close over both. The village pond spent the rebuild in a thicket,
+  // invisible from the green it belongs to
+  { x: 23, z: -1, radius: 15 },        // the green, its pond and its pound
   { x: -28.7, z: 45.4, radius: 22 },   // the higher end
   { x: 6.1, z: -36.9, radius: 31 },    // the water row
   { x: -34.8, z: -6.5, radius: 21 },   // the mill hamlet

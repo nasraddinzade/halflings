@@ -70,6 +70,11 @@ export const MOUND_RINGS = 16;
 export const MOUND_SEGMENTS = 40;
 /** Flagstones of the path in front of the door. */
 export const PATH_STONES = 4;
+/** Thickness of a path flagstone. A quarter of it stands proud of the turf. */
+export const PATH_STONE_THICKNESS = 0.09;
+/** Boards across the round door, and where the two battens cross them. */
+export const DOOR_BOARDS = 5;
+export const DOOR_BATTEN_AT = 0.26;
 /**
  * The ground under a burrow is levelled into a pad, and the dome stands
  * on that. Without it the valley's natural terrain rides up in front of

@@ -89,3 +89,30 @@ export const VILLAGER_NAMES: readonly string[] = [
   'Wilfrid', 'Petronilla', 'Alban', 'Maud', 'Ranulf', 'Tamsin',
   'Ephraim', 'Mariot', 'Kester', 'Juliana', 'Amias', 'Hawise',
 ];
+
+/**
+ * Which pack file the player's own model was cut from.
+ *
+ * assets/characters/halfling_base.glb is the pack's Rogue with the cloak,
+ * the weapons, the camera and the light taken out (docs/ASSETS.md), so his
+ * UVs address the Rogue's zone of the atlas and nobody else's.
+ */
+export const PLAYER_PART_FILE: PartFile = 'Rogue';
+
+/**
+ * What the player wears.
+ *
+ * Written down rather than drawn from a seed: he is the one character the
+ * user looks at for the whole game, and he should not change his shirt
+ * because somebody edited the villager name list. The parts are the ones
+ * his model already has; only the palette does any work here.
+ */
+export const PLAYER_LOOK: VillagerConfig = {
+  id: 'player',
+  head: 'Rogue_Head',
+  body: 'Rogue_Body',
+  arms: 'Rogue_Arms',
+  legs: 'Rogue_Legs',
+  palette: { head: 0, body: 3, legs: 5 },
+  role: 'idler',
+};

@@ -129,6 +129,13 @@ export const PALETTE = {
   bloom: 0xd9705f,
   /** The darkest tone: eyes, pupils, solid dark details. */
   ink: 0x241f1c,
+  /**
+   * Window glass. Pale and cool, because a pane is not a hole: it catches
+   * the sky. Glazed in `ink`, every window in the village read as a black
+   * disc punched through the wall — and at any distance the two round
+   * windows either side of a door became a pair of dark glyphs.
+   */
+  glass: 0xbcd0cf,
   /** Dark metal: buckles, fittings. */
   steel: 0x5b636a,
 } as const;

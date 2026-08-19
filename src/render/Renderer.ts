@@ -1,16 +1,28 @@
 import * as THREE from 'three';
 
-import { FREE_CAMERA } from '../config/constants';
-
-import { PIXEL_RATIO_CAP, SHADOW_MAP_SIZE } from '../config/constants';
+import { FREE_CAMERA, PIXEL_RATIO_CAP, SHADOW_MAP_SIZE } from '../config/constants';
 import { PALETTE } from '../config/palette';
 
-/** WebGLRenderer plus a resize subscription. Colours come from the palette. */
+/**
+ * WebGLRenderer plus a resize subscription. Colours come from the palette.
+ *
+ * The size comes from the CANVAS, not from the window, and it is watched
+ * with a ResizeObserver rather than a window `resize` event. Those two
+ * choices are the same bug fixed twice: a page laid out in a hidden pane
+ * reports `window.innerWidth` of 0 while the canvas element still measures
+ * 1280 by 720, so the renderer sized its drawing buffer to nothing and
+ * never heard a resize event to correct itself. The result was a canvas
+ * that stayed blank until something happened to resize the window — and
+ * for anyone opening the page in a background tab, that was for ever.
+ */
 export class Renderer {
   readonly webgl: THREE.WebGLRenderer;
   private onResize?: (width: number, height: number) => void;
+  private readonly canvas: HTMLCanvasElement;
+  private readonly watcher: ResizeObserver;
 
   constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
     this.webgl = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -28,13 +40,18 @@ export class Renderer {
     this.webgl.shadowMap.type = THREE.PCFShadowMap;
     this.applySize();
 
+    this.watcher = new ResizeObserver(this.handleResize);
+    this.watcher.observe(canvas);
+    // Belt as well as braces: an observer fires on the element's box, and
+    // a device-pixel-ratio change moves none of the boxes
     window.addEventListener('resize', this.handleResize);
   }
 
   /** Registers a listener — the camera needs to recompute its aspect. */
   setResizeHandler(handler: (width: number, height: number) => void): void {
     this.onResize = handler;
-    handler(window.innerWidth, window.innerHeight);
+    const { width, height } = this.measure();
+    handler(width, height);
   }
 
   get shadowMapSize(): number {
@@ -55,18 +72,33 @@ export class Renderer {
   }
 
   dispose(): void {
+    this.watcher.disconnect();
     window.removeEventListener('resize', this.handleResize);
     this.webgl.dispose();
+  }
+
+  /**
+   * The canvas's own box, never smaller than one pixel.
+   *
+   * Falls back to the window only while the element has not been laid out
+   * at all, which is the one case where the window is the better guess.
+   */
+  private measure(): { width: number; height: number } {
+    const width = this.canvas.clientWidth || window.innerWidth || 1;
+    const height = this.canvas.clientHeight || window.innerHeight || 1;
+    return { width: Math.max(1, width), height: Math.max(1, height) };
   }
 
   private applySize(): void {
     // A 3x retina display eats frames for nothing: never go above two
     this.webgl.setPixelRatio(Math.min(window.devicePixelRatio, PIXEL_RATIO_CAP));
-    this.webgl.setSize(window.innerWidth, window.innerHeight, false);
+    const { width, height } = this.measure();
+    this.webgl.setSize(width, height, false);
   }
 
   private readonly handleResize = (): void => {
     this.applySize();
-    this.onResize?.(window.innerWidth, window.innerHeight);
+    const { width, height } = this.measure();
+    this.onResize?.(width, height);
   };
 }

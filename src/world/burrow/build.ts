@@ -6,15 +6,18 @@ import {
   DOOR_CENTER_HEIGHT,
   DOOR_FRAME_RADIUS,
   DOOR_FRAME_TUBE,
+  DOOR_BATTEN_AT,
+  DOOR_BOARDS,
   DOOR_RADIUS,
   FACE_OFFSET,
   PATH_STONES,
+  PATH_STONE_THICKNESS,
   type Burrow,
 } from '../../config/burrows';
 import { PALETTE } from '../../config/palette';
 import { heightAt } from '../heightfield';
 import { hashSeed, makeRandom } from '../../core/random';
-import { buildMoundMesh } from './mesh';
+import { buildMoundMesh, moundForward } from './mesh';
 import { DOOR_TOP, faceOf, type BurrowFace } from './profile';
 
 /**
@@ -81,17 +84,24 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
     // recognisable thing a halfling dwelling has, and there were none:
     // fifteen blank green domes with a disc on the front read as bunkers,
     // not as houses somebody lives in
-    for (const part of windows(face)) add(part.color, place(part.geometry, FACE_OFFSET + part.out));
+    for (const part of windows(burrow, face)) add(part.color, place(part.geometry, FACE_OFFSET + part.out));
 
     // A hood over the door, on two brackets. Every door that opens into a
     // hillside has one or the rain runs down the face and in
-    for (const part of porch()) add(part.color, place(part.geometry, FACE_OFFSET + part.out));
+    for (const part of porch(burrow, face)) add(part.color, place(part.geometry, FACE_OFFSET + part.out));
 
     const knob = new THREE.SphereGeometry(0.07, 8, 6);
     knob.translate(0, DOOR_CENTER_HEIGHT, 0);
     add(PALETTE.thatch, place(knob, FACE_OFFSET + 0.14));
 
-    for (const stone of pathStones(random)) add(PALETTE.rock, place(stone, FACE_OFFSET));
+    // Already in world coordinates: they were put on the ground, and
+    // place() would lift them straight back off it
+    for (const stone of pathStones(random, face, heightAt)) add(PALETTE.rock, stone);
+
+    // The step. The sill sits a third of a metre above the ground on every
+    // one of them — which is a step — and there was nothing under it but
+    // grass, so the whole front read as hung in the air
+    for (const part of doorstep()) add(part.color, place(part.geometry, FACE_OFFSET + part.out));
 
     // Chimney on the crown of the mound. Its mouth is handed out so the
     // smoke starts exactly where the pipe ends, rather than at a height
@@ -137,7 +147,21 @@ export function buildBurrows(valleyFloorAt: (x: number, z: number) => number): B
   return { mounds: merged, parts, blockers, chimneys };
 }
 
-/** Thick wooden arch with spokes — the mark of a round door. */
+/**
+ * The round door: a boarded leaf in a thick wooden arch.
+ *
+ * It was spokes, fanned out from the middle, and the comment above them
+ * said so — "like a wheel's". It read exactly like a wheel: fifteen cart
+ * wheels set in fifteen hillsides, and from any distance the village had
+ * no doors at all. This is the signature shape of the whole idiom and it
+ * was the ugliest thing in the valley.
+ *
+ * A round door is BOARDED. Vertical boards, two battens across them, and
+ * the knob in the middle — which is the one detail that says this door and
+ * no other. Each groove is cut to the chord of the circle at its own
+ * offset, so the boarding fills the disc instead of overhanging it, and
+ * nothing needs clipping.
+ */
 function doorFrame(): Array<{ geometry: THREE.BufferGeometry; color: number }> {
   const parts: Array<{ geometry: THREE.BufferGeometry; color: number }> = [];
 
@@ -145,26 +169,70 @@ function doorFrame(): Array<{ geometry: THREE.BufferGeometry; color: number }> {
   ring.translate(0, DOOR_CENTER_HEIGHT, 0);
   parts.push({ geometry: ring, color: PALETTE.wood });
 
-  // Spokes fanned out like a wheel's
-  for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI * i) / 5;
-    const spoke = new THREE.BoxGeometry(DOOR_FRAME_RADIUS * 1.9, 0.055, 0.05);
-    spoke.rotateZ(angle);
-    spoke.translate(0, DOOR_CENTER_HEIGHT, 0);
-    parts.push({ geometry: spoke, color: PALETTE.woodDark });
+  // The joints between the boards, as grooves rather than boards: the leaf
+  // behind is already one disc of wood, so a dark line at each joint is the
+  // whole of the boarding, at four thin boxes instead of five wide ones.
+  // Thin — the first cut made them 25 mm of woodDark standing 20 mm proud,
+  // which crossed the two battens and turned the door into a window
+  const step = (DOOR_RADIUS * 2) / DOOR_BOARDS;
+  for (let i = 1; i < DOOR_BOARDS; i++) {
+    const across = -DOOR_RADIUS + i * step;
+    const half = Math.sqrt(Math.max(0, DOOR_RADIUS ** 2 - across ** 2));
+    if (half < 0.02) continue;
+    const groove = new THREE.BoxGeometry(0.014, half * 2, 0.012);
+    groove.translate(across, DOOR_CENTER_HEIGHT, 0);
+    parts.push({ geometry: groove, color: PALETTE.woodDark });
+  }
+
+  // Two battens across the boards. That is what holds a boarded door
+  // together, and what makes it read as carpentry rather than as a disc
+  for (const at of [-DOOR_BATTEN_AT, DOOR_BATTEN_AT]) {
+    const half = Math.sqrt(Math.max(0, DOOR_RADIUS ** 2 - at ** 2));
+    const batten = new THREE.BoxGeometry(half * 2 - 0.16, 0.06, 0.03);
+    batten.translate(0, DOOR_CENTER_HEIGHT + at, 0);
+    parts.push({ geometry: batten, color: PALETTE.woodDark });
   }
 
   return parts;
 }
 
-/** Flagstones in front of the door. */
-function pathStones(random: () => number): THREE.BufferGeometry[] {
+/**
+ * Flagstones in front of the door, each bedded on the ground under itself.
+ *
+ * They used to be laid at a fixed height above the threshold, and the
+ * ground falls away from a threshold — that is what a threshold IS. The
+ * far stones hung up to 0.71 m in the air. This is the fifth time this
+ * project has laid something off one height sample and watched it float;
+ * the others were the hedge feet, the bridge piles, the garden palings and
+ * a haycock. The rule, by now: sample under the thing itself.
+ *
+ * Returned in world coordinates, so these skip `place()` — a stone already
+ * put on the ground must not then be lifted back off it by the face.
+ */
+function pathStones(
+  random: () => number,
+  face: BurrowFace,
+  groundAt: (x: number, z: number) => number,
+): THREE.BufferGeometry[] {
   const stones: THREE.BufferGeometry[] = [];
+  const outX = Math.sin(face.yaw);
+  const outZ = Math.cos(face.yaw);
+  const leftX = Math.cos(face.yaw);
+  const leftZ = -Math.sin(face.yaw);
+
   for (let i = 0; i < PATH_STONES; i++) {
     const size = 0.5 + random() * 0.25;
-    const stone = new THREE.BoxGeometry(size, 0.08, size * 0.7);
-    stone.rotateY((random() - 0.5) * 0.6);
-    stone.translate((random() - 0.5) * 0.5, 0.04, 0.75 + i * 0.72);
+    const turn = (random() - 0.5) * 0.6;
+    const side = (random() - 0.5) * 0.5;
+    const along = 0.75 + i * 0.72;
+    const x = face.x + outX * along + leftX * side;
+    const z = face.z + outZ * along + leftZ * side;
+
+    const stone = new THREE.BoxGeometry(size, PATH_STONE_THICKNESS, size * 0.7);
+    stone.rotateY(face.yaw + turn);
+    // Set into the turf rather than laid on it: a slab standing proud of
+    // the grass by its whole thickness reads as dropped, not as laid
+    stone.translate(x, groundAt(x, z) + PATH_STONE_THICKNESS * 0.25, z);
     stones.push(stone);
   }
   return stones;
@@ -196,53 +264,99 @@ function checkFits(burrow: Burrow, face: BurrowFace): void {
  * radius, and a window running off the edge of the face reads worse than
  * no window at all.
  */
-function windows(face: BurrowFace): Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> {
+function windows(
+  burrow: Burrow,
+  face: BurrowFace,
+): Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> {
   const parts: Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> = [];
   const radius = 0.32;
   const across = DOOR_FRAME_RADIUS + radius + 0.34;
   if (across + radius > face.halfWidth - 0.18) return parts;
 
   const height = DOOR_CENTER_HEIGHT + 0.14;
+  // How far the hill has already come forward of the door plane out here.
+  // Everything in this window is pushed out by that much, so it sits on
+  // the surface instead of being half swallowed by it. Taken at the OUTER
+  // edge, because that is the part that gets eaten first
+  const bulge = Math.max(
+    0,
+    moundForward(burrow, face.distance, across + radius, height) - face.distance,
+  );
   for (const side of [-1, 1]) {
+    // Pale, not ink. A black disc in a wooden ring is a hole in a wall;
+    // what says window is a pane catching the sky, which at this distance
+    // is simply a light cool tone against dark timber
     const glass = new THREE.CircleGeometry(radius, 16);
     glass.translate(side * across, height, 0);
-    parts.push({ geometry: glass, color: PALETTE.ink, out: 0.02 });
+    parts.push({ geometry: glass, color: PALETTE.glass, out: bulge + 0.02 });
 
     const ring = new THREE.TorusGeometry(radius, 0.055, 6, 18);
     ring.translate(side * across, height, 0);
-    parts.push({ geometry: ring, color: PALETTE.wood, out: 0.06 });
+    parts.push({ geometry: ring, color: PALETTE.wood, out: bulge + 0.06 });
 
     // A pair of bars, so the light reads as glazed rather than as a hole
     for (const angle of [0, Math.PI / 2]) {
       const bar = new THREE.BoxGeometry(radius * 2, 0.04, 0.04);
       bar.rotateZ(angle);
       bar.translate(side * across, height, 0);
-      parts.push({ geometry: bar, color: PALETTE.woodDark, out: 0.05 });
+      parts.push({ geometry: bar, color: PALETTE.woodDark, out: bulge + 0.05 });
     }
 
     // A sill, which is what stops a round window looking like a porthole
     const sill = new THREE.BoxGeometry(radius * 2.3, 0.07, 0.16);
     sill.translate(side * across, height - radius - 0.02, 0);
-    parts.push({ geometry: sill, color: PALETTE.wood, out: 0.08 });
+    parts.push({ geometry: sill, color: PALETTE.wood, out: bulge + 0.08 });
   }
   return parts;
 }
 
+/**
+ * The step under the door.
+ *
+ * DOOR_CENTER_HEIGHT less DOOR_FRAME_RADIUS puts the sill 0.31 m up, which
+ * on a 1.1 m halfling is a proper step — and until now there was nothing
+ * under it. Two courses, the upper set back, so it reads as built rather
+ * than as a slab shoved against the hill.
+ */
+function doorstep(): Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> {
+  const parts: Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> = [];
+  const sill = DOOR_CENTER_HEIGHT - DOOR_FRAME_RADIUS;
+
+  const lower = new THREE.BoxGeometry(DOOR_FRAME_RADIUS * 2.1, sill * 0.55, 0.62);
+  lower.translate(0, sill * 0.275, 0);
+  parts.push({ geometry: lower, color: PALETTE.rock, out: 0.3 });
+
+  const upper = new THREE.BoxGeometry(DOOR_FRAME_RADIUS * 1.7, sill * 0.5, 0.42);
+  upper.translate(0, sill * 0.75, 0);
+  parts.push({ geometry: upper, color: PALETTE.rock, out: 0.2 });
+
+  return parts;
+}
+
 /** A hood over the door, on two brackets. */
-function porch(): Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> {
+function porch(
+  burrow: Burrow,
+  face: BurrowFace,
+): Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> {
   const parts: Array<{ geometry: THREE.BufferGeometry; color: number; out: number }> = [];
   const top = DOOR_CENTER_HEIGHT + DOOR_FRAME_RADIUS + 0.16;
+  // The hood is wider and higher than the door, so like the windows it
+  // reaches ground the dimple has already let go of
+  const bulge = Math.max(
+    0,
+    moundForward(burrow, face.distance, DOOR_FRAME_RADIUS * 1.25, top) - face.distance,
+  );
 
   const hood = new THREE.BoxGeometry(DOOR_FRAME_RADIUS * 2.5, 0.09, 0.52);
   hood.rotateX(-0.16);
   hood.translate(0, top, 0);
-  parts.push({ geometry: hood, color: PALETTE.thatch, out: 0.26 });
+  parts.push({ geometry: hood, color: PALETTE.thatch, out: bulge + 0.26 });
 
   for (const side of [-1, 1]) {
     const bracket = new THREE.BoxGeometry(0.07, 0.34, 0.07);
     bracket.rotateX(0.5);
     bracket.translate(side * DOOR_FRAME_RADIUS * 1.05, top - 0.2, 0);
-    parts.push({ geometry: bracket, color: PALETTE.woodDark, out: 0.14 });
+    parts.push({ geometry: bracket, color: PALETTE.woodDark, out: bulge + 0.14 });
   }
   return parts;
 }

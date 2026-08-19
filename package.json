@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "assets:animations": "node tools/strip-anim-meshes.mjs",
     "assets:compress": "node tools/compress-animations.mjs",
-    "assets": "npm run assets:animations && npm run assets:compress"
+    "assets": "npm run assets:animations && npm run assets:compress && npm run assets:animals",
+    "assets:animals": "node tools/prepare-animals.mjs"
   },
   "dependencies": {
     "three": "^0.185.1",

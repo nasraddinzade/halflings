@@ -462,3 +462,22 @@ export function reliefAt(x: number, z: number, radius: number): number {
   }
   return high - low;
 }
+
+/**
+ * The lowest ground under a footprint of this size.
+ *
+ * The companion to reliefAt, and the other half of the same rule: a thing
+ * wider than a step is bedded on the LOWEST ground it covers, never on the
+ * sample under its middle. Sinking a centimetre or two into the turf is
+ * invisible; a hoof, a hedge foot or a fence pale hanging in the air is
+ * the first thing the eye finds, and this project has shipped that fault
+ * four times.
+ */
+export function lowestAt(x: number, z: number, radius: number): number {
+  let low = heightAt(x, z);
+  for (let a = 0; a < 8; a++) {
+    const angle = (a / 8) * Math.PI * 2;
+    low = Math.min(low, heightAt(x + Math.cos(angle) * radius, z + Math.sin(angle) * radius));
+  }
+  return low;
+}

@@ -11,12 +11,14 @@ import {
   SPAWN_X,
   SPAWN_Z,
   GRASS_ENABLED,
+  LIVESTOCK_ENABLED,
   RIVER_ENABLED,
   SKY_ENABLED,
   SMOKE_ENABLED,
   VILLAGERS_ENABLED,
 } from '../config/constants';
 import { PALETTE } from '../config/palette';
+import { COATS } from '../config/animals';
 import { DebugPanel } from '../debug/DebugPanel';
 import { FreeCamera } from '../debug/FreeCamera';
 import { AnimationLibrary } from '../character/AnimationLibrary';
@@ -35,8 +37,9 @@ import { GreenFurniture } from '../world/GreenFurniture';
 import { Buildings } from '../world/Buildings';
 import { Crossing } from '../world/Crossing';
 import { Gates } from '../world/Gates';
-import { Livestock } from '../world/Livestock';
 import { Hay } from '../world/Hay';
+import { Livestock } from '../world/Livestock';
+import { AnimalLibrary } from '../world/livestock/library';
 import { PropBatch } from '../world/props/batch';
 import { CameraRig } from '../render/CameraRig';
 import { Lighting } from '../render/Lighting';
@@ -71,6 +74,8 @@ export class Game {
 
   private player!: Player;
   private village: Village | null = null;
+  /** Built in load(): the herd needs its models off the network first. */
+  private livestock: Livestock | null = null;
   private vegetation: Vegetation | null = null;
   private readonly water: Water | null = RIVER_ENABLED ? new Water() : null;
   private readonly burrows = new Burrows();
@@ -88,7 +93,6 @@ export class Game {
   private readonly buildings = new Buildings(this.batch);
   private readonly crossing = new Crossing(this.batch);
   private readonly gates = new Gates(this.batch);
-  private readonly livestock = new Livestock(this.batch);
   private readonly hay = new Hay(this.batch);
   /** Built after the lighting: it takes the sun direction from it. */
   private readonly sky: Sky | null = null;
@@ -152,7 +156,6 @@ export class Game {
     this.obstacles.addToGrid(this.buildings.blockers);
     this.obstacles.addToGrid(this.crossing.blockers);
     this.obstacles.addToGrid(this.gates.blockers);
-    this.obstacles.addToGrid(this.livestock.blockers);
     this.obstacles.addToGrid(this.hay.blockers);
     this.scene.add(this.buildings.wheel.group);
 
@@ -179,10 +182,11 @@ export class Game {
     loader.setMeshoptDecoder(MeshoptDecoder);
 
     // Model, clips and villager parts are independent — load in parallel
-    const [player, library, parts] = await Promise.all([
+    const [player, library, parts, animals] = await Promise.all([
       loadPlayer(loader),
       AnimationLibrary.load(loader),
       VILLAGERS_ENABLED ? PartLibrary.load(loader) : Promise.resolve(null),
+      LIVESTOCK_ENABLED ? AnimalLibrary.load(loader, COATS) : Promise.resolve(null),
     ]);
 
     this.player = player;
@@ -199,6 +203,14 @@ export class Game {
 
     if (parts !== null) {
       this.village = new Village(this.scene, parts, library, this.ground, this.obstacles);
+    }
+
+    if (animals !== null) {
+      this.livestock = new Livestock(animals);
+      this.scene.add(this.livestock.group);
+      // Static circles: the herd grazes where it stands, so unlike the
+      // villagers it never has to republish its footprint
+      this.obstacles.addToGrid(this.livestock.blockers);
     }
 
     // Compile shaders before the first frame: otherwise there is a
@@ -235,6 +247,7 @@ export class Game {
     this.props.traverse((child) => {
       if (child instanceof THREE.Mesh) child.geometry.dispose();
     });
+    this.livestock?.dispose();
     this.vegetation?.dispose();
     this.terrain.dispose();
     this.renderer.dispose();
@@ -280,6 +293,7 @@ export class Game {
     this.locomotion.update(this.controller.locomotion, delta);
     this.player.mixer.update(delta);
     this.village?.update(delta, this.cameraRig.camera.position, this.controller.position);
+    this.livestock?.update(delta, this.cameraRig.camera.position);
 
     // After the camera moved, before the render: the dome is centred on
     // the camera, and a frame's lag would show as the sky sliding

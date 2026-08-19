@@ -87,9 +87,26 @@ export const PALETTE = {
    * the grass it was, and in thatch it read as a traffic cone.
    */
   hay: 0xd9bd7d,
-  /** Fleece. Warm, not grey — in grey a beast in a green field is a rock. */
-  fleece: 0xe8e1cd,
-  fleeceDark: 0x9a8b74,
+  /**
+   * Cattle, and the rest of what stands in a field.
+   *
+   * The pack these come from ships its own flat material colours and no
+   * textures at all, which makes it unusually easy to obey decision #6:
+   * every material slot is looked up here by name and nothing of the
+   * asset's own palette survives the load. Three coats, so a herd is not
+   * one animal printed nine times — a red, a dun and a dark.
+   */
+  hideRed: 0x9a5c38,
+  hideDun: 0xb89463,
+  hideDark: 0x5b463a,
+  /** The pale underside and face markings every one of them carries. */
+  hidePale: 0xe0d3b6,
+  hoof: 0x3b322a,
+  muzzle: 0xb08476,
+  horn: 0xd9caa0,
+  mane: 0x4a3b30,
+  eyeDark: 0x1a1512,
+  eyeWhite: 0xf2ece0,
 
   // --- buildings ---
   wood: 0xa9794f,

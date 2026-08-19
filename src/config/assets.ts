@@ -13,8 +13,11 @@ import mageUrl from '../../assets/characters/parts/Mage.glb?url';
 import rangerUrl from '../../assets/characters/parts/Ranger.glb?url';
 import rogueUrl from '../../assets/characters/parts/Rogue.glb?url';
 import rogueHoodedUrl from '../../assets/characters/parts/Rogue_Hooded.glb?url';
+import cowUrl from '../../assets/animals/cow.glb?url';
+import bullUrl from '../../assets/animals/bull.glb?url';
 
 import type { PartFile } from './villagers';
+import type { AnimalKind } from './animals';
 
 export const PLAYER_MODEL_URL = playerModelUrl;
 
@@ -26,6 +29,16 @@ export const PART_URLS: Readonly<Record<PartFile, string>> = {
   Ranger: rangerUrl,
   Rogue: rogueUrl,
   Rogue_Hooded: rogueHoodedUrl,
+};
+
+/**
+ * The field animals, prepared by tools/prepare-animals.mjs from the
+ * Quaternius pack (CC0). Each carries its own skeleton and its own five
+ * clips, so unlike the villagers they need no separate animation files.
+ */
+export const ANIMAL_URLS: Readonly<Record<AnimalKind, string>> = {
+  cow: cowUrl,
+  bull: bullUrl,
 };
 
 /** Clip files the vertical slice needs. The rest get wired up later. */

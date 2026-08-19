@@ -1154,26 +1154,39 @@ export const GATE_SWING = 1.75;
 export const FIELD_HEADLAND = 1;
 
 /**
- * The beasts in the pastures.
+ * The cattle in the pastures.
  *
- * Sized off the halfling: a sheep beside a 1.1 m person stands about
- * knee-to-thigh high and is a little under a metre long, which at this
- * scale is a 0.62 m body on 0.24 m legs.
+ * Sized off the halfling, like everything else. A cow's back is a little
+ * below a grown person's shoulder, and the halfling is 1.1 m: that puts a
+ * beast at roughly 1.55 m nose to tail here. The model is scaled to this
+ * length at load time rather than by a multiplier written down per animal
+ * — world/livestock/library.ts measures each one, because the pack's
+ * animals are modelled at different sizes and a single number would make
+ * the donkey the size of the horse.
  */
-export const BEAST_BODY = 0.72;
-export const BEAST_HEAD = 0.19;
+export const ANIMAL_LENGTH = 1.55;
+/** How far a beast keeps off the hedge: room to walk round behind it. */
+export const ANIMAL_MARGIN = 2.4;
 /**
- * Leg, from hoof to belly. Short: a sheep is nearly all fleece, and the
- * first cut stood a small pale lump on four long thin sticks, which in a
- * green field reads as a boulder somebody has put a table under.
+ * Head per square metre. Deliberately low. Each one costs a draw call, an
+ * outline and a forty-two-bone skeleton, where the old static sheep cost
+ * nothing but triangles — a pasture of 200 m2 now carries three beasts
+ * rather than a dozen, and looks more like a pasture for it.
  */
-export const BEAST_LEG = 0.16;
-export const BEAST_LEG_THICK = 0.048;
-/** How far a beast keeps off the hedge, so none is standing in one. */
-export const BEAST_MARGIN = 1.6;
-/** Head per square metre. A pasture of 200 m2 carries about a dozen. */
-export const BEAST_PER_ACRE = 0.045;
-export const LIVESTOCK_SEED = 'flock-2026';
+export const ANIMAL_PER_ACRE = 0.017;
+/**
+ * The most a beast's own footprint may rise and fall before it is moved.
+ *
+ * A rigid model stands on one ground sample. The jointed sheep this
+ * replaces could let its downhill legs reach; this cannot, so it hangs or
+ * sinks by whatever the ground does across its length.
+ */
+export const ANIMAL_RELIEF = 0.1;
+/** How far a beast is set into the turf, so its hooves never hang. */
+export const ANIMAL_BEDDING = 0.02;
+/** How much of the herd is a bull rather than a cow. */
+export const BULL_SHARE = 0.16;
+export const LIVESTOCK_SEED = 'herd-2026';
 
 /** Stubble: what a meadow stands at between the mowing and the regrowth. */
 export const MOWN_GRASS = 0.4;
@@ -1190,14 +1203,24 @@ export const HAY_MARGIN = 2;
 export const HAY_PER_ACRE = 0.03;
 export const HAY_SEED = 'hay-2026';
 
-/**
- * The most a beast's own footprint may rise and fall before it is moved.
- *
- * The body rides on the highest foot so that no leg comes up through the
- * back, which means the downhill legs stretch to reach their own ground.
- * Past about this much the stretch is what the eye notices.
- */
-export const BEAST_RELIEF = 0.14;
 
 /** The most a haycock's own base may rise and fall. Hay is not stacked on a bank. */
 export const HAY_RELIEF = 0.2;
+
+/** The herd. Off, the pastures are empty and nothing is loaded for them. */
+export const LIVESTOCK_ENABLED = true;
+/**
+ * How much the cull sphere is widened past the bind pose.
+ *
+ * The bounds are computed from a standing animal; a grazing one reaches
+ * further down and forward than that, and a tight sphere pops the whole
+ * beast out of view the moment it does. The villagers widen theirs by
+ * CHARACTER_BOUNDS_MARGIN for the same reason.
+ */
+export const ANIMAL_BOUNDS_MARGIN = 1.35;
+/**
+ * Clip playback speed, slowest and the span above it. Nine beasts chewing
+ * in step is worse than nine beasts not moving at all.
+ */
+export const ANIMAL_CLIP_SPEED = 0.82;
+export const ANIMAL_CLIP_SPEED_SPAN = 0.36;

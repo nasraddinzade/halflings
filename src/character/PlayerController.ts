@@ -14,6 +14,7 @@ import {
   PLAYER_RADIUS,
   RUN_SPEED,
   STEP_HEIGHT,
+  STEP_REACH,
   TURN_RATE,
   WADE_FULL_DEPTH,
   WADE_SPEED,
@@ -250,10 +251,34 @@ export class PlayerController {
       return false;
     }
 
-    if (ahead.slope > MAX_SLOPE && ahead.height > this.position.y + STEP_HEIGHT) {
-      this.blockedBySlope = true;
-      this.blockedNormal.copy(ahead.normal);
-      return false;
+    // The rise is measured over a FIXED distance, not over one frame's
+    // travel. It used to be `ahead.height > this.position.y + STEP_HEIGHT`,
+    // where `ahead` is sampled at `position + v * delta` — three
+    // centimetres at 120 fps. That made the real ceiling
+    // atan(STEP_HEIGHT / stride) = 78.7 degrees, so MAX_SLOPE was ANDed
+    // with a test strictly looser than itself and could never fire: the
+    // player ran up the 64.6-degree rim at 7.6 m/s of climb and straight
+    // off the edge of the terrain plane, where he stopped against nothing.
+    // `slideAlongSlope` below — whose own comment says it is what makes
+    // decision #4 hold — was unreachable code.
+    //
+    // The probe only runs on ground already steeper than MAX_SLOPE, which
+    // is essentially nowhere inside the valley, so it costs nothing.
+    if (ahead.slope > MAX_SLOPE) {
+      const speed = Math.hypot(vx, vz);
+      const probe = speed > 1e-6
+        ? this.ground.sample(
+          this.position.x + (vx / speed) * STEP_REACH,
+          this.position.z + (vz / speed) * STEP_REACH,
+        )
+        : null;
+      // A 0.15 m lip that levels off still passes: the probe lands on the
+      // flat top. Three tenths of a metre of the rim rises 0.63 m
+      if (probe === null || probe.height > this.position.y + STEP_HEIGHT) {
+        this.blockedBySlope = true;
+        this.blockedNormal.copy(ahead.normal);
+        return false;
+      }
     }
 
     this.position.x = nextX;

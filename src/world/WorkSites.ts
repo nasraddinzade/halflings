@@ -6,7 +6,7 @@ import type { VillagerRole } from '../config/villagers';
 import { hashSeed, makeRandom } from '../core/random';
 import type { Circle } from './Obstacles';
 import type { PropBatch } from './props/batch';
-import { heightAt } from './heightfield';
+import { lowestAt } from './heightfield';
 
 /**
  * Work-site props: garden beds, sawhorses with logs, reeds at the water,
@@ -34,7 +34,13 @@ export class WorkSites {
     for (const point of WORK_POINTS) {
       const spot = propPosition(point);
       const yaw = workFacing(point);
-      const base = heightAt(spot.x, spot.z);
+      // On the LOWEST ground the prop's own footprint covers, not on the
+      // one sample under its middle. A garden bed is 2.0 by 1.2 m and a
+      // sawhorse 1.19 by 0.59; set on a centre sample, five of the fifteen
+      // sites showed daylight under their downhill edge, worst 0.276 m.
+      // This is the same fault as the hedge feet, the bridge piles, the
+      // garden palings, the haycock and the burrow path stones
+      const base = lowestAt(spot.x, spot.z, footprintReach(point.role));
       // A little rotation spread so a row of beds isn't a blueprint
       const random = makeRandom(hashSeed(point.id));
       const tilt = yaw + (random() - 0.5) * 0.5;
@@ -59,6 +65,22 @@ interface Part {
 
 function blockRadius(role: VillagerRole): number {
   return role === 'fisher' ? 0.35 : 0.6;
+}
+
+/**
+ * How far out the role's biggest prop reaches, for bedding it.
+ *
+ * Its own half-diagonal, not its blocking radius: a garden bed is 2.0 by
+ * 1.2 m, so it hangs a metre from its middle whatever the player is
+ * allowed to walk into.
+ */
+function footprintReach(role: VillagerRole): number {
+  switch (role) {
+    case 'gardener': return 1.17;
+    case 'miller': return 0.66;
+    case 'fisher': return 0.89;
+    default: return 0.59;
+  }
 }
 
 function propsFor(role: VillagerRole, random: () => number): Part[] {

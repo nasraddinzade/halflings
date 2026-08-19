@@ -150,13 +150,12 @@ export class Crossing {
       batch.add(rail, PALETTE.wood);
     }
 
-    // The deck is walkable because the BVH does not know about it: the
-    // player crosses on the bed beneath. Blockers only on the rail side,
-    // so nobody walks through the handrail
-    for (let i = 0; i <= BRIDGE_PLANKS; i++) {
-      const t = i / BRIDGE_PLANKS;
-      this.blockers.push({ x: railX, z: BRIDGE_Z_SOUTH + span * t, radius: 0.12 });
-    }
+    // No blockers on the handrail. A Circle has no height, so these
+    // stopped the player at RIVERBED level — an invisible fence strung
+    // across the channel, up to 1.44 m below the rail it stood for, in the
+    // one place a wading player is meant to be able to go. The rail is
+    // above anywhere he can reach on foot, so it needs no collision at
+    // all: what it guards is the deck, and the deck has its own
   }
 }
 

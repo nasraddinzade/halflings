@@ -1,4 +1,4 @@
-import { PALETTE } from './palette';
+import { PALETTE, darken } from './palette';
 
 /**
  * The animals that stand in the fields, and how the project's palette is
@@ -70,7 +70,7 @@ export const SLOTS: Readonly<Record<string, DressSlot>> = {
 export function slotColor(slot: DressSlot, dress: AnimalDress): number {
   switch (slot) {
     case 'coat': return dress.coat;
-    case 'coatDark': return shade(dress.coat);
+    case 'coatDark': return darken(dress.coat, COAT_SHADE);
     case 'pale': return dress.pale;
     case 'hoof': return PALETTE.hoof;
     case 'muzzle': return PALETTE.muzzle;
@@ -81,13 +81,8 @@ export function slotColor(slot: DressSlot, dress: AnimalDress): number {
   }
 }
 
-/** A shaded version of a coat, derived rather than added to the palette. */
-function shade(color: number): number {
-  const r = Math.round(((color >> 16) & 0xff) * 0.72);
-  const g = Math.round(((color >> 8) & 0xff) * 0.72);
-  const b = Math.round((color & 0xff) * 0.72);
-  return (r << 16) | (g << 8) | b;
-}
+/** How far the shaded flank of a coat sits below the coat itself. */
+const COAT_SHADE = 0.72;
 
 /**
  * The clips the pack ships that this game plays, and how often each is

@@ -4,6 +4,7 @@ import {
   FIELD_GATE_WIDTH,
   GATE_BARS,
   GATE_HEIGHT,
+  GATE_LEAF_SAMPLES,
   GATE_POST,
   GATE_RAIL,
   GATE_SWING,
@@ -81,14 +82,18 @@ export class Gates {
     const lx = Math.sin(bearing);
     const lz = Math.cos(bearing);
     const span = FIELD_GATE_WIDTH * 0.92;
-    // The leaf is two metres long: hung off the ground under its hinge
-    // alone, its far end floats or buries itself on any slope. It takes
-    // the lower of its two ends, which puts the gap under the head rather
-    // than the head in the turf
-    const base = Math.min(
-      heightAt(hingeX, hingeZ),
-      heightAt(hingeX + lx * span, hingeZ + lz * span),
-    );
+    // The leaf is two metres long, and it must clear the ground along ALL
+    // of it. Taking the lower of its two ENDS was not enough: on a bank
+    // the ground rises through the middle of the leaf, and it buried the
+    // bottom bar at 20 of the 72 gateways, half the leaf at 10 of them and
+    // the TOP rail at 6. Sampled along its length instead — a gate hangs
+    // from its hinge and swings clear of whatever is under it, so the
+    // highest ground it passes over is the one that sets its height
+    let base = -Infinity;
+    for (let t = 0; t <= GATE_LEAF_SAMPLES; t++) {
+      const along = (t / GATE_LEAF_SAMPLES) * span;
+      base = Math.max(base, heightAt(hingeX + lx * along, hingeZ + lz * along));
+    }
 
     // Bars. The lowest sits a little off the ground and the top one at
     // full height; five of them is what a field gate has
@@ -98,6 +103,14 @@ export class Gates {
       bar.rotateY(-bearing + Math.PI / 2);
       bar.translate(hingeX + (lx * span) / 2, y, hingeZ + (lz * span) / 2);
       batch.add(bar, GATE_TIMBER);
+      // A barred gate is chest high on a halfling and it is not a doorway
+      // — only the two posts used to block, so 1.5 m of every gate in the
+      // valley could be walked straight through
+      if (b === 0) {
+        for (const t of [0.3, 0.6, 0.9]) {
+          this.blockers.push({ x: hingeX + lx * span * t, z: hingeZ + lz * span * t, radius: 0.1 });
+        }
+      }
     }
 
     // Head and heel: the two uprights that hold the bars together

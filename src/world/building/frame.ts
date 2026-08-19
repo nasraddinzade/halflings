@@ -4,6 +4,7 @@ import {
   FRAME_BRACE,
   FRAME_PANEL_INSET,
   FRAME_PLINTH,
+  FRAME_PLINTH_BURY,
   FRAME_POST,
   FRAME_RAIL,
   FRAME_STUD,
@@ -56,18 +57,39 @@ export function timberBuilding(building: Building, batch: PropBatch): BuiltBuild
   const half = length / 2;
   const halfDepth = depth / 2;
 
-  // The floor sits on the HIGHEST ground under the footprint, and the
-  // plinth reaches down past the lowest. A pad holds this ground level to
-  // within about 17 cm, and a 30 cm plinth swallows that with 13 cm still
-  // buried at the low corner — so no course of stone ever floats
+  // The floor sits on the HIGHEST ground under the footprint and the
+  // plinth reaches down past the LOWEST — and it is measured, not assumed.
+  //
+  // The comment that used to stand here said a pad holds this ground level
+  // to within about 17 cm, so a fixed 30 cm plinth would swallow it with
+  // 13 cm still buried. That was true of the inn, whose site is level to
+  // 9 cm. It was never true of the mill: it stands on a bank that falls
+  // 1.31 m across its own footprint, so 99% of that footprint had ground
+  // BELOW the plinth and you could see straight through underneath the
+  // building — 0.59 m of daylight at mid-span, at 70 of 79 stations along
+  // its length. Three separate comments asserted the invariant and nothing
+  // checked it.
+  //
+  // Widening the pad instead was tried and measured: every radius that
+  // levels the footprint gouges a crater into the rising ground north of
+  // the mill (50 to 67 degrees, against a MAX_SLOPE of 50) and lifts the
+  // river surface 0.12 m beside the wheel, because the water takes its
+  // height from the ground. A bank-side mill does not want level ground.
+  // It wants a taller undercroft, which is what it gets here — and what
+  // the real thing has.
   let highest = -Infinity;
+  let lowest = Infinity;
   for (let u = -half; u <= half; u += 0.4) {
     for (let v = -halfDepth; v <= halfDepth; v += 0.4) {
       const p = place(building, u, v);
-      highest = Math.max(highest, heightAt(p.x, p.z));
+      const ground = heightAt(p.x, p.z);
+      highest = Math.max(highest, ground);
+      lowest = Math.min(lowest, ground);
     }
   }
   const floorY = highest + 0.02;
+  // Reaching past the lowest corner, never less than the nominal course
+  const plinthHeight = Math.max(FRAME_PLINTH, floorY - lowest + FRAME_PLINTH_BURY);
 
   const put = (
     geometry: THREE.BufferGeometry,
@@ -82,7 +104,7 @@ export function timberBuilding(building: Building, batch: PropBatch): BuiltBuild
     batch.add(geometry, color);
   };
 
-  plinth(put, length, depth);
+  plinth(put, length, depth, plinthHeight);
   walls(put, length, depth, building);
   roof(put, length, depth, building);
   const chimney = stack(put, length, depth, building, floorY);
@@ -132,9 +154,9 @@ type Put = (g: THREE.BufferGeometry, color: number, u: number, y: number, v: num
  * job: it hides the seam where a straight wall meets a height field that
  * is only ever level to a few centimetres.
  */
-function plinth(put: Put, length: number, depth: number): void {
-  const box = new THREE.BoxGeometry(length + 0.24, FRAME_PLINTH, depth + 0.24);
-  put(box, PALETTE.rock, 0, -FRAME_PLINTH / 2, 0);
+function plinth(put: Put, length: number, depth: number, height: number): void {
+  const box = new THREE.BoxGeometry(length + 0.24, height, depth + 0.24);
+  put(box, PALETTE.rock, 0, -height / 2, 0);
 }
 
 /**

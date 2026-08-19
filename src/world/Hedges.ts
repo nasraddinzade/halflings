@@ -74,7 +74,12 @@ export class Hedges {
       // than the crown, or the two read as one slab again
       color: darken(PALETTE.grass, 0.62),
       outline: false,
-      castShadow: true,
+      // No shadow. The bank is one merged mesh spanning the whole valley,
+      // so casting from it submits all 31,780 of its triangles to the
+      // shadow map every frame wherever the player stands — and its own
+      // shadow falls inside its 0.5 m half-width, under the crown's
+      // shadow, where nothing can see it
+      castShadow: false,
       receiveShadow: true,
     });
 

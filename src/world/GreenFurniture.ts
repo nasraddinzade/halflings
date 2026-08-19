@@ -189,8 +189,13 @@ export class GreenFurniture {
     const steps = POUND_SEGMENTS * 4;
     for (let i = 0; i < steps; i++) {
       const angle = (i / steps) * Math.PI * 2;
+      // `away` is the angle FROM the gateway. It used to be tested
+      // against Math.PI - pitch * 0.6, which skips the samples OPPOSITE
+      // the gate: the pound was walled where its gateway is drawn and open
+      // where its wall is drawn, so the one way in was sealed by nothing
+      // visible and there was a hole through solid stone across from it
       const away = Math.abs(((angle - gateSlot * pitch + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-      if (away > Math.PI - pitch * 0.6) continue;
+      if (away < pitch * 0.6) continue;
       this.blockers.push({
         x: POUND.x + Math.cos(angle) * POUND_RADIUS,
         z: POUND.z + Math.sin(angle) * POUND_RADIUS,

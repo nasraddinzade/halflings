@@ -69,6 +69,18 @@ export const MAX_SLOPE = (50 * Math.PI) / 180;
 export const GROUND_SNAP = 0.4;
 /** Threshold below which a rise counts as a step, taken without a jump. */
 export const STEP_HEIGHT = 0.15;
+/**
+ * How far ahead a rise is measured when the ground is too steep to walk.
+ *
+ * Fixed, and that is the whole point: the step test used to measure the
+ * rise over ONE FRAME'S travel, which at 120 fps is 3 cm, so the gate only
+ * refused faces steeper than 78.7 degrees and MAX_SLOPE could never fire
+ * on its own. The player ran up the 64.6-degree rim at 7.6 m/s of climb
+ * and off the edge of the terrain plane, where he stopped dead against
+ * nothing at all — decision #4 exactly inverted: the rim did nothing and
+ * the plane edge was the wall.
+ */
+export const STEP_REACH = 0.3;
 
 // --- camera -----------------------------------------------------------------
 
@@ -460,6 +472,14 @@ export const FRAME_STUD_GAP = 0.34;
 export const FRAME_PANEL_INSET = 0.03;
 /** Stone plinth under the sill: timber on the ground rots. */
 export const FRAME_PLINTH = 0.3;
+/**
+ * How far a plinth reaches BELOW the lowest ground under its building.
+ *
+ * A stone base that stops exactly at the lowest corner still shows a seam
+ * there, because the height field is only ever level to a centimetre or
+ * two; this buries it.
+ */
+export const FRAME_PLINTH_BURY = 0.1;
 
 /**
  * Thatch. The pitch lives with each building because it is an angle and
@@ -1053,7 +1073,13 @@ export const DEBUG_PANEL = false;
  * a wheel hanging over dry ground — was found by looking, and none of them
  * by measuring.
  */
-export const FREE_CAMERA = true;
+/**
+ * Only in development. It used to be a plain `true`, so the fly camera,
+ * its readout, its `globalThis.fly` handle and preserveDrawingBuffer all
+ * shipped: a visitor who pressed F was lifted out of the game, and every
+ * visitor paid for a preserved drawing buffer on every frame.
+ */
+export const FREE_CAMERA = import.meta.env.DEV;
 export const FLY_SPEED = 14;
 export const FLY_FAST = 55;
 export const FLY_LOOK_RATE = 1.6;
@@ -1148,6 +1174,14 @@ export const GATE_HEIGHT = 0.7;
 export const GATE_POST = 0.13;
 export const GATE_RAIL = 0.055;
 export const GATE_BARS = 5;
+/**
+ * How many points along a gate leaf are sampled before it is hung.
+ *
+ * Its two ends are not enough: on a bank the ground rises through the
+ * middle of the leaf, and taking the lower of the ends buried the bottom
+ * bar at twenty of the seventy-two gateways.
+ */
+export const GATE_LEAF_SAMPLES = 8;
 /** How far back the leaf is swung. Open, not shut — see world/Gates.ts. */
 export const GATE_SWING = 1.75;
 

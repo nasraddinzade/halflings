@@ -35,6 +35,70 @@ interface Segment {
   bx: number;
   bz: number;
   halfWidth: number;
+  /** Where the wear fades out, and its square — both fixed per segment. */
+  edge: number;
+  edgeSquared: number;
+}
+
+/**
+ * The lanes, bucketed into a coarse grid.
+ *
+ * Every terrain vertex has to know how worn its ground is, and there are
+ * 148,225 of them against about ninety lane segments — thirteen million
+ * distance tests, which measured at 0.89 s of blocking startup even after
+ * the square roots came out of the inner loop. (Removing the square roots
+ * was worth a quarter of it and no more: the cost was never the `hypot`,
+ * it was the count. That is worth writing down, because the first guess
+ * was the square roots and the first guess was wrong.)
+ *
+ * A segment can only wear ground within `edge` of itself, so bucketing by
+ * that reach and asking one cell turns the thirteen million into about one.
+ */
+class LaneIndex {
+  private readonly cells = new Map<number, Segment[]>();
+  private readonly size: number;
+
+  constructor(all: readonly Segment[]) {
+    let widest = 1;
+    for (const s of all) widest = Math.max(widest, s.edge);
+    this.size = widest * 2;
+
+    for (const s of all) {
+      const x0 = Math.min(s.ax, s.bx) - s.edge;
+      const x1 = Math.max(s.ax, s.bx) + s.edge;
+      const z0 = Math.min(s.az, s.bz) - s.edge;
+      const z1 = Math.max(s.az, s.bz) + s.edge;
+      for (let i = Math.floor(x0 / this.size); i <= Math.floor(x1 / this.size); i++) {
+        for (let j = Math.floor(z0 / this.size); j <= Math.floor(z1 / this.size); j++) {
+          const key = LaneIndex.key(i, j);
+          const bucket = this.cells.get(key);
+          if (bucket === undefined) this.cells.set(key, [s]);
+          else bucket.push(s);
+        }
+      }
+    }
+  }
+
+  /** Every segment that could possibly wear the ground at this point. */
+  near(x: number, z: number): readonly Segment[] {
+    const bucket = this.cells.get(LaneIndex.key(
+      Math.floor(x / this.size),
+      Math.floor(z / this.size),
+    ));
+    return bucket ?? EMPTY;
+  }
+
+  private static key(i: number, j: number): number {
+    return (i + 512) * 1024 + (j + 512);
+  }
+}
+
+const EMPTY: readonly Segment[] = [];
+
+/** One worn stretch, with its fade edge worked out once rather than per vertex. */
+function segment(ax: number, az: number, bx: number, bz: number, halfWidth: number): Segment {
+  const edge = halfWidth + halfWidth * LANE_BLEND;
+  return { ax, az, bx, bz, halfWidth, edge, edgeSquared: edge * edge };
 }
 
 /**
@@ -53,7 +117,7 @@ function buildPaths(): Segment[] {
       const a = lane.points[i - 1];
       const b = lane.points[i];
       if (a === undefined || b === undefined) continue;
-      segments.push({ ax: a[0], az: a[1], bx: b[0], bz: b[1], halfWidth });
+      segments.push(segment(a[0], a[1], b[0], b[1], halfWidth));
     }
   }
 
@@ -74,7 +138,7 @@ function buildPaths(): Segment[] {
     // Joined to the nearest point on the network, not to the spawn point:
     // work sites belong to the lanes that pass them, not to the middle
     const near = nearestOnNetwork(cx, cz, segments);
-    segments.push({ ax: near.x, az: near.z, bx: cx, bz: cz, halfWidth: LANE_HALF_WIDTH.croft });
+    segments.push(segment(near.x, near.z, cx, cz, LANE_HALF_WIDTH.croft));
   }
 
   return segments;
@@ -101,16 +165,30 @@ function nearestOnNetwork(x: number, z: number, segments: readonly Segment[]): {
   return point;
 }
 
-/** Distance from a point to a segment in the plane. */
-function distanceToSegment(x: number, z: number, s: Segment): number {
+/**
+ * SQUARED distance from a point to a segment in the plane.
+ *
+ * Squared because of how often it is asked. The painter runs it for every
+ * terrain vertex against every lane segment — 13.3 million times at
+ * startup — and a Math.hypot per call was costing a second of blocking
+ * load on its own. The comparison it feeds wants a threshold, and a
+ * threshold can be squared once per segment instead.
+ */
+function distanceSquaredToSegment(x: number, z: number, s: Segment): number {
   const dx = s.bx - s.ax;
   const dz = s.bz - s.az;
   const lengthSquared = dx * dx + dz * dz;
-  if (lengthSquared < 1e-8) return Math.hypot(x - s.ax, z - s.az);
+  if (lengthSquared < 1e-8) {
+    const ax = x - s.ax;
+    const az = z - s.az;
+    return ax * ax + az * az;
+  }
 
   let t = ((x - s.ax) * dx + (z - s.az) * dz) / lengthSquared;
   t = t < 0 ? 0 : t > 1 ? 1 : t;
-  return Math.hypot(x - (s.ax + dx * t), z - (s.az + dz * t));
+  const px = x - (s.ax + dx * t);
+  const pz = z - (s.az + dz * t);
+  return px * px + pz * pz;
 }
 
 function smoothstep(edge0: number, edge1: number, value: number): number {
@@ -131,7 +209,7 @@ function slopeAt(x: number, z: number): number {
  */
 export function paintGround(geometry: THREE.BufferGeometry): void {
   const position = geometry.getAttribute('position');
-  const paths = buildPaths();
+  const index = new LaneIndex(buildPaths());
   const random = makeRandom(hashSeed('ground'));
   // Patch pattern offset: without it the patches would latch onto the
   // terrain grid
@@ -211,11 +289,10 @@ export function paintGround(geometry: THREE.BufferGeometry): void {
     // footpath does, and that difference is most of what says which way
     // you are standing on.
     let wear = 0;
-    for (const segment of paths) {
-      const d = distanceToSegment(x, z, segment);
-      const edge = segment.halfWidth + segment.halfWidth * LANE_BLEND;
-      if (d >= edge) continue;
-      const w = 1 - smoothstep(segment.halfWidth, edge, d);
+    for (const segment of index.near(x, z)) {
+      const d2 = distanceSquaredToSegment(x, z, segment);
+      if (d2 >= segment.edgeSquared) continue;
+      const w = 1 - smoothstep(segment.halfWidth, segment.edge, Math.sqrt(d2));
       if (w > wear) wear = w;
     }
     current.lerp(earth, wear * 0.8);

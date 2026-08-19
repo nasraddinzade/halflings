@@ -107,6 +107,15 @@ function toGrain(k: number, x: number, z: number): readonly [number, number] {
   return [x * frame.cos + z * frame.sin, -x * frame.sin + z * frame.cos];
 }
 
+/**
+ * Both directions of a furlong's frame, for anything that has to work in
+ * rows: a crop is drilled along the grain, not scattered across it.
+ */
+export const toGrainIn = toGrain;
+export function toWorldIn(k: number, u: number, v: number): readonly [number, number] {
+  return toWorld(k, u, v);
+}
+
 /** Where a point sits along its furlong's grain, for ridge and furrow. */
 export function furrowPhase(k: number, x: number, z: number): number {
   return toGrain(k, x, z)[0] ?? 0;
@@ -177,7 +186,20 @@ function quadOf(k: number, i: number, j: number): Array<readonly [number, number
  * fields that touch agree on the corner between them and the boundary
  * between them is one line rather than two that nearly coincide.
  */
+let generated: Field[] | null = null;
+
+/**
+ * The whole system. Built once and handed out: five callers ask for it —
+ * the hedges, the ground painter, the crop, the trees and the bushes —
+ * and regenerating five times is five clips of every cell against every
+ * furlong. Callers get the same array, and treat it as read-only.
+ */
 export function fields(): Field[] {
+  if (generated === null) generated = build();
+  return generated;
+}
+
+function build(): Field[] {
   const out: Field[] = [];
 
   for (let k = 0; k < FURLONGS.length; k++) {

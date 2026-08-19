@@ -1087,3 +1087,34 @@ export const FIELD_RIVER_MARGIN = 5.5;
  * parcel but a thick hedge with a stripe of grass inside it.
  */
 export const FIELD_MIN_AREA = 90;
+
+/**
+ * The crop.
+ *
+ * Standing in a field the generator called arable, the ground was flat
+ * gold with grass tufts growing through it — a painted floor. A crop is
+ * the thing that makes ploughland read from inside it, and rows are what
+ * make it read as sown rather than as grown: corn is drilled along the
+ * grain of its own furlong.
+ *
+ * Height is set against a 1.1 m halfling: waist-high corn on a halfling
+ * is about 0.55 m, which is nearly twice GRASS_HEIGHT.
+ */
+export const CROP_HEIGHT = 0.55;
+/**
+ * Along the row, and between rows. Tight: a crop you can see the soil
+ * through is a field of weeds. The first spacing was 0.4 by 0.55 and left
+ * bare ground showing between every stalk.
+ */
+export const CROP_STEP = 0.26;
+export const CROP_ROW = 0.34;
+/** How far a plant wanders off its place in the row. */
+export const CROP_JITTER = 0.14;
+
+/**
+ * How the turf differs by what the field is for. A grazed pasture is
+ * cropped short, a hay meadow stands long, and neither is the rough grass
+ * of the common. Nothing at all grows in the ploughland but the crop.
+ */
+export const MEADOW_GRASS = 1.5;
+export const PASTURE_GRASS = 0.55;

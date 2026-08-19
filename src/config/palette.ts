@@ -74,6 +74,13 @@ export const PALETTE = {
   fieldMeadow: 0xb4b76a,
   /** The furrow bottoms of ploughland, a shade off the crop above them. */
   fieldFurrow: 0xa98f52,
+  /**
+   * Standing corn, lit and shaded. Warmer and lighter than the ground it
+   * grows out of: a crop painted the same gold as the field it stands in
+   * is a carpet with a texture, not a crop.
+   */
+  corn: 0xdcc078,
+  cornShade: 0xb08f4e,
 
   // --- buildings ---
   wood: 0xa9794f,

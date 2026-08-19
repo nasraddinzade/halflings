@@ -7,6 +7,10 @@ import {
   CART_AVENUE_FROM,
   CART_AVENUE_OFFSET,
   CART_AVENUE_TO,
+  CROP_HEIGHT,
+  CROP_JITTER,
+  CROP_ROW,
+  CROP_STEP,
   GRASS_COUNT,
   GRASS_HEIGHT,
   GREEN_PLANTING,
@@ -14,6 +18,8 @@ import {
   HEDGEROW_SEED,
   HEDGEROW_SPACING,
   HEDGEROW_WORK_CLEARANCE,
+  MEADOW_GRASS,
+  PASTURE_GRASS,
   PLAYER_RADIUS,
   VALLEY_RADIUS,
   VEGETATION_CHUNKS,
@@ -41,7 +47,7 @@ import { BURROWS } from '../config/burrows';
 import { allHedges } from '../config/hedges';
 import { OAK } from '../config/green';
 import { inClearing } from '../config/scarps';
-import { inField } from '../config/fields';
+import { fieldAt, fields, inField, toGrainIn, toWorldIn } from '../config/fields';
 import { LANES, LANE_HALF_WIDTH, doorSpurs, type Lane } from '../config/lanes';
 import { WORK_POINTS, propPosition } from '../config/work';
 import { facePoint } from './burrow/profile';
@@ -83,10 +89,12 @@ export class Vegetation {
 
     const grass = grassGeometry();
     const bush = bushGeometry();
+    const corn = cropGeometry();
 
     // Bucket into chunks up front so we know the size of each one
     const grassByChunk = scatter(GRASS_COUNT, ground, random);
     const bushByChunk = scatter(BUSH_COUNT, ground, random, true);
+    const cropByChunk = sow(ground, random);
 
     this.addTrees(scene, ground, random);
 
@@ -108,6 +116,15 @@ export class Vegetation {
       amplitude: WIND_BUSH_AMPLITUDE,
       flutter: WIND_BUSH_FLUTTER,
       rate: WIND_BUSH_RATE,
+    });
+    // Corn is a stalk, not a blade: it bends from the top like grass but
+    // further, because it is twice as tall and carries a head
+    this.addChunks(scene, corn, cropByChunk, PALETTE.corn, PALETTE.cornShade, {
+      key: 'crop',
+      pivot: topOf(corn),
+      amplitude: WIND_GRASS_AMPLITUDE * 1.6,
+      flutter: WIND_GRASS_FLUTTER * 0.6,
+      rate: WIND_GRASS_RATE * 0.8,
     });
   }
 
@@ -619,10 +636,20 @@ function scatter(
     if (BURROWS.some((b) => Math.hypot(x - b.x, z - b.z) < b.radius + 0.6)) continue;
 
     const scale = 0.7 + random() * 0.6;
+    let stand = 0.8 + random() * 0.5;
+    // What the field is for decides what grows in it. Ploughland grows
+    // the crop and nothing else — the first cut had the valley's ordinary
+    // tufts coming up through the corn, which is the one thing a ploughed
+    // field is worked all year to prevent
+    const field = fieldAt(x, z);
+    if (field !== null) {
+      if (field.use === 'arable') continue;
+      stand *= field.use === 'meadow' ? MEADOW_GRASS : PASTURE_GRASS;
+    }
     const placement: Placement = {
       position: new THREE.Vector3(x, sample.height, z),
       rotation: new THREE.Quaternion().setFromAxisAngle(axis, random() * Math.PI * 2),
-      scale: new THREE.Vector3(scale, scale * (0.8 + random() * 0.5), scale),
+      scale: new THREE.Vector3(scale, scale * stand, scale),
       tint: random(),
     };
 
@@ -636,6 +663,96 @@ function scatter(
   }
 
   return byChunk;
+}
+
+/**
+ * Sows the arable fields.
+ *
+ * Rows, not a scatter. Corn is drilled along the grain of its own
+ * furlong, and rows are most of what says a field is sown rather than
+ * merely overgrown — a random spread of stalks reads as long grass in a
+ * different colour. The walk runs in the furlong's own frame, so the rows
+ * come out parallel to the boundary rather than to the world axes.
+ *
+ * Each plant is tested against `fieldAt` rather than against the polygon
+ * it came from: the bounding box in grain space overhangs a clipped
+ * parcel, and the corners of that overhang are somebody else's field.
+ */
+function sow(ground: Ground, random: () => number): Map<number, Placement[]> {
+  const byChunk = new Map<number, Placement[]>();
+  const axis = new THREE.Vector3(0, 1, 0);
+  const chunkSize = (VALLEY_RADIUS * 2) / VEGETATION_CHUNKS;
+
+  for (const field of fields()) {
+    if (field.use !== 'arable') continue;
+
+    let u0 = Infinity;
+    let u1 = -Infinity;
+    let v0 = Infinity;
+    let v1 = -Infinity;
+    for (const p of field.points) {
+      const [u, v] = toGrainIn(field.furlong, p[0], p[1]);
+      if (u === undefined || v === undefined) continue;
+      u0 = Math.min(u0, u); u1 = Math.max(u1, u);
+      v0 = Math.min(v0, v); v1 = Math.max(v1, v);
+    }
+    if (!Number.isFinite(u0)) continue;
+
+    for (let v = v0; v <= v1; v += CROP_ROW) {
+      for (let u = u0; u <= u1; u += CROP_STEP) {
+        const [x, z] = toWorldIn(
+          field.furlong,
+          u + (random() - 0.5) * CROP_JITTER,
+          v + (random() - 0.5) * CROP_JITTER,
+        );
+        if (x === undefined || z === undefined) continue;
+        if (fieldAt(x, z) !== field) continue;
+
+        const sample = ground.sample(x, z);
+        if (sample === null) continue;
+
+        const scale = 0.85 + random() * 0.3;
+        const placement: Placement = {
+          position: new THREE.Vector3(x, sample.height, z),
+          // Barely turned: a drilled crop stands the same way, and full
+          // rotation on a flat blade is what makes a scatter look random
+          rotation: new THREE.Quaternion().setFromAxisAngle(axis, (random() - 0.5) * 0.6),
+          scale: new THREE.Vector3(scale, scale * (0.9 + random() * 0.25), scale),
+          tint: random(),
+        };
+
+        const cx = Math.floor((x + VALLEY_RADIUS) / chunkSize);
+        const cz = Math.floor((z + VALLEY_RADIUS) / chunkSize);
+        const key = cz * VEGETATION_CHUNKS + cx;
+        const bucket = byChunk.get(key);
+        if (bucket === undefined) byChunk.set(key, [placement]);
+        else bucket.push(placement);
+      }
+    }
+  }
+
+  return byChunk;
+}
+
+/**
+ * One stalk of corn: a tapered column with a blunt head, not a spike.
+ *
+ * A cone gave the field a bed of nails. Corn carries an ear at the top,
+ * so the silhouette wants to keep its width most of the way up and stop
+ * flat — which a cylinder with a narrower top does, at the same four
+ * sides and the same two triangles a side.
+ */
+function cropGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.CylinderGeometry(
+    CROP_HEIGHT * 0.1,
+    CROP_HEIGHT * 0.17,
+    CROP_HEIGHT,
+    4,
+    1,
+    true,
+  );
+  geometry.translate(0, CROP_HEIGHT / 2, 0);
+  return geometry;
 }
 
 /**

@@ -67,16 +67,17 @@ export interface Building {
  */
 export const INN: Building = {
   id: 'inn',
-  x: -0.1,
-  z: 27,
+  // At the head of the new green, not the old one. Footing falls 0.186 m
+  // across the plinth, slope 0.18 deg, 3.02 m clear of its neighbour
+  x: 20.5,
+  z: -1.25,
   bays: 3,
   // Three bays long, and deep for a village house: the through passage
   // has to take a cart. BAY is already at halfling scale — see its comment
   depth: BAY * 1.6,
-  // Facing down the green, which is where the custom comes from. Zero, not
-  // PI: at PI the door, the windows and the close studding all landed at
-  // z = 29.08, on the far side from a green whose centre is at z = 9
-  yaw: 0,
+  // 78 degrees: the front turns up the green rather than down the valley,
+  // because the green moved and the inn faces its own custom
+  yaw: (78 * Math.PI) / 180,
   storeys: 1,
   // Thatch cannot be shallow: below about 45 degrees it holds water and
   // rots. This is an angle, so VERNACULAR_SCALE does not touch it

@@ -17,14 +17,14 @@ import { GREEN_OAK_SCALE, POND_BANK, POND_DEPTH, POND_RADIUS, POND_WATER_DEPTH,
  */
 
 /** The wellhead. Its total height is a halfling: the scale reference. */
-export const WELL = { x: -1, z: 8.5 } as const;
+export const WELL = { x: 17.25, z: 10.25 } as const;
 
 /**
  * The standard oak. Not a prop — one more instance in the hedgerow-tree
  * mesh, so it costs no draw call at all. Its foot is on the footpath the
  * path was drawn to reach.
  */
-export const OAK = { x: -4.5, z: 12.5, scale: GREEN_OAK_SCALE } as const;
+export const OAK = { x: 26, z: 20.25, scale: GREEN_OAK_SCALE } as const;
 
 /**
  * The pond, in the green's low corner.
@@ -36,8 +36,8 @@ export const OAK = { x: -4.5, z: 12.5, scale: GREEN_OAK_SCALE } as const;
  * the ground does not. That third line is the one you see.
  */
 export const POND = {
-  x: -5.75,
-  z: 7.25,
+  x: 29.5,
+  z: 0,
   radius: POND_RADIUS,
   wobble: POND_WOBBLE,
   depth: POND_DEPTH,
@@ -57,8 +57,8 @@ export const POND_REACH = POND_RADIUS * (1 + POND_WOBBLE);
  * the whole footing ring, which is why it is there and not on the green.
  */
 export const POUND = {
-  x: -6,
-  z: -2.5,
+  x: 17,
+  z: -10.25,
   radius: POUND_RADIUS,
   segments: POUND_SEGMENTS,
   /** Bearing of the gap, aimed at the lane the beast is driven along. */

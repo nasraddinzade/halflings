@@ -45,32 +45,31 @@ export const ROLE_WORK_CLIP: Readonly<Record<VillagerRole, string>> = {
 export const PROP_DISTANCE = 0.95;
 
 export const WORK_POINTS: readonly WorkPoint[] = [
-  // The gardeners work an allotment plot west of the green, not on it. Two
-  // of these beds used to overlap the green's own hedges, and a third sat
-  // where the pond is now — the beds were laid out before any of that
-  // existed, and a 2 x 1.2 m box does not fit in a hedge bank.
-  { id: 'garden-1', role: 'gardener', x: -13, z: 10.6 },
-  { id: 'garden-2', role: 'gardener', x: -12.8, z: 13.3 },
-  { id: 'garden-3', role: 'gardener', x: -15, z: 18.7 },
-  { id: 'garden-4', role: 'gardener', x: -14, z: 8 },
-  { id: 'garden-5', role: 'gardener', x: -9.6, z: 17.9 },
+  // Solved against the village as built: every stance and every prop
+  // clears the hedges, the lanes, the door spurs, the mounds and the
+  // green's furniture by at least 1.40 m, stands on ground under 14
+  // degrees, and keeps 2.80 m from the next villager's prop. The old
+  // fifteen were placed against a ring that no longer exists.
+  { id: 'garden-1', role: 'gardener', x: -4.5, z: 20 },
+  { id: 'garden-2', role: 'gardener', x: -4, z: 14 },
+  { id: 'garden-3', role: 'gardener', x: -3, z: 8 },
+  { id: 'garden-4', role: 'gardener', x: -28.5, z: 51.3 },
+  { id: 'garden-5', role: 'gardener', x: -31.3, z: -4 },
 
-  { id: 'saw-1', role: 'miller', x: 9.4, z: 11 },
-  { id: 'saw-2', role: 'miller', x: 12.5, z: 8 },
-  { id: 'saw-3', role: 'miller', x: 7, z: 15 },
-  { id: 'saw-4', role: 'miller', x: 14, z: 13 },
+  { id: 'saw-1', role: 'miller', x: -26, z: -14.5 },
+  { id: 'saw-2', role: 'miller', x: -33.5, z: -2.3 },
+  { id: 'saw-3', role: 'miller', x: 37.8, z: 33 },
+  { id: 'saw-4', role: 'miller', x: 40, z: 29 },
 
-  { id: 'river-1', role: 'fisher', x: -8, z: -19.3 },
-  { id: 'river-2', role: 'fisher', x: 4, z: -17 },
-  { id: 'river-3', role: 'fisher', x: 16, z: -14.8 },
+  // Fishers stand within 5.2 m of the channel axis: dry ground, water
+  // within arm's reach
+  { id: 'river-1', role: 'fisher', x: -6, z: -24 },
+  { id: 'river-2', role: 'fisher', x: 6, z: -27 },
+  { id: 'river-3', role: 'fisher', x: 14.8, z: -25.3 },
 
-  // Benches, and so the places to sit. Solved from where the SEAT lands
-  // rather than where the villager stands: the prop sits PROP_DISTANCE in
-  // front of him, so aiming at the man puts the bench somewhere else. Two
-  // of the three used to stand in the cart road.
-  { id: 'square-1', role: 'idler', x: -2.2, z: 6.5 },
-  { id: 'square-2', role: 'idler', x: -7.8, z: 11.6 },
-  { id: 'square-3', role: 'idler', x: 6, z: 8 },
+  { id: 'square-1', role: 'idler', x: 19, z: 7 },
+  { id: 'square-2', role: 'idler', x: 24, z: 3 },
+  { id: 'square-3', role: 'idler', x: 20.3, z: 11.5 },
 ];
 
 /** Where a villager faces at work: the valley center — and the prop too. */

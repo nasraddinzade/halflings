@@ -665,8 +665,11 @@ export const SPRAY_OPACITY = 0.5;
  * MAX_SLOPE of 50, so they are already walkable and a height-field term
  * would buy nothing for its startup cost.
  */
-export const FORD_X = -0.4;
-export const FORD_Z = -22.07;
+// Where the ford lane actually crosses the channel axis, measured on the
+// lane as routed. At (-0.40, -22.07) the setts lay 1.6 m off their own
+// road: the lane moved with the village and the paving did not
+export const FORD_X = -2;
+export const FORD_Z = -22.34;
 export const FORD_SETTS = 12;
 export const FORD_SETT_WIDTH = 0.9;
 export const FORD_SETT_LENGTH = 0.7;
